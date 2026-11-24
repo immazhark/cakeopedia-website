@@ -1,0 +1,54 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+!.env.*.example
+.dev.vars
+.dev.vars.*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Agent-local state and machine configuration
+.claude/settings.local.json
+.claude/worktrees/
+.claude/projects/
+CLAUDE.local.md
+.codex/
+
+# Dependencies, generated output and caches
+node_modules/
+dist/
+build/
+.astro/
+.wrangler/
+coverage/
+playwright-report/
+test-results/
+.cache/
+*.tsbuildinfo
+*.log
+
+# Private operational data and original media: never public Git content
+private/
+private-data/
+raw-assets/
+originals/
+backups/
+exports/
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sql.gz
+
+# Local editor/OS state
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

@@ -1,0 +1,3 @@
+# Cakeopedia
+
+@AGENTS.md
