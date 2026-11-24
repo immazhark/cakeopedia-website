@@ -49,5 +49,6 @@ licence has been selected for the project's own work.
 
 ## Next milestone
 
-A separately scoped, locally runnable Astro/TypeScript and Worker proof with synthetic
-data. Install/build/test commands will be documented when they actually exist.
+Compare the three creative directions with labelled wireframes, then implement the
+approved gallery/form journey. Prove authentication, bot/rate controls and outbox
+dispatch before enabling live intake.
