@@ -1,0 +1,2 @@
+# Private reporting is not yet verified; do not advertise an inactive destination.
+blank_issues_enabled: false
