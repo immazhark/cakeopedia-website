@@ -1,0 +1,42 @@
+name: Bug report
+description: Report a reproducible problem with the project.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: "Public issue: do not include credentials, vulnerabilities, customer data or private addresses. See SECURITY.md for reporting status."
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the observed problem and affected page or document.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser/device and branch or commit when known; never include secrets.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Safe supporting evidence
+      description: Redacted screenshots or concise logs, if useful.

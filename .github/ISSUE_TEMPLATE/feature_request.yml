@@ -1,0 +1,33 @@
+name: Feature request
+description: Propose a customer or operator improvement.
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: "Public issue: omit private owner responses, customer records and credentials. A proposal is not implementation or spending authorisation."
+  - type: textarea
+    id: need
+    attributes:
+      label: User need
+      description: Who needs this, and what outcome would improve?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Proposed scope
+      description: Describe the smallest useful change and any exclusions.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How should a reviewer verify the outcome?
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and trade-offs
+      description: Owner decisions, cost, privacy, accessibility or alternatives.
