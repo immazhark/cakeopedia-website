@@ -94,3 +94,7 @@ website's email-first route provisional; do not invent an email or assume Instag
 
 These are incremental inputs, not a request to repeat the questionnaire. Typography,
 responsive layout, accessible motion and engineering can progress independently.
+
+## Subsequent decisions — 25 November 2026
+
+See [shared context and decisions](shared-context-and-decisions.md): cakeopedia.com purchased at Spaceship; owner approved all 34 checklist items with their launch/later priorities. F12 accepts any inspiration, with up to three optional image attachments and optional Additional comments. Exact contact/menu/fees/policies remain pending; scope approval does not activate intake or services.

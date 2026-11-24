@@ -28,7 +28,7 @@ Do not expose confidential approval notes in a public dataset. No customer names
 Use stable URLs. Back restores gallery position and filters. A creation's enquiry
 button carries its immutable ID; the form permits removal. A shortlist is deferred
 from release one unless separately justified. Retired references must not break the
-form: offer removal and continue with notes. No uploads or arbitrary remote fetching.
+form: offer removal and continue with notes. Permit up to three optional customer inspiration images from any source plus Additional comments, under the private upload contract. Never fetch arbitrary remote URLs.
 
 ## Content intake
 Inventory originals before selecting layout crops. Group same-cake images. Keep Hyderabad/Austin work distinguishable internally; owner decides publication. Ask for originals rather than social downloads. Retain original names for traceability privately, generate neutral web names, strip geolocation. Do not infer flavour/servings/ingredients from appearances.

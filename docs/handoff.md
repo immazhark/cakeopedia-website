@@ -52,3 +52,7 @@ Cakeopedia repository. This resolves the earlier automatic-review publication ho
 Raw questionnaire answers, family medical details and payment identifiers are excluded.
 Type checks/build/two page tests passed locally. Verify current remote PR/HEAD before
 continuing, and read owner-brief.md alongside content-status.md.
+
+## Shared decisions publication — 25 November 2026
+
+Primary repository ownership is now assigned by the sponsor to ChatGPT; no other writer is active. Read [shared context and decisions](shared-context-and-decisions.md) first for the complete owner-approved launch/later feature catalogue, domain/registrar and amended F12. Contradictory no-upload assumptions are superseded: up to three optional private inspiration images from any source plus Additional comments are approved scope, not implemented or activated. Checkout remains deferred. This update reconciles documentation only; previous test results are historical. Next: review the documentation diff, then implement the private upload lifecycle and approved enquiry changes behind the closed intake boundary. No deployment, DNS, email or provider changes are included.

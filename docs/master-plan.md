@@ -8,8 +8,7 @@ statements in the earlier external foundation ZIP. Implementation status lives i
 
 Upgrade an existing Instagram-led Austin custom home-baking business with a distinctive,
 warm, photography-led portfolio, approved current menu and reliable custom enquiries.
-The business began in Hyderabad; public origin/story wording and historical portfolio
-publication await owner approval. Final name spelling, logo and tagline remain open.
+The business began in Hyderabad and continues as Cakeopedia Austin. Owner approves the story direction, orange continuity and recognisable logo refinement; final artwork/tagline/copy await review. Lead with Austin vintage/floral work. Read [shared decisions](shared-context-and-decisions.md).
 
 ## First release
 
@@ -20,8 +19,7 @@ publication await owner approval. Final name spelling, logo and tagline remain o
 - Let the owner edit public content and handle private enquiries from a phone.
 - Preserve Instagram as an alternative; no automatic DM synchronisation is promised.
 
-No launch checkout, customer accounts, capacity engine, direct reference-image uploads,
-marketing automation or compulsory shortlist. Add them only against a confirmed need.
+No launch checkout, customer accounts, capacity engine, marketing automation or compulsory shortlist. Up to three optional private inspiration images from any source and Additional comments are owner-approved launch scope, subject to storage/security release gates. The full 34-feature launch/later split is in shared-context-and-decisions.md.
 No fabricated menus, prices, reviews, health/certification claims or availability promises.
 
 ## Recommended creative and technical direction
@@ -34,14 +32,14 @@ Astro + strict TypeScript; static public output and a narrow Cloudflare Worker A
 D1 for private intake/outbox; Resend for notifications; Turnstile plus request limits.
 Sanity Free is conditional on public-data constraints, owner phone usability and its
 broad Administrator editing role. Cloudflare Access is conditional on backend identity
-and alternate-hostname proof. Native CSS first, GSAP only if justified. R2 is deferred.
+and alternate-hostname proof. Native CSS first, GSAP only if justified. Private R2 is conditional for approved inspiration uploads; no public bucket or provider activation assumed.
 These are recommendations, not provisioned services or verified runtime integrations.
 See [service register](service-register.md) and [decisions](decisions.md).
 
 ## Cost and business gates
 
 Target suitable free service plans; domain registration/renewal is the anticipated
-necessary expense. No provider purchase or activation is implied. Inspect actual shared
+necessary expense. Sponsor has purchased cakeopedia.com through Spaceship; DNS, hosting and email are not established by this fact. No further provider purchase or activation is implied. Inspect actual shared
 account usage, limits, licences and overage behaviour. Alerts are not caps.
 Owner must confirm original-media rights, identity, menu, contact, fulfilment, claims,
 privacy/retention and applicable Texas training/registration/labels/food classifications.
@@ -56,7 +54,7 @@ Do not publish a private home address to complete SEO markup.
 4. Vertical slice: browsing → creation → enquiry → private inbox → notification recovery.
 5. Full site: approved content, editing, privacy, accessibility, motion and SEO acceptance.
 6. Authorised staging/release: cloud/auth/quota/restore/phone proof and explicit launch scope.
-7. Postlaunch: real enquiry/search outcomes; optional commerce/uploads assessed separately.
+7. Postlaunch: real enquiry/search outcomes; optional commerce and later features assessed separately; launch inspiration uploads retain their security gates.
 
 See [backlog](backlog.md) for task-level dependencies. Planning documents do not mark
 features implemented. No fixed launch date, ranking improvement or permanent zero cost

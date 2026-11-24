@@ -11,7 +11,7 @@ Updated 24 November 2026. Recommendations do not imply provider activation.
 | ADR05 | Recommended | Resend adapter with persistent recovery | Small free allowance; no exactly-once delivery assumption | Outage quota ambiguous send 24h expiry tests; Before live notifications |
 | ADR06 | Recommended | Turnstile + application limits | Single-use expiring token; accessible retry; private replay response | New/replay/conflict/expired token tests; Before live intake |
 | ADR07 | Recommended | Collection creative lead | Broad range and name fit; provisional until actual photos | Comparable visual targets and owner selection; Before production design |
-| ADR08 | Deferred | No direct uploads or checkout | Reduces storage abuse billing and food-sales complexity | Future approved need and separate specifications; Separate later authority |
+| ADR08 | Revised 25 November 2026 | Up to three optional private inspiration uploads approved for launch; checkout remains deferred | Owner accepts outside inspiration and comments; private storage adds abuse/privacy/cost obligations | Count/type/content/size limits, authorised access, cleanup/retention and cost gates before activation; not yet implemented |
 | ADR09 | Recommended | 24-file documentation bootstrap | One shared instruction source; no fake running app | Links YAML exclusion and public-safety checks; Separate first-commit authority |
 | ADR10 | Proposed | 90-day unsuccessful-enquiry retention | Closure-based period; backups/deletion need coordination | Owner approval and purge/restore tests; Before real customer data |
 | ADR11 | Recommended | Independent encrypted exports | Platform history insufficient for account loss | Restore drill and approved storage/key custodian; Before live intake |

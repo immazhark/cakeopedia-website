@@ -26,3 +26,7 @@ Iteration-two details and local review instructions: [iteration two](iteration-t
 
 Partial owner responses received 25 November: see [owner-informed brief](owner-brief.md).
 Brand name and preferences are confirmed; menu/media/contact/policies still have specific holds.
+
+## Decision reconciliation — 25 November 2026
+
+Shared context is consolidated in [shared decisions](shared-context-and-decisions.md); the owner has approved the 34-feature checklist retaining launch/later priorities and expanded F12 to any inspiration with up to three optional images and Additional comments. Domain purchase confirmed: cakeopedia.com through Spaceship. This documentation change does not implement uploads or establish DNS/hosting/email. Existing runtime milestones are unchanged.
