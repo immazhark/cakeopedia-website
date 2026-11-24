@@ -6,10 +6,15 @@ and a dependable custom-enquiry journey.
 
 ## Current stage
 
-Documentation foundation only. No application, package scripts, CI workflow,
-production website, domain, CMS, database or email integration is implemented by
-this repository yet. Provider choices and creative direction are recommendations
-awaiting the specific proofs and owner decisions recorded below.
+Local application foundation implemented: Astro/strict TypeScript static preview,
+a closed Worker entry point and a D1 enquiry/replay/outbox-intent core tested with
+synthetic data. This is not a production website, approved final design or live intake.
+CMS, inbox authentication, bot/rate adapters, notification dispatch and cloud resources
+remain unimplemented. See [local development](docs/local-development.md).
+
+Use Node 24.22.3, then `npm ci` and `npm run verify`. `npm run dev` starts the local
+preview. `npm run dev:api` starts the closed local Worker; `npm run db:local` applies
+the migration locally only. There is no deployment or mail-send script.
 
 ## Start here
 

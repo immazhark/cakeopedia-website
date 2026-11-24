@@ -16,8 +16,7 @@ maintainers decide scope and implementation authority.
 5. Make small focused commits. Prefer `docs:`, `chore:`, `feat:` or `fix:` messages
    describing purpose. Do not mix cosmetic cleanup with unrelated behaviour changes.
 6. Run checks relevant to the change, inspect the diff and open a PR with evidence.
-   Do not claim unrun tests, cloud behaviour or deployment. No application commands
-   exist in this documentation-only stage.
+   Do not claim unrun tests, cloud behaviour or deployment. Use `npm run verify` for application changes; see docs/local-development.md.
 7. Merge only within the current task's authority and actual branch rules. Prefer
    squash merging. Never force-push main or bypass a required check.
 8. Update materially affected decisions and leave an actionable handoff. Task ownership
