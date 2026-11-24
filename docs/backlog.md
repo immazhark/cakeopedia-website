@@ -1,6 +1,6 @@
 # Prioritised backlog
 
-Updated 24 November 2026. P0 means prerequisite/release-critical; P1 core product; P2 completion; P3 conditional/postlaunch. Priority does not grant authority. F01 assessment scope approval and F02 documentation content are addressed by this foundation; runtime tasks remain unimplemented. F03 private reporting setup remains pending. Track future active work through scoped issues/PRs, not assumed technical locks.
+Updated 24 November 2026. P0 means prerequisite/release-critical; P1 core product; P2 completion; P3 conditional/postlaunch. Priority does not grant authority. F01 assessment scope approval and F02 documentation content are addressed by this foundation; F04 and the local E01 proof are implemented (see progress.md); other runtime tasks remain pending. F03 private reporting setup remains pending. Track future active work through scoped issues/PRs, not assumed technical locks.
 
 | Priority / ID | Task | Responsible | Dependencies | Acceptance | Gate |
 |---|---|---|---|---|---|

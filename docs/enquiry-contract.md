@@ -1,6 +1,9 @@
 # Enquiry behaviour and API boundary — proposed v1
 
-This specifies a future implementation. There is no working endpoint in this package.
+The contract below remains the product target. A locally tested dependency-injected
+core now implements the minimal email payload, bounded body/validation, D1 persistence
+and replay. It is not connected to the closed public Worker entry point. No live
+intake, inbox or notification dispatcher is implemented. See local-development.md.
 
 ## Customer form
 Required: name and a supported contact route. Email is the proposed initial route; if owner chooses phone/Instagram instead, adapt validators and acknowledge on-screen without inventing an email address. Optional/unsure: event date, occasion, servings, general area, budget, flavours and notes. Selected website creation IDs prefill automatically. Date is a local calendar date, not midnight UTC. Fulfilment times use America/Chicago later.

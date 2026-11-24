@@ -1,28 +1,32 @@
 # Current handoff
 
-Date: 24 November 2026.
-Task: authorised 24-file documentation foundation; primary writer ChatGPT Work.
-Branch: initial main bootstrap; read actual HEAD from Git (do not put a self-referential
-future commit SHA into this file). Remote was public/empty with no PRs or issues before work.
+Date: 24 November 2026. Primary writer: ChatGPT Work.
+Task: F04 local scaffold and E01 local enquiry persistence/replay proof under the user's
+implementation instruction. Branch: feat/local-application-foundation. Base foundation:
+9cfab13245e7f2b9f72ac36a691da03591ed5138. Read actual Git HEAD for the current commit.
 
-Changes: shared instructions, repository hygiene/templates and reconciled product,
-creative, enquiry, service, acceptance, backlog and research documents. No application,
-cloud configuration, original media, customer data or private owner responses included.
+Implemented: exact-version Astro/TypeScript tooling and lockfile; labelled static
+non-indexable development shell; closed Worker; bounded input/body validation;
+parameterised D1 transactional enquiry/references/two outbox inserts; same-payload replay
+and conflicting-ID rejection. CI runs locked installation and local verification with
+read-only permissions and SHA-pinned official actions. No deploy job or secrets.
 
-Checks: local file-set count, relative documentation links, YAML structure/required form
-fields, text encoding/newlines, representative gitignore exclusions and public-content
-review. Remote publication/content verification is reported with the delivered commit.
-No application build, cloud/auth/email/browser/performance test has been run.
+Checks: npm run verify (strict checks, 11 synthetic API/D1 tests, build, one built-output
+safety test); npm run db:local applied migration successfully; git diff --check.
+Foundation 24 files were fetched and compared to prepared content before application
+work. No visual/device/screen-reader/field-performance/cloud-provider proof claimed.
 
-Holds: final identity/menu/contact/fulfilment/claims; genuine media/permissions; private
-security reporting route; CMS admin-role/phone trial; retention/backup approval; actual
-provider accounts and release authority. See content-status.md and acceptance.md.
+Holds: final identity/menu/contact/fulfilment/claims and real media; creative concept
+comparison/selection; primary-consistent D1 session policy; real bot/distributed limits;
+inbox authentication; sender/lease/retry/reconciliation; retention/export/restore;
+private security reporting route and provider account/quota approvals.
 
-External changes: GitHub foundation commits only under the current instruction. No
-settings changes, provisioning, domain purchase, billing, deployment or notifications.
+External changes: repository commits/branch/PR only as authorised. No infrastructure,
+settings changes, purchase, account provisioning, deployment, mail or customer intake.
+Connector writes returned 403 and CLI lacked GitHub credentials; signed-in browser is
+the available publishing fallback. Read actual remote branch/PR status before continuing.
 
-Next: re-fetch main/PRs, read this file and progress.md; under an appropriate new scope,
-create a local Astro/TypeScript and Worker scaffold with synthetic D1/outbox tests.
-Pin supported tooling, define actual commands and update affected docs. Use separate
-branches after bootstrap. Do not repeatedly regenerate the master plan or start final
-homepage design before the creative comparison. AGENTS.md governs shared work.
+Next: review local-development.md, inspect current PR/HEAD; compare three labelled
+creative wireframes with the same content slots. Then implement approved gallery/form
+while independently proving outbox leases and private auth adapters. Do not connect
+handleEnquiry to the public entry point until release-critical intake gates pass.

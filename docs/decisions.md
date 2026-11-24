@@ -18,3 +18,12 @@ Updated 24 November 2026. Recommendations do not imply provider activation.
 | ADR12 | Recommended | Public facts over schema completeness | Never disclose home address for rich results or promise AI rank | Built HTML/schema/public-data review; Before launch |
 
 Evidence references resolve in [research evidence](research-evidence.md). Change the affected ADR when a measured proof or owner decision changes it, rather than retaining competing instructions.
+
+## ADR-013 — local runtime and closed intake
+
+Accepted for F04/E01: Node 24.22.3, Astro 7.4.13, TypeScript 6.0.3 and exact dependencies
+in the lockfile. Astro check's peer range excludes TypeScript 7. No cloud bindings or
+secrets are required. Keep the Worker public intake closed until real bot/abuse controls,
+primary-consistent reads, authentication and operational release gates are proven.
+The local API core queues two notification intents but never sends. Emulator tests are
+local evidence only. Final visual design remains pending the creative comparison.
