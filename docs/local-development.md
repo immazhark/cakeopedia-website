@@ -15,7 +15,7 @@ package metadata on 24 November 2026. `npm ci` is the reproducible installation 
 | `npm run dev:api` | Closed Worker on Wrangler's local development port |
 | `npm run db:local` | Apply migrations to local D1 emulation only |
 | `npm run check` | Astro diagnostics and strict Worker/test TypeScript |
-| `npm test` | 11 synthetic D1 emulator/API tests; no real email/customer data |
+| `npm test` | 18 synthetic D1 emulator/API tests; no real email/customer data |
 | `npm run build` | Static HTML and local preview safeguards in dist/ |
 | `npm run verify` | Type checks, API tests, build and built-output safety test |
 
@@ -36,8 +36,8 @@ noindex is not access control. Future shared previews require access protection.
 expose it. Every intake/private route returns 503; /health describes the disabled state.
 Bot verification and request limiting are injected test adapters, not production controls.
 No email is sent: two durable notification intents are queued per synthetic submission.
-The outbox sender/leases/reconciliation, private inbox, owner workflow and retention are
-future tasks. No secrets or environment file are required for this milestone.
+Outbox leases/retry policy now have local proof. The real sender, scheduler, operator
+reconciliation, private inbox, owner workflow and retention remain future tasks. No secrets or environment file are required for this milestone.
 
 Tests use Miniflare 4.20260730.0 and its real local D1 API. Wrangler 4.167.0 has its own
 newer transitive emulator; local migration was tested through that CLI too. Neither is
@@ -50,7 +50,7 @@ customer records here. No production rollback, backup or retention procedure is 
 
 ## Verification recorded on 24 November 2026
 
-`npm run verify`: type checks, 11 enquiry tests, static build and 1 built-output test.
+`npm run verify`: type checks, 18 enquiry/outbox tests, static build and 2 built-output tests.
 `npm run db:local`: 0001_enquiries.sql applied successfully to local emulator.
 `git diff --check`: whitespace check. No cloud send/auth/performance/accessibility audit
 or rendered visual approval is inferred from these checks. The GitHub workflow mirrors
@@ -58,3 +58,6 @@ or rendered visual approval is inferred from these checks. The GitHub workflow m
 
 Sources: [Astro installation](https://docs.astro.build/en/install-and-setup/),
 [D1 transactional batch](https://developers.cloudflare.com/d1/worker-api/d1-database/).
+
+The concept/recovery iteration is documented in [iteration two](iteration-two.md).
+The sender remains injected and offline; no public intake or scheduler is wired.
