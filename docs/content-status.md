@@ -1,16 +1,17 @@
 # Content status and approval holds
 
-Updated 24 November 2026. This is a public-safe register, not private approval evidence.
-No original media, questionnaire answers or current menu are stored in this repository.
+Updated 25 November 2026. This is a public-safe register, not private approval evidence.
+No original media, raw questionnaire responses or full current menu are stored here.
+See [owner-informed brief](owner-brief.md) for a public-safe synthesis.
 
 | Item | State | Effect |
 |---|---|---|
-| Austin business / Hyderabad origin | Context supplied; public story wording pending | Prototype structure only; approve actual story before publication. |
-| Brand spelling, logo, tagline | Owner decision pending | Use clearly provisional identity in non-public concepts. |
+| Austin business / Hyderabad origin | Owner story received; concise draft prepared | Use Hyderabad origin and Austin continuation; final wording review pending. |
+| Brand spelling, logo, tagline | Cakeopedia Austin confirmed; recognisable logo refinement retaining orange | Exact logo/shade/tagline pending; no invented final identity. |
 | Genuine photographs/videos | Originals and rights review pending | No screenshot crops or generated cakes as production evidence. |
-| Current menu/flavours/prices/servings | Owner approval pending | Do not infer from photographs or old posts. |
-| Lead time, availability, service area/pickup/delivery | Owner confirmation pending | No live fulfilment/response promise. |
-| Public contact and reply workflow | Owner confirmation pending | No invented email/phone or DM-sync claim. |
+| Current menu/flavours/prices/servings | Pricing presentation and regular-offerings policy supplied; actual menu pending | Quote examples are not a universal price list. |
+| Lead time, availability, service area/pickup/delivery | Approximate guidance supplied | Two weeks, North Austin, pickup/paid delivery; precise wording/fees pending. |
+| Public contact and reply workflow | Contact selection/public details still unclear | No invented email/phone or DM-sync claim. |
 | Ingredient/allergen/certification claims | Evidence and wording pending | Ingredient certification is not finished-product/kitchen certification. |
 | Food classification/training/registration/labels | Owner/qualified review pending | Gate live sales and relevant claims; no compliance certification by AI. |
 | Privacy/retention/admin access | Owner approval and engineering proof pending | Gate real enquiry intake. |

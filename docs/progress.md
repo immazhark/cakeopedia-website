@@ -23,3 +23,6 @@ E02/E04 auth/outbox proof can proceed independently. Provider activation and rel
 remain gated. No cloud/email/field Web Vitals or visual approval is claimed.
 
 Iteration-two details and local review instructions: [iteration two](iteration-two.md).
+
+Partial owner responses received 25 November: see [owner-informed brief](owner-brief.md).
+Brand name and preferences are confirmed; menu/media/contact/policies still have specific holds.

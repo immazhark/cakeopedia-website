@@ -1,6 +1,10 @@
 # Provisional creative exploration
 
-Owner answers can change all branding choices. Do not finalise logo/name/tagline or design solely around the working spelling.
+Owner responses now confirm Cakeopedia Austin, a recognisable logo refinement retaining
+orange, and an elegant/luxurious, modern/polished feel. Lead the eventual portfolio with
+vintage and floral Austin work. Exact logo, palette, tagline and motion intensity remain
+open. See [owner-informed brief](owner-brief.md). Collection is still a recommendation,
+not a selected or visually approved direction.
 
 ## Common material
 Use the same floral, bow, children’s design and treat-box examples for all directions. Supplied grid screenshots are reference-only; cropped material used in internal concepts must remain labelled provisional. Never publish screenshot crops as final product imagery. No generated cake presented as her work.

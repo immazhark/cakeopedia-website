@@ -35,3 +35,20 @@ concepts. Rendered inspection is pending because local-file browser navigation w
 blocked; no bypass was attempted. Then implement the selected real-content gallery/form
 while independently proving immutable notification payloads and private auth adapters. Do not connect
 handleEnquiry to the public entry point until release-critical intake gates pass.
+
+## Owner-response update — 25 November 2026
+
+Partial responses received. owner-brief.md is the public-safe synthesis, not raw answers.
+Cakeopedia Austin, recognisable orange logo refinement, vintage/floral Austin focus,
+pricing presentation and order-confirmation process are now informed by the owner.
+Current menu/media, contact selection, public name and deposit/cancellation details
+remain pending. A concise medical-detail-free story draft replaces the concept's generic
+story paragraph; final wording and rendered design approval remain pending. No live
+intake, payments, ingredient claim or numerical menu price has been enabled.
+
+Publication authorised by the sponsor on 25 November 2026 specifically so Claude Code
+can read the prepared public-safe owner brief and provisional story in the public
+Cakeopedia repository. This resolves the earlier automatic-review publication hold.
+Raw questionnaire answers, family medical details and payment identifiers are excluded.
+Type checks/build/two page tests passed locally. Verify current remote PR/HEAD before
+continuing, and read owner-brief.md alongside content-status.md.
