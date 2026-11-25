@@ -31,7 +31,7 @@ a:hover { color: var(--cta-hover); text-decoration-thickness: 2px; }
 .site-header .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1) var(--space-3); padding-block: var(--space-2); }
 .brand { font: 400 1.6rem/1 var(--font-display); color: var(--heading); text-decoration: none; letter-spacing: -0.02em; }
 .brand span { color: var(--butter-deep); font-style: italic; }
-.nav { display: flex; gap: var(--space-3); list-style: none; margin: 0; padding: 0; flex-wrap: wrap; }
+.nav { display: flex; gap: 0 var(--space-3); list-style: none; margin: 0; padding: 0; flex-wrap: wrap; }
 .nav a { color: var(--heading); text-decoration: none; font-weight: 500; padding-block: .6rem; display: inline-block; border-bottom: 2px solid transparent; }
 .nav a:hover, .nav a[aria-current='page'] { border-bottom-color: var(--brand-butter); }
 

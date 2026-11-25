@@ -3,7 +3,7 @@ import { SITE } from '../site';
 
 // Only a deliberate production build lists URLs; previews publish an empty sitemap.
 const production = import.meta.env.PUBLIC_SITE_ENV === 'production';
-const paths = ['/', '/creations/', '/story/', '/enquiry/', ...Object.keys(categories).map((k) => `/collections/${k}/`), ...creations.map((c) => `/creations/${c.slug}/`)];
+const paths = ['/', '/menu/', '/size-guide/', '/cake-care/', '/creations/', '/story/', '/enquiry/', ...Object.keys(categories).map((k) => `/collections/${k}/`), ...creations.map((c) => `/creations/${c.slug}/`)];
 const urls = (production ? paths : []).map((p) => `<url><loc>${SITE}${p}</loc></url>`).join('\n');
 
 export const GET = () => new Response(

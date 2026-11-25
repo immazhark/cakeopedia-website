@@ -1,0 +1,20 @@
+---
+import { label, type Config } from '../data/serving';
+interface Props { config: Config }
+const { config } = Astro.props;
+// Proportional to diameter (one inch = 12 units); every tier drawn at one height so tiers read as stacked cakes, not layers.
+const u = 12, h = 30, gap = 3, w = Math.max(...config.tiersIn) * u + 8;
+const tiers = [...config.tiersIn].reverse(); // top tier first
+const total = tiers.length * h + (tiers.length - 1) * gap + 10;
+const fills = ['var(--brand-butter)', 'var(--surface-beige)', 'var(--brand-sage)'];
+---
+<svg viewBox={`0 0 ${w} ${total}`} width={w} height={total} role="img" aria-label={`${label(config)}: ${config.tiersIn.length === 1 ? 'one tier' : config.tiersIn.length + ' stacked tiers'}`} class="tier">
+  {tiers.map((d, i) => {
+    const tw = d * u, y = 4 + i * (h + gap);
+    return <rect x={(w - tw) / 2} y={y} width={tw} height={h} rx="4" fill={fills[(tiers.length - 1 - i) % 3]} stroke="var(--chocolate, #665447)" stroke-width="1.5" />;
+  })}
+  <line x1="2" x2={w - 2} y1={total - 3} y2={total - 3} stroke="var(--chocolate, #665447)" stroke-width="2" stroke-linecap="round" />
+</svg>
+<style>
+  .tier { display: block; max-width: 100%; height: auto; }
+</style>

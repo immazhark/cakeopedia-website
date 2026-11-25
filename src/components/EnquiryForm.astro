@@ -84,6 +84,10 @@ const occasions = ['Birthday', 'Anniversary', 'Wedding or engagement', 'Baby or 
   // Draft: non-contact fields only, session-scoped, never the contact details.
   const draftFields = ['occasion', 'servings', 'size', 'flavour', 'addons', 'budget', 'creation', 'notes'];
   try { const d = JSON.parse(sessionStorage.getItem(KEY) ?? '{}'); for (const f of draftFields) if (typeof d[f] === 'string' && !q) ($(f) as HTMLInputElement).value = d[f]; } catch { /* ignore corrupt draft */ }
+  // Size-guide handoff: validated query values only (guest count and a short size label).
+  { const sp = new URLSearchParams(location.search), g = sp.get('servings'), z = sp.get('size');
+    if (g && /^\d{1,5}$/.test(g) && +g >= 1 && +g <= 10000) $<HTMLInputElement>('servings').value = g;
+    if (z && z.length <= 100 && !/[\u0000-\u001f]/.test(z)) $<HTMLInputElement>('size').value = z; }
   form.addEventListener('input', () => sessionStorage.setItem(KEY, JSON.stringify(Object.fromEntries(draftFields.map((f) => [f, ($(f) as HTMLInputElement).value])))));
 
   // Inspiration pictures: re-encoded in the browser (strips metadata, fits the size limit), uploaded privately, removable.

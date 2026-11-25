@@ -10,7 +10,7 @@ const canonical = new URL(Astro.url.pathname, SITE).href;
 const abs = image ? new URL(image, SITE).href : undefined;
 // Only facts the owner approved: no address, hours, prices, ratings or service area.
 const bakeryLd = { '@context': 'https://schema.org', '@type': 'Bakery', '@id': `${SITE}/#bakery`, name: 'Cakeopedia Austin', url: SITE + '/', description, sameAs: [INSTAGRAM], ...(abs ? { image: abs } : {}) };
-const nav = isPrivate ? [] : [['/creations/', 'Creations'], ['/story/', 'Story'], ['/enquiry/', 'Enquire']];
+const nav = isPrivate ? [] : [['/menu/', 'Menu'], ['/creations/', 'Creations'], ['/size-guide/', 'Size guide'], ['/cake-care/', 'Care'], ['/story/', 'Story'], ['/enquiry/', 'Enquire']];
 ---
 <!doctype html>
 <html lang="en">

@@ -1,0 +1,71 @@
+---
+import Base from '../layouts/Base.astro';
+import { customCake, flavours, celebrationCake, addons, cupcakes, brownies, ingredientStatements, ingredientScope } from '../data/business';
+import { formatMenuPrice } from '../data/menu-presentation';
+const money = (c: number, k: 'fixed' | 'starting') => formatMenuPrice(c, k);
+---
+<Base title="Menu · Cakeopedia Austin" description="Custom cakes from $135, Celebration Cakes at $75, twelve flavours, cupcakes and brownies from Cakeopedia Austin." current="/menu/">
+  <div class="wrap page-head prose">
+    <p class="eyebrow">The menu</p>
+    <h1>Baked from scratch, made to your occasion</h1>
+    <p class="lede" style="margin-top:var(--space-3)">Choose a flavour, tell us the occasion, and we will agree the design and price with you.</p>
+    <div class="note"><p>This menu is being confirmed for the current season. Availability, final design and price are agreed in your quotation; an enquiry does not reserve a date or confirm an order.</p></div>
+
+    <section aria-labelledby="custom">
+      <h2 id="custom">Custom cakes</h2>
+      <p class="price-line"><strong>{money(customCake.startingCents, 'starting')}</strong> <span>for a {customCake.base.diameterIn}-inch, {customCake.base.layers}-layer cake, about {customCake.base.servings} servings</span></p>
+      <p>{customCake.note} See the <a href="/size-guide/">size and serving guide</a> for larger cakes.</p>
+      <h3>Twelve flavours</h3>
+      <ul class="flavours">
+        {flavours.map((f) => <li><strong>{f.name}</strong><span>{f.description}</span></li>)}
+      </ul>
+      <h3>Add-ons</h3>
+      <ul class="plain">
+        {addons.map((a) => <li><span>{a.name}{a.note ? ` — ${a.note}` : ''}</span> <strong>{money(a.priceCents, 'fixed')}</strong></li>)}
+      </ul>
+    </section>
+
+    <section aria-labelledby="celebration">
+      <h2 id="celebration">Celebration Cakes</h2>
+      <p class="price-line"><strong>{money(celebrationCake.priceCents, 'fixed')}</strong> <span>{celebrationCake.diameterIn}-inch, {celebrationCake.layers} layers, {celebrationCake.shapes.join(' or ').toLowerCase()}</span></p>
+      <p>A simpler, more accessible cake for smaller celebrations. Choose from: {celebrationCake.customisation.map((c) => c.toLowerCase()).join(', ')}.</p>
+      <h3>Flavours</h3>
+      <ul class="plain">{celebrationCake.flavours.map((f) => <li>{f}</li>)}</ul>
+      <p class="small">Servings, any flavour differences and which options are included are confirmed with your quotation.</p>
+    </section>
+
+    <section aria-labelledby="cupcakes">
+      <h2 id="cupcakes">Cupcakes</h2>
+      {cupcakes.options.map((o) => (<><h3>{o.base}</h3><p>Fillings: {o.fillings.join(', ')}.</p></>))}
+      <p class="small">Cupcake pricing and minimum quantities are quoted with your enquiry.</p>
+    </section>
+
+    <section aria-labelledby="brownies">
+      <h2 id="brownies">Brownies</h2>
+      <p>{brownies.description}</p>
+      <p>Toppings: {brownies.toppings.join(', ')}. Available as {brownies.formats.map((f) => f.toLowerCase()).join(' or ')}.</p>
+      <h3>{brownies.slab.name}</h3>
+      <p>{brownies.slab.description}</p>
+      <p class="small">Brownie pricing is quoted with your enquiry.</p>
+    </section>
+
+    <section aria-labelledby="ingredients">
+      <h2 id="ingredients">Ingredients</h2>
+      <ul class="plain">{ingredientStatements.map((s) => <li>{s}</li>)}</ul>
+      <p class="small">{ingredientScope} Please ask before ordering if you have allergies; we cannot promise allergen-free preparation.</p>
+    </section>
+
+    <div class="actions"><a class="btn" href="/enquiry/">Start an enquiry</a><a class="btn btn--ghost" href="/cake-care/">Cake care</a></div>
+  </div>
+</Base>
+<style>
+  section { margin-top: var(--space-5); }
+  .price-line strong { font: 380 var(--step-3)/1 var(--font-display); color: var(--sage-deep); margin-right: .4rem; }
+  .price-line span { color: var(--heading); }
+  .flavours, .plain { list-style: none; padding: 0; margin: 0 0 var(--space-3); }
+  .flavours li { display: grid; gap: .2rem; padding-block: .9rem; border-top: 1px solid var(--border); }
+  .flavours li span { font-size: var(--step--1); }
+  .plain li { padding-block: .5rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 1rem; }
+  .small { font-size: var(--step--1); }
+  @media (min-width: 48rem) { .flavours { display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--space-4); } }
+</style>

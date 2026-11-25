@@ -1,0 +1,23 @@
+---
+import Base from '../layouts/Base.astro';
+import { careSteps } from '../data/business';
+---
+<Base title="Cake care · Cakeopedia Austin" description="How to carry, transport, store, cut and freeze your Cakeopedia Austin cake." current="/cake-care/">
+  <div class="wrap page-head prose">
+    <p class="eyebrow">Cake care</p>
+    <h1>From our kitchen to your table</h1>
+    <p class="lede" style="margin-top:var(--space-3)">A few simple habits keep a tall, hand-finished cake looking and tasting its best.</p>
+    <ol class="care">
+      {careSteps.map((s) => <li id={s.id}><h2>{s.title}</h2><p>{s.text}</p></li>)}
+    </ol>
+    <div class="note"><p>Storage times and refrigeration needs differ by product. We will confirm them for your cake when we agree your order.</p></div>
+    <div class="actions"><a class="btn" href="/size-guide/">Size guide</a><a class="btn btn--ghost" href="/enquiry/">Start an enquiry</a></div>
+  </div>
+</Base>
+<style>
+  .care { list-style: none; padding: 0; margin: var(--space-4) 0; counter-reset: c; display: grid; gap: 0; }
+  .care li { counter-increment: c; padding-block: var(--space-3); border-top: 1px solid var(--border); display: grid; gap: .3rem; }
+  .care h2 { font-size: var(--step-1); margin: 0; }
+  .care h2::before { content: counter(c, decimal-leading-zero); color: var(--sage-deep); font: 600 var(--step--1) var(--font-body, inherit); margin-right: .75rem; letter-spacing: .08em; }
+  .care p { margin: 0; max-width: 60ch; }
+</style>
