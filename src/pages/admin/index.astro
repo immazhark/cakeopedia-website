@@ -11,12 +11,14 @@ import Base from '../../layouts/Base.astro';
       <button class="chip" type="button" data-tab="inbox" aria-pressed="true">Enquiries</button>
       <button class="chip" type="button" data-tab="calendar" aria-pressed="false">Calendar</button>
       <button class="chip" type="button" data-tab="menu" aria-pressed="false">Menu</button>
+      <button class="chip" type="button" data-tab="prices" aria-pressed="false">Prices</button>
     </div>
     <p id="notice" class="err" role="alert" hidden></p>
     <section id="inbox" aria-label="Enquiries"></section>
     <section id="detail" aria-label="Enquiry" hidden></section>
     <section id="calendar" aria-label="Calendar" hidden></section>
     <section id="menu" aria-label="Menu" hidden></section>
+    <section id="prices" aria-label="Prices" hidden></section>
   </div>
   <noscript><p class="wrap">This area needs JavaScript.</p></noscript>
   <script>
@@ -47,13 +49,13 @@ import Base from '../../layouts/Base.astro';
     const btn = (text: string, onclick: () => void, cls = 'btn') => { const b = h('button', { type: 'button', class: cls }, text) as HTMLButtonElement; b.addEventListener('click', onclick); return b; };
 
     // ---- tabs
-    const views: Record<string, string> = { inbox: 'inbox', calendar: 'calendar', menu: 'menu' };
-    function show(tab: 'inbox' | 'calendar' | 'detail' | 'menu') {
-      for (const k of ['inbox', 'detail', 'calendar', 'menu']) $(k).hidden = k !== tab;
+    const views: Record<string, string> = { inbox: 'inbox', calendar: 'calendar', menu: 'menu', prices: 'prices' };
+    function show(tab: 'inbox' | 'calendar' | 'detail' | 'menu' | 'prices') {
+      for (const k of ['inbox', 'detail', 'calendar', 'menu', 'prices']) $(k).hidden = k !== tab;
       document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tab === (tab === 'detail' ? 'inbox' : tab))));
       notice('');
     }
-    document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.addEventListener('click', () => { const t = views[b.dataset.tab!] as 'inbox' | 'calendar' | 'menu'; show(t); if (t === 'calendar') loadCalendar(); else if (t === 'menu') loadMenu(); else loadInbox(true); }));
+    document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.addEventListener('click', () => { const t = views[b.dataset.tab!] as 'inbox' | 'calendar' | 'menu' | 'prices'; show(t); if (t === 'calendar') loadCalendar(); else if (t === 'menu') loadMenu(); else if (t === 'prices') loadPrices(); else loadInbox(true); }));
 
     // ---- inbox
     let filter = ''; let items: Json[] = []; let next: Json | null = null;
@@ -251,6 +253,52 @@ import Base from '../../layouts/Base.astro';
         box.append(list); root.append(box);
       }
       ($('menu').querySelector('input') as HTMLElement).focus();
+    }
+    // ---- prices: edit a private draft, publish the exact saved draft, restore an earlier published version. The public site only ever sees published versions.
+    async function loadPrices() {
+      const root = $('prices');
+      root.replaceChildren(h('p', { class: 'hint' }, 'Loading prices…'));
+      const [g, hist] = await Promise.all([api('/admin/api/catalogue'), api('/admin/api/catalogue/history')]);
+      if (!g.ok) { root.replaceChildren(); return; }
+      const rev = g.data.draft.revision as number, c = structuredClone(g.data.draft.catalogue) as Json, current = (g.data.published?.version ?? 0) as number;
+      let dirty = rev === 0;
+      const reads: (() => boolean)[] = [];
+      const money_ = (label: string, get: () => number, set: (v: number) => void) => {
+        const i = input('text', { inputmode: 'decimal', value: (get() / 100).toFixed(2) });
+        i.addEventListener('input', () => { dirty = true; publishBtn.disabled = true; });
+        reads.push(() => { const v = cents(i.value); if (v === null) { i.setAttribute('aria-invalid', 'true'); return false; } i.removeAttribute('aria-invalid'); set(v); return true; });
+        return field(label, i);
+      };
+      const publishBtn = btn('Publish to the website', async () => {
+        const r = await api('/admin/api/catalogue/publish', 'POST', { expectedRevision: rev });
+        if (!r.ok) { notice(r.status === 409 ? 'These prices changed somewhere else. Reloaded the latest.' : r.status === 0 ? '' : 'Could not publish. Please check the prices and try again.'); if (r.status === 409) loadPrices(); return; }
+        notice(''); await loadPrices();
+        $('prices').prepend(h('p', { class: 'hint', role: 'status' }, r.data.rebuild === 'requested' ? 'Published. The website is updating.' : r.data.rebuild === 'failed' ? 'Published, but the website update could not be started. It will show after the next site update.' : 'Published. The website will show it after the next site update.'));
+      }) as HTMLButtonElement;
+      publishBtn.disabled = dirty;
+      const sizes = ['6', '7', '8', '9', '10'];
+      const sizeRows = sizes.map((d) => h('div', { class: 'form' }, h('h4', {}, `${d}-inch cake`),
+        money_('Starting price ($)', () => c.baseCents[d], (v) => { c.baseCents[d] = v; }), money_('Rasmalai extra ($)', () => c.rasmalaiCents[d], (v) => { c.rasmalaiCents[d] = v; })));
+      root.replaceChildren(
+        h('p', { class: 'hint' }, `You are editing a private draft. The website changes only when you publish. ${current ? `Published version: ${current}.` : 'Nothing published yet: the website shows the confirmed starting prices.'}`),
+        ...sizeRows,
+        h('div', { class: 'form' }, h('h4', {}, 'Celebration Cake and brownies'),
+          money_('Celebration Cake ($)', () => c.celebrationCents, (v) => { c.celebrationCents = v; }), money_('Box of nine brownies ($)', () => c.brownieBoxCents, (v) => { c.brownieBoxCents = v; }),
+          money_('Brownie slab ($)', () => c.brownieSlabCents, (v) => { c.brownieSlabCents = v; }), money_('Topping upgrade, per box or slab ($)', () => c.brownieToppingCents, (v) => { c.brownieToppingCents = v; })),
+        h('div', { class: 'form' }, h('h4', {}, 'Add-ons'), ...c.addons.map((a: Json) => money_(a.name + ' ($)', () => a.priceCents, (v) => { a.priceCents = v; }))),
+        h('div', { class: 'actions' }, btn('Save draft', async () => {
+          if (!reads.map((r) => r()).every(Boolean)) return notice('Enter each price as dollars and cents, for example 135.00.');
+          const r = await api('/admin/api/catalogue', 'PUT', { expectedRevision: rev, catalogue: c });
+          if (!r.ok) { notice(r.status === 409 ? 'These prices changed somewhere else. Reloaded the latest.' : r.status === 0 ? '' : 'Please check the prices. Each must be above zero (Rasmalai extra may be zero).'); if (r.status === 409) loadPrices(); return; }
+          notice(''); await loadPrices();
+        }), publishBtn),
+        h('h3', {}, 'Published versions'),
+        h('ul', { class: 'admin-list' }, ...((hist.data.versions ?? []) as Json[]).map((v) => h('li', {}, h('span', {}, `Version ${v.version} · ${new Date(v.publishedAt).toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' })}${v.source === 'rollback' ? ` · restored from version ${v.fromVersion}` : ''}${v.version === current ? ' · live' : ''} `),
+          ...(v.version === current ? [] : [btn('Restore', async () => {
+            const r = await api('/admin/api/catalogue/rollback', 'POST', { version: v.version, expectedCurrent: current });
+            if (!r.ok) { notice(r.status === 409 ? 'The live version changed. Reloaded.' : r.status === 0 ? '' : 'Could not restore.'); if (r.status === 409) loadPrices(); return; }
+            notice(''); loadPrices();
+          }, 'chip')])))));
     }
     loadInbox(true);
   </script>
