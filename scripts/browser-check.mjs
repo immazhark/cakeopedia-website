@@ -25,6 +25,54 @@ try {
     await ctx.close();
   }
 
+  // 1b. Keyboard only (no mouse) + reduced motion, on a desktop-width page.
+  {
+    const kctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
+    const kp = await kctx.newPage();
+    const kerrs = []; kp.on('pageerror', (e) => kerrs.push(String(e)));
+    const focusInfo = () => kp.evaluate(() => {
+      const e = document.activeElement; if (!e || e === document.body) return null;
+      const again = window.__last === e; window.__last = e; // native video/date controls take several Tab stops inside one element
+      const s = getComputedStyle(e), r = e.getBoundingClientRect();
+      return { again, tag: e.tagName, id: e.id, cls: e.className, text: (e.textContent || '').trim().slice(0, 30), ring: s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0, onscreen: r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth && r.width > 0 };
+    });
+    for (const path of ['/', '/creations/', '/story/', '/enquiry/', '/collections/floral/']) {
+      await kp.goto(BASE + path, { waitUntil: 'networkidle' });
+      await kp.keyboard.press('Tab');
+      const first = await focusInfo();
+      check(!!first && /skip/.test(String(first.cls)) && first.onscreen && first.ring, `${path} first Tab lands on a visible skip link`);
+      await kp.keyboard.press('Enter');
+      check(await kp.evaluate(() => location.hash === '#main'), `${path} skip link jumps to #main`);
+      // Walk the whole tab order: every stop shows a focus ring and is on screen; focus must leave the page (no trap).
+      await kp.goto(BASE + path, { waitUntil: 'networkidle' });
+      const bad = []; let stops = 0, left = false;
+      for (let i = 0; i < 120; i++) {
+        await kp.keyboard.press('Tab'); const f = await focusInfo();
+        if (!f) { left = true; break; }
+        if (f.again) continue; stops++; if (!f.ring) bad.push(`${f.tag}#${f.id}"${f.text}" no ring`);
+      }
+      check(left && stops > 3, `${path} tab order ends (no trap) after ${stops} stops`);
+      check(bad.length === 0, `${path} every tab stop has a focus ring${bad.length ? ': ' + bad.slice(0, 3).join('; ') : ''}`);
+      // Reduced motion: nothing hidden waiting for scroll, nothing animating, no card zoom.
+      const rm = await kp.evaluate(() => ({
+        hidden: [...document.querySelectorAll('.reveal')].filter((e) => getComputedStyle(e).opacity !== '1').length,
+        running: document.getAnimations().filter((a) => a.playState === 'running' && !(a.effect?.getComputedTiming().iterations === 1 && a.effect.getComputedTiming().duration < 50)).length,
+        autoplay: [...document.querySelectorAll('video')].filter((v) => !v.paused).length,
+        smooth: getComputedStyle(document.documentElement).scrollBehavior === 'smooth',
+      }));
+      check(rm.hidden === 0 && rm.running === 0 && rm.autoplay === 0 && !rm.smooth, `${path} reduced motion: hidden ${rm.hidden}, running animations ${rm.running}, playing videos ${rm.autoplay}, smooth scroll ${rm.smooth}`);
+    }
+    // Enquiry form by keyboard: Enter on the submit button with a blank form shows errors and moves focus to them.
+    await kp.goto(BASE + '/enquiry/', { waitUntil: 'networkidle' });
+    const submit = kp.getByRole('button', { name: /send|submit/i }).last();
+    await submit.focus(); await kp.keyboard.press('Enter');
+    await kp.waitForTimeout(400);
+    const fe = await kp.evaluate(() => ({ invalid: document.querySelectorAll('[aria-invalid="true"]').length, focusOnField: !!document.activeElement?.matches('input,select,textarea,[aria-invalid="true"],.err,[role="alert"],[tabindex="-1"]') }));
+    check(fe.invalid > 0 && fe.focusOnField, `enquiry blank submit by keyboard: ${fe.invalid} invalid fields flagged, focus moved to a field/error`);
+    check(kerrs.length === 0, 'no uncaught page errors in keyboard pass ' + kerrs.join(' | '));
+    await kctx.close();
+  }
+
   // 2. Owner menu journey at 390px: add a draft, publish it with a size, edit, and see a stale-edit conflict.
   const ctx = await browser.newContext({ ...devices['Pixel 7'], viewport: { width: 390, height: 844 } });
   const page = await ctx.newPage();

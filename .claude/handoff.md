@@ -14,10 +14,13 @@ Branch feat/local-application-foundation (PR #1 open, main untouched). Canonical
 
 ## Not done / unproven
 - No CI/staging/production proof beyond PR checks (last run seen: pass on d2e4783/469e187 range). iOS/Android devices, screen reader,
-  keyboard-only, video playback, Core Web Vitals unproven. Rate-limit thresholds in worker/live.ts are placeholders.
+  video playback, Core Web Vitals unproven. Rate-limit thresholds in worker/live.ts are placeholders.
 - Needs owner: menu/prices/contact, logo, Turnstile site key, Access app, Resend domain, media permissions, Search Console/Bing accounts.
 
 ## Next (highest value first)
-1. Keyboard + reduced-motion pass added to scripts/browser-check.mjs; fix findings.
+1. DONE (uncommitted): keyboard + reduced-motion pass in scripts/browser-check.mjs (Edge, 1280px, 5 public pages: skip link, tab order
+   with focus rings and no trap, enquiry blank submit by keyboard, no hidden .reveal/animations/autoplay under reduced motion). All pass; no
+   site defects found. Native video/date controls take several Tab stops inside one element, so the check counts only the first stop.
+   Not covered: screen reader, owner /admin by keyboard, Safari/Firefox.
 2. Breadcrumb/image schema and customer-question (AEO) content once menu facts exist.
 3. Owner UI polish (heading on Menu tab), menu edit history, Turnstile widget on the enquiry form.
