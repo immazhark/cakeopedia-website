@@ -26,3 +26,15 @@ test('production output is indexable with canonical URLs, a sitemap and no conce
   assert.match(read('admin/index.html'), /noindex/);
   assert.match(read('404.html'), /noindex/);
 });
+
+test('FAQ page is indexable with FAQPage and breadcrumb data that match its visible answers; previews emit none', () => {
+  const html = read('faq/index.html');
+  assert.doesNotMatch(html, /noindex/);
+  const blocks = [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)].map((m) => JSON.parse(m[1]));
+  const faq = blocks.find((b) => b['@type'] === 'FAQPage'), crumbs = blocks.find((b) => b['@type'] === 'BreadcrumbList');
+  assert.ok(faq && crumbs);
+  assert.ok(faq.mainEntity.length >= 6);
+  for (const q of faq.mainEntity) assert.ok(html.includes(q.name.replace(/’/g, '&#39;').replace(/'/g, '&#39;')) || html.includes(q.name), `question not visible: ${q.name}`);
+  assert.match(read('robots.txt'), /User-agent: GPTBot\nDisallow: \//);
+  assert.doesNotMatch(read('robots.txt'), /User-agent: (OAI-SearchBot|PerplexityBot|Googlebot)/);
+});

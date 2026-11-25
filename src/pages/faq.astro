@@ -1,0 +1,28 @@
+---
+import Base from '../layouts/Base.astro';
+import { SITE } from '../site';
+import { resolveCatalogue } from '../data/catalogue';
+import approved from '../data/catalogue-approved.json';
+import { buildFaq } from '../data/faq';
+const items = buildFaq(resolveCatalogue(approved));
+const ld = [
+  { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: items.map((i) => ({ '@type': 'Question', name: i.q, acceptedAnswer: { '@type': 'Answer', text: i.a } })) },
+  { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: 'Home', item: SITE + '/' }, { '@type': 'ListItem', position: 2, name: 'Questions', item: SITE + '/faq/' }] },
+];
+---
+<Base title="Questions about ordering · Cakeopedia Austin" description="Prices, serving sizes, notice, deposits and ingredients for custom cakes from Cakeopedia Austin." current="/faq/" ld={ld}>
+  <div class="wrap page-head prose">
+    <p class="eyebrow">Questions</p>
+    <h1>Ordering a Cakeopedia cake</h1>
+    <p class="lede" style="margin-top:var(--space-3)">Straight answers to what people ask before they send an enquiry.</p>
+    <dl class="faq">
+      {items.map((i) => <div id={i.id}><dt><h2>{i.q}</h2></dt><dd>{i.a}</dd></div>)}
+    </dl>
+    <div class="actions"><a class="btn" href="/enquiry/">Start an enquiry</a><a class="btn btn--ghost" href="/menu/">See the menu</a><a class="btn btn--ghost" href="/size-guide/">Size guide</a></div>
+  </div>
+</Base>
+<style>
+  .faq { margin: var(--space-4) 0; display: grid; gap: var(--space-4); }
+  .faq h2 { font-size: var(--step-1); margin: 0 0 .4rem; }
+  .faq dd { margin: 0; max-width: 62ch; }
+</style>

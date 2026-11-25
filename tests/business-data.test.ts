@@ -46,3 +46,23 @@ test('catalogue snapshot: null means the seed; an invalid snapshot throws so the
   assert.throws(() => resolveCatalogue({}));
   assert.equal(resolveCatalogue({ ...defaultCatalogue, celebrationCents: 8000 }).celebrationCents, 8000);
 });
+
+test('FAQ: prices come from the catalogue, only confirmed facts, no unapproved claims', async () => {
+  const { buildFaq, faqText } = await import('../src/data/faq.ts');
+  const { defaultCatalogue } = await import('../src/data/catalogue.ts');
+  const text = faqText(buildFaq(defaultCatalogue));
+  for (const must of ['9-inch $245', '10-inch $285', '6-inch $135', '$75', 'Two weeks', '50% advance', '48 hours', 'Zelle', '$35', '$40', '$10 per box or slab', 'up to three pictures']) assert.ok(text.includes(must), must);
+  assert.doesNotMatch(text, /halal|allergen-free|gluten.free cakes? (are|is) available|delivery area|refund|guarantee|rated|reviews?\b/i);
+  const changed = buildFaq({ ...defaultCatalogue, celebrationCents: 8000, baseCents: { ...defaultCatalogue.baseCents, '6': 14000 } });
+  assert.match(faqText(changed), /\$80/); assert.match(faqText(changed), /6-inch \$140/); // follows an owner price change
+  assert.equal(new Set(changed.map((i) => i.id)).size, changed.length);
+});
+test('robots: previews block everything; production allows search and AI retrieval, refuses training crawlers, hides private routes', async () => {
+  const { robotsLines, trainingCrawlers } = await import('../src/data/crawlers.ts');
+  assert.deepEqual(robotsLines(false, 'https://x.invalid'), ['User-agent: *', 'Disallow: /']);
+  const prod = robotsLines(true, 'https://x.invalid').join('\n');
+  for (const bot of trainingCrawlers) assert.match(prod, new RegExp(`User-agent: ${bot}\nDisallow: /\n`));
+  assert.doesNotMatch(prod, /OAI-SearchBot|ChatGPT-User|Claude-SearchBot|Claude-User|PerplexityBot|Googlebot|bingbot/); // retrieval and search crawlers are not blocked
+  assert.match(prod, /User-agent: \*\nAllow: \/\nDisallow: \/api\/\nDisallow: \/admin\//);
+  assert.match(prod, /Sitemap: https:\/\/x\.invalid\/sitemap\.xml$/m);
+});
