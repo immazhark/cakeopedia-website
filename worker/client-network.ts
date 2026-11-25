@@ -1,7 +1,7 @@
 // Use only with the verified edge's client IP, never with arbitrary X-Forwarded-For
 // or a client-controlled identifier. Normalization is not proof of header trust.
 export function canonicalClientNetwork(value:string|null):string|null{
-  if(typeof value!=='string'||value.length<1||value.length>45)return null;
+  if(typeof value!=='string'||value.length<1||value.length>45||value.trim()!==value)return null;
   if(!value.includes(':')){
     const parts=value.split('.');
     if(parts.length!==4||parts.some(part=>!/^(?:0|[1-9]\d{0,2})$/.test(part)||Number(part)>255))return null;
