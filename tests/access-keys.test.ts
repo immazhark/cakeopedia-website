@@ -7,7 +7,7 @@ const issuer='https://example-team.cloudflareaccess.com';
 const pair=await crypto.subtle.generateKey({name:'RSASSA-PKCS1-v1_5',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['sign','verify']);
 const jwk={...await crypto.subtle.exportKey('jwk',pair.publicKey),kid:'current',alg:'RS256',use:'sig'};
 const reply=(keys:unknown)=>new Response(JSON.stringify({keys,public_cert:{cert:'ignored'}}));
-test('pins key endpoint, coalesces concurrent loads and isolates returned cache data',async()=>{
+test('pins key endpoint, keeps concurrent loads request-local and isolates cache data',async()=>{
   let calls=0;
   const source=createAccessKeySource(issuer,async(url,init)=>{
     calls++;
@@ -16,9 +16,9 @@ test('pins key endpoint, coalesces concurrent loads and isolates returned cache 
     return reply([jwk]);
   },()=>1000);
   const results=await Promise.all(Array.from({length:8},()=>source()));
-  assert.equal(calls,1);assert.equal(results[0]?.[0]?.kid,'current');
+  assert.equal(calls,8);assert.equal(results[0]?.[0]?.kid,'current');
   results[0]![0]!.kid='corrupted';
-  assert.equal((await source())[0]?.kid,'current');
+  assert.equal((await source())[0]?.kid,'current');assert.equal(calls,8);
 });
 test('refreshes after TTL and never accepts expired cache on failed refresh',async()=>{
   let now=1000,calls=0,fail=false;
@@ -58,4 +58,18 @@ test('fetched public key verifies an actual signed Access token',async()=>{
   const data=encode({alg:'RS256',kid:'current'})+'.'+encode({iss:issuer,aud:['test-aud'],email:'owner@example.invalid',exp:1100});
   const signature=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',pair.privateKey,new TextEncoder().encode(data));
   assert.equal(await verifyAccessJwt(data+'.'+Buffer.from(signature).toString('base64url'),cfg),'owner@example.invalid');
+});
+
+test('a late older refresh cannot overwrite a newer signing key set',async()=>{
+  let release!: (response:Response)=>void;
+  let calls=0;
+  const source=createAccessKeySource(issuer,async()=>{
+    if(++calls===1)return new Promise<Response>(resolve=>{release=resolve;});
+    return reply([{...jwk,kid:'newer'}]);
+  },()=>1000);
+  const older=source();
+  assert.equal((await source())[0]?.kid,'newer');
+  release(reply([{...jwk,kid:'older'}]));
+  assert.equal((await older)[0]?.kid,'newer');
+  assert.equal((await source())[0]?.kid,'newer');
 });
