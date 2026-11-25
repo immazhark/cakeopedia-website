@@ -1,32 +1,48 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
-test('preview remains non-indexable and does not expose an unfinished intake', async () => {
-  const html = await readFile(new URL('../dist/index.html', import.meta.url), 'utf8');
+const read = (p) => readFile(new URL(`../dist/${p}`, import.meta.url), 'utf8');
+
+test('home is a non-indexable preview with accessible structure, no form and no autoplaying audio', async () => {
+  const html = await read('index.html');
   assert.match(html, /<html\b[^>]*\blang="en"/);
   assert.match(html, /name="robots" content="noindex, nofollow"/);
   assert.match(html, /href="#main"/);
   assert.match(html, /id="main"/);
-  assert.match(html, /Development preview/);
-  assert.doesNotMatch(html, /<form|application\/ld\+json|<script/);
-  const robots = await readFile(new URL('../dist/robots.txt', import.meta.url), 'utf8');
+  assert.match(html, /<h1/);
+  assert.match(html, /<video[^>]*\bmuted\b[^>]*\bloop\b/);
+  assert.doesNotMatch(html, /<video[^>]*\bautoplay\b/);
+  assert.doesNotMatch(html, /<form|application\/ld\+json/);
+  const robots = await read('robots.txt');
   assert.match(robots, /Disallow: \//);
 });
-test('every concept has four creation links, a safe detail path and disabled enquiry entry', async () => {
-  for (const direction of ['collection','cabinet','table']) {
-    const root = new URL(`../dist/concepts/${direction}/`, import.meta.url);
-    const html = await readFile(new URL('index.html', root), 'utf8');
-    assert.match(html, /noindex, nofollow/);
-    assert.match(html, /provisional copy &(?:amp;)? image slots/);
-    for (const creation of ['floral','bow','playful','treats']) {
-      assert.ok(html.includes(`/concepts/${direction}/${creation}/`));
-      const detail = await readFile(new URL(`${creation}/index.html`, root), 'utf8');
-      assert.ok(detail.includes(`enquiry/?creation=${creation}`));
-      assert.match(detail, /not a product image/);
+
+test('every creation page has explicit image dimensions, alt text and a non-menu notice', async () => {
+  const index = await read('creations/index.html');
+  const slugs = [...index.matchAll(/href="\/creations\/([a-z0-9-]+)\/"/g)].map((m) => m[1]);
+  assert.ok(slugs.length >= 15);
+  for (const slug of new Set(slugs)) {
+    const html = await read(`creations/${slug}/index.html`);
+    assert.match(html, /<h1/);
+    assert.match(html, /not an item you can order as shown/);
+    assert.doesNotMatch(html, /\$\d/); // no invented prices
+    for (const img of html.match(/<img\b[^>]*>/g) ?? []) {
+      assert.match(img, /\bwidth="\d+"/);
+      assert.match(img, /\bheight="\d+"/);
+      assert.match(img, /\balt="[^"]+"/);
     }
-    const enquiry = await readFile(new URL('enquiry/index.html',root),'utf8');
-    assert.match(enquiry, /<fieldset disabled/);
-    assert.match(enquiry, /no information is sent/);
-    assert.doesNotMatch(enquiry, /<form[^>]*action=/);
+  }
+});
+
+test('enquiry stays closed: no form, no file input, and links to Instagram', async () => {
+  const html = await read('enquiry/index.html');
+  assert.doesNotMatch(html, /<form|type="file"/);
+  assert.match(html, /instagram\.com\/cakeopedia\.austin/);
+});
+
+test('no original-media paths or private provenance in built pages', async () => {
+  for (const p of ['index.html', 'creations/index.html']) {
+    const html = await read(p);
+    assert.doesNotMatch(html, /CakeopediaMedia|C:\\|OneDrive|\.HEIC|1000\d{6}/i);
   }
 });

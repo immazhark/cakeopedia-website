@@ -1,42 +1,126 @@
 ---
-// Development shell only. Replace after owner-approved creative comparison.
+import Base from '../layouts/Base.astro';
+import CreationCard from '../components/CreationCard.astro';
+import { bySlug, cover, categories, type Category } from '../data/creations';
+import manifest from '../data/media-manifest.json';
+
+const hero = bySlug('vintage-piped-castle');
+const heroImg = cover(hero);
+const a = bySlug('vintage-fig-cross-stitch'), b = bySlug('ruby-rose-mr-and-mrs'), c = bySlug('pampas-and-peach-roses'), d = bySlug('anniversary-neon-roses'), e = bySlug('pink-rose-crown');
+const film = bySlug('mini-cake-box-sign');
+const steps = [
+  ['Browse', 'Look through real cakes and find the look you like.'],
+  ['Send your idea', 'Tell us the occasion, date and how you would collect or receive it. You can add pictures from anywhere.'],
+  ['Talk it through', 'We reply personally about availability and what is possible.'],
+  ['Agree the details', 'You receive a quote. Design, pickup or delivery and terms are agreed together.'],
+  ['Deposit', 'Deposit instructions follow the agreement. Your date is held once the baker has confirmed the deposit.'],
+  ['Collect or receive', 'Your cake is ready on the day you agreed.'],
+];
 ---
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="noindex, nofollow" />
-    <meta name="description" content="Cakeopedia Austin website development preview." />
-    <title>Cakeopedia Austin — development preview</title>
-    <style>
-      :root { color-scheme: light; font-family: system-ui, sans-serif; color: #292e28; background: #f8f5ee; }
-      * { box-sizing: border-box; }
-      body { margin: 0; }
-      a { color: inherit; text-underline-offset: .25em; }
-      a:focus-visible { outline: 3px solid #365c46; outline-offset: 6px; }
-      .skip { position: absolute; top: -5rem; left: 1rem; padding: 1rem; background: white; }
-      .skip:focus { top: 1rem; }
-      header, main, footer { width: min(70rem, calc(100% - 3rem)); margin-inline: auto; }
-      header { padding-block: 2rem; border-bottom: 1px solid #b8bdb0; display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-      .brand { font: 1.5rem Georgia, serif; }
-      .status { font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; }
-      main { padding-block: clamp(3rem, 12vw, 9rem); }
-      h1 { max-width: 14ch; font: 400 clamp(2.75rem, 8vw, 6rem)/1.04 Georgia, serif; letter-spacing: -.035em; margin: 1rem 0 2rem; }
-      p { max-width: 42rem; line-height: 1.7; }
-      .note { border-left: 2px solid #365c46; padding-left: 1.5rem; margin-top: 3rem; }
-      footer { border-top: 1px solid #b8bdb0; padding-block: 1.5rem; font-size: .875rem; }
-    </style>
-  </head>
-  <body>
-    <a class="skip" href="#main">Skip to content</a>
-    <header><span class="brand">Cakeopedia Austin</span><span class="status">Development preview</span></header>
-    <main id="main" tabindex="-1">
-      <p class="status">Austin, Texas · From-scratch baking</p>
-      <h1>A home for her creations.</h1>
-      <p>The portfolio, menu and enquiry experience are being built around the baker’s genuine work. This is a development shell, not the finished website.</p>
-      <div class="note"><p>Online enquiries and payments are not enabled here.</p><p>For the existing business, visit <a href="https://www.instagram.com/cakeopedia.austin/">Cakeopedia on Instagram</a>.</p></div>
-    </main>
-    <footer>Photography, menu, identity and fulfilment details await owner approval. <a href="/concepts/">Compare design directions (internal)</a></footer>
-  </body>
-</html>
+<Base title="Cakeopedia Austin · Handmade vintage and floral cakes" description="Cakeopedia Austin makes handmade vintage and floral celebration cakes in Austin, Texas. Browse real cakes and see how ordering works." current="/" image={heroImg.src}>
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <p class="eyebrow">Austin, Texas · Baked by hand</p>
+        <h1>Vintage and floral cakes, <em>made for your table.</em></h1>
+        <p class="lede">Cakeopedia began in Hyderabad and now bakes in Austin. Browse real cakes, then tell us what you are celebrating and we will talk it through together.</p>
+        <div class="actions">
+          <a class="btn" href="/creations/">See the collection</a>
+          <a class="btn btn--ghost" href="#how">How ordering works</a>
+        </div>
+      </div>
+      <div class="hero-media">
+        <div class="arch">
+          <video id="hero-video" muted loop playsinline preload="metadata" poster={heroImg.src} width={manifest.videos[hero.video!.slug].w} height={manifest.videos[hero.video!.slug].h} aria-label={hero.alt}>
+            <source src="/media/video/vintage-piped-castle.mp4" type="video/mp4" />
+          </video>
+        </div>
+        <button class="media-toggle" id="hero-toggle" type="button" hidden aria-pressed="false">Pause video</button>
+        <p class="caption">Piping a vintage-style cake by hand.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--beige">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div><p class="eyebrow">The collection</p><h2>Recent work, one cake at a time</h2></div>
+        <a href="/creations/">All creations</a>
+      </div>
+      <div class="feature">
+        <div class="col reveal"><CreationCard c={a} eager sizes="(min-width: 56rem) 40vw, 90vw" /></div>
+        <div class="col reveal"><CreationCard c={b} sizes="(min-width: 56rem) 28vw, 90vw" /><CreationCard c={c} sizes="(min-width: 56rem) 28vw, 90vw" /></div>
+        <div class="col reveal"><CreationCard c={d} sizes="(min-width: 56rem) 28vw, 90vw" /><CreationCard c={e} sizes="(min-width: 56rem) 28vw, 90vw" /></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="eyebrow">Find your style</p>
+        <h2>Start from the occasion</h2>
+        <ul class="chips" style="margin-top: var(--space-3)">
+          {(Object.keys(categories) as Category[]).map((k) => <li><a class="chip" href={`/creations/?c=${k}`}>{categories[k]}</a></li>)}
+        </ul>
+        <p>Cakes are previous work. Each one is made to order, so a similar design is a conversation, not a copy.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--beige">
+    <div class="wrap split">
+      <div class="film reveal">
+        <video controls preload="none" playsinline poster={`/media/video/${film.video!.slug}-poster.webp`} width="540" height="960" aria-label="Mini cakes lined up on a tray and being boxed">
+          <source src="/media/video/mini-cakes-packing.mp4" type="video/mp4" />
+        </video>
+      </div>
+      <div class="reveal">
+        <p class="eyebrow">Behind the cake</p>
+        <h2>From the tray to the box</h2>
+        <p>A short, silent clip of a batch of mini cakes being lined up and boxed for collection. Play it when you like; it never starts by itself.</p>
+        <p><a href={`/creations/${film.slug}/`}>See the mini cakes</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap split">
+      <div class="reveal">
+        <p class="eyebrow">Our story</p>
+        <h2>A love of getting the flavour just right</h2>
+        <p>Homemade treats for family became lockdown recipe experiments, then cakes for friends and college celebrations. Requests for orders followed. Today that same love of baking continues in Austin, with quality ingredients and taste at the heart of it.</p>
+        <p><a href="/story/">Read the story</a></p>
+      </div>
+      <figure class="reveal" style="margin:0;justify-self:center;width:min(100%,24rem)">
+        <div class="arch"><img src={cover(bySlug('gold-leaf-garden')).src} width="800" height="1067" alt={bySlug('gold-leaf-garden').alt} loading="lazy" decoding="async" /></div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section section--beige" id="how">
+    <div class="wrap">
+      <div class="reveal"><p class="eyebrow">Ordering</p><h2>How ordering works</h2><p class="lede" style="margin-top:var(--space-2)">Every cake starts as an enquiry. Nothing is confirmed until you and the baker have agreed it.</p></div>
+      <ol class="steps reveal" style="margin-top: var(--space-4)">
+        {steps.map(([t, p]) => <li><h3>{t}</h3><p>{p}</p></li>)}
+      </ol>
+      <div class="note reveal" style="margin-top: var(--space-4)">
+        <p><strong>Online enquiries are not open yet.</strong> For now, message <a href="https://www.instagram.com/cakeopedia.austin/" rel="noopener">@cakeopedia.austin on Instagram</a>. Please ask early; capacity is limited.</p>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // Hero loop is decorative: silent, never starts under reduced motion, always pausable.
+    const v = document.querySelector<HTMLVideoElement>('#hero-video');
+    const t = document.querySelector<HTMLButtonElement>('#hero-toggle');
+    if (v && t) {
+      t.hidden = false;
+      const set = (playing: boolean) => { t.textContent = playing ? 'Pause video' : 'Play video'; t.setAttribute('aria-pressed', String(!playing)); };
+      const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      set(false);
+      if (!reduced) v.play().then(() => set(true)).catch(() => set(false));
+      t.addEventListener('click', () => { if (v.paused) { v.play(); set(true); } else { v.pause(); set(false); } });
+    }
+  </script>
+</Base>

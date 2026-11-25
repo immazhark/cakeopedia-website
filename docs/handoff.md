@@ -1,58 +1,20 @@
-# Current handoff
+﻿# Current handoff
 
-Date: 24 November 2026. Primary writer: ChatGPT Work.
-Task: continue F04/E01 with local E04 notification recovery proof and D02 labelled
-creative concepts; owner responses/media remain pending. Branch: feat/local-application-foundation. Base foundation:
-9cfab13245e7f2b9f72ac36a691da03591ed5138. Read actual Git HEAD for the current commit.
+Date: 25 November 2026. Task: master build directive; active writer Claude Code.
+Branch: feat/cakeopedia-collection-slice (from origin/feat/local-application-foundation, which already contains main). PR #1 still open and unmerged; read the actual HEAD from Git.
 
-Implemented: exact-version Astro/TypeScript tooling and lockfile; labelled static
-non-indexable development shell; closed Worker; bounded input/body validation;
-parameterised D1 transactional enquiry/references/two outbox inserts; same-payload replay
-and conflicting-ID rejection. CI runs locked installation and local verification with
-read-only permissions and SHA-pinned official actions. No deploy job or secrets.
+Done: palette recorded (tokens, content-status, brief, ADR-014); 41-file media batch inventoried (docs/media-plan.md);
+`npm run media` builds git-ignored derivatives; real home (hero clip with pause, featured row, occasion chips, process
+film, story, ordering steps), filterable creations gallery, 19 creation detail pages, story and closed-enquiry pages.
+The earlier concept pages remain under /concepts/ (internal, unlinked) and the Worker/D1 code is untouched and still disconnected.
 
-New iteration: three creative directions (20 total static pages), disabled enquiry
-preview with public inspiration ID, atomic outbox leases/fenced completion/backoff and
-reconciliation hold. See iteration-two.md for paths and boundaries.
+Checks run: `npm run verify` (strict types, 40 Worker/contrast tests, build, 4 built-output tests); headless Edge
+screenshots of home, gallery and detail at desktop width. Limits: no real-device or 390px-viewport check (headless
+Edge enforces a wider minimum window; the Chrome extension was not connected), no screen-reader, keyboard walk-through,
+video playback or field-performance test. Media derivatives are not in Git.
 
-Checks: npm run verify (strict checks, 18 synthetic API/D1 tests, build, two built-output
-safety tests); npm run db:local applied both migrations; git diff --check.
-Foundation 24 files were fetched and compared to prepared content before application
-work. No visual/device/screen-reader/field-performance/cloud-provider proof claimed.
+Holds: media delivery path and permissions (names, kitchen, locations); menu/prices/contact; enquiry form (closed);
+inbox/auth/uploads/notifications; provider accounts; DNS/hosting. No provider, purchase or deployment change was made.
 
-Holds: final identity/menu/contact/fulfilment/claims and real media; creative concept
-comparison/selection; primary-consistent D1 session policy; real bot/distributed limits;
-inbox authentication; sender/lease/retry/reconciliation; retention/export/restore;
-private security reporting route and provider account/quota approvals.
-
-External changes: repository commits/branch/PR only as authorised. No infrastructure,
-settings changes, purchase, account provisioning, deployment, mail or customer intake.
-Connector writes returned 403 and CLI lacked GitHub credentials; signed-in browser is
-the available publishing fallback. Read actual remote branch/PR status before continuing.
-
-Next: inspect PR #1 and current HEAD; use iteration-two.md to review the three coded
-concepts. Rendered inspection is pending because local-file browser navigation was
-blocked; no bypass was attempted. Then implement the selected real-content gallery/form
-while independently proving immutable notification payloads and private auth adapters. Do not connect
-handleEnquiry to the public entry point until release-critical intake gates pass.
-
-## Owner-response update — 25 November 2026
-
-Partial responses received. owner-brief.md is the public-safe synthesis, not raw answers.
-Cakeopedia Austin, recognisable orange logo refinement, vintage/floral Austin focus,
-pricing presentation and order-confirmation process are now informed by the owner.
-Current menu/media, contact selection, public name and deposit/cancellation details
-remain pending. A concise medical-detail-free story draft replaces the concept's generic
-story paragraph; final wording and rendered design approval remain pending. No live
-intake, payments, ingredient claim or numerical menu price has been enabled.
-
-Publication authorised by the sponsor on 25 November 2026 specifically so Claude Code
-can read the prepared public-safe owner brief and provisional story in the public
-Cakeopedia repository. This resolves the earlier automatic-review publication hold.
-Raw questionnaire answers, family medical details and payment identifiers are excluded.
-Type checks/build/two page tests passed locally. Verify current remote PR/HEAD before
-continuing, and read owner-brief.md alongside content-status.md.
-
-## Shared decisions publication — 25 November 2026
-
-Primary repository ownership is now assigned by the sponsor to ChatGPT; no other writer is active. Read [shared context and decisions](shared-context-and-decisions.md) first for the complete owner-approved launch/later feature catalogue, domain/registrar and amended F12. Contradictory no-upload assumptions are superseded: up to three optional private inspiration images from any source plus Additional comments are approved scope, not implemented or activated. Checkout remains deferred. This update reconciles documentation only; previous test results are historical. Next: review the documentation diff, then implement the private upload lifecycle and approved enquiry changes behind the closed intake boundary. No deployment, DNS, email or provider changes are included.
+Next: (1) owner answers in media-plan.md; (2) menu data model and enquiry UI with the three-image lifecycle behind the closed
+intake; (3) private inbox; (4) a real-browser pass at 390px with keyboard and reduced motion.

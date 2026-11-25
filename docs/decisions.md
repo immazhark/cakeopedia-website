@@ -27,3 +27,8 @@ secrets are required. Keep the Worker public intake closed until real bot/abuse 
 primary-consistent reads, authentication and operational release gates are proven.
 The local API core queues two notification intents but never sends. Emulator tests are
 local evidence only. Final visual design remains pending the creative comparison.
+
+## ADR-014 - owner palette, fonts and media delivery
+
+Accepted 25 November 2026: six approved base colours with derived accessible tones (tokens + contrast test). Fraunces and Figtree self-hosted. Web media derivatives are generated locally and git-ignored until the owner approves a delivery path; the repository is public. See media-plan.md.
+

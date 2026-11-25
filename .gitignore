@@ -52,3 +52,6 @@ exports/
 Thumbs.db
 *.swp
 *.swo
+
+# Optimised web derivatives are generated locally (npm run media); delivery path awaits owner approval
+public/media/

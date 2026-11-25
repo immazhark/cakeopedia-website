@@ -1,0 +1,183 @@
+{
+ "images": {
+  "ruby-rose-mr-and-mrs": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "blush-rose-marble": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "crimson-cascade": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "pampas-and-peach-roses": {
+   "w": 4330,
+   "h": 5773,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "pink-rose-crown": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "white-feather-bloom": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "love-three-tier": {
+   "w": 4330,
+   "h": 5773,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "anniversary-neon-roses": {
+   "w": 3000,
+   "h": 4000,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "texas-hearts-three-tier": {
+   "w": 2304,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "vintage-fig-cross-stitch": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "gold-leaf-garden": {
+   "w": 3456,
+   "h": 4608,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "blue-and-yellow-anniversary": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "polka-dot-roses": {
+   "w": 3000,
+   "h": 4000,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "red-bow-birthday": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "balloon-he-or-she": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "mini-cake-box-sign": {
+   "w": 3000,
+   "h": 4000,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "blue-rainbow-pair": {
+   "w": 2304,
+   "h": 3767,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "festive-orange-and-green": {
+   "w": 2304,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  }
+ },
+ "videos": {
+  "vintage-piped-castle": {
+   "w": 540,
+   "h": 960,
+   "seconds": 15
+  },
+  "mini-cakes-packing": {
+   "w": 540,
+   "h": 960,
+   "seconds": 12
+  },
+  "balloon-reveal": {
+   "w": 540,
+   "h": 960,
+   "seconds": 12
+  }
+ }
+}

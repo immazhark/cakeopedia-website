@@ -1,0 +1,58 @@
+---
+import '@fontsource-variable/fraunces';
+import '@fontsource-variable/figtree';
+import '../styles/global.css';
+interface Props { title: string; description: string; current?: string; image?: string }
+const { title, description, current, image } = Astro.props;
+const nav = [['/creations/', 'Creations'], ['/story/', 'Story'], ['/enquiry/', 'Enquire']];
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Development preview: keep out of search until a deliberate, authorised launch. -->
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#91ae8f" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    {image && <meta property="og:image" content={image} />}
+    <title>{title}</title>
+    <script is:inline>document.documentElement.classList.add('js');</script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="wrap">
+        <a class="brand" href="/">Cakeopedia <span>Austin</span></a>
+        <nav aria-label="Main">
+          <ul class="nav">
+            {nav.map(([href, label]) => <li><a href={href} aria-current={current === href ? 'page' : undefined}>{label}</a></li>)}
+          </ul>
+        </nav>
+      </div>
+    </header>
+    <main id="main" tabindex="-1"><slot /></main>
+    <footer class="site-footer">
+      <div class="wrap">
+        <div>
+          <p><strong>Cakeopedia Austin</strong> is a small home bakery in Austin, Texas. Cakes shown on this site are previous work, not a menu.</p>
+          <p>Development preview. Prices, flavours, sizes and fulfilment details are being confirmed with the baker.</p>
+        </div>
+        <div>
+          <p><a href="https://www.instagram.com/cakeopedia.austin/" rel="noopener">@cakeopedia.austin on Instagram</a></p>
+          <p>Online enquiries are not open yet.</p>
+        </div>
+      </div>
+    </footer>
+    <script>
+      // Reveal-on-scroll (content is already visible without JS or with reduced motion).
+      const els = document.querySelectorAll('.reveal');
+      if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+        const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
+        els.forEach((el) => io.observe(el));
+      } else els.forEach((el) => el.classList.add('in'));
+    </script>
+  </body>
+</html>

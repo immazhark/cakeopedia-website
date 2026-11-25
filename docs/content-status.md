@@ -31,3 +31,13 @@ account recovery details belong here. Record only approved public facts/date whe
 ## Subsequent decisions — 25 November 2026
 
 See [shared context and decisions](shared-context-and-decisions.md): cakeopedia.com purchased at Spaceship; owner approved all 34 checklist items with their launch/later priorities. F12 accepts any inspiration, with up to three optional image attachments and optional Additional comments. Exact contact/menu/fees/policies remain pending; scope approval does not activate intake or services.
+
+
+## Owner-approved palette — 25 November 2026
+
+Six exact base colours, selected by the owner (reference image reviewed): sage #91AE8F, butter orange #FFB64F,
+vanilla cream #FFF9F0, warm beige #F3E5D5, chocolate brown #665447, white #FFFFFF. Tokens live in
+`src/styles/tokens.css`; derived darker tones (`ink-deep`, `sage-deep`, `butter-deep`, border/error/success/disabled)
+are named separately. White on sage (2.43:1), chocolate on sage (2.96:1) and chocolate on butter (4.12:1) fail for
+normal text, so sage and butter are used for surfaces, shapes and accents, while text uses chocolate or deep ink on
+cream/beige and white on deep sage buttons. `tests/contrast.test.ts` enforces the exact bases and the used pairs.

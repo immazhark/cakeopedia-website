@@ -1,0 +1,14 @@
+---
+import { cover, categories, type Creation } from '../data/creations';
+interface Props { c: Creation; eager?: boolean; sizes?: string }
+const { c, eager = false, sizes = '(min-width: 48rem) 30vw, 46vw' } = Astro.props;
+const img = cover(c);
+---
+<a class="card" href={`/creations/${c.slug}/`}>
+  <div class="frame">
+    <img src={img.src} srcset={img.srcset} sizes={sizes} width={img.w} height={img.h} alt={c.alt}
+      style={c.focus ? `object-position:${c.focus}` : undefined} loading={eager ? 'eager' : 'lazy'} decoding="async" />
+  </div>
+  <h3>{c.title}</h3>
+  <p class="meta">{c.cats.map((k) => categories[k]).join(' · ')}{c.video ? ' · Video' : ''}</p>
+</a>

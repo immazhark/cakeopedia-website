@@ -26,3 +26,9 @@ Score 1–5 with explanation: distinctive identity, appetite appeal, personal wa
 
 ## Motion guardrails
 First useful frame visible immediately. No forced intro/scroll hijack/autoplay sound. Keyboard, focus, browser history and reduced motion work. Selected transitions must be interrupted safely and clean up on navigation. No multiple animation engines installed by default. Final palette/fonts remain open pending owner preferences and asset review.
+
+
+## Palette (owner-approved 25 November 2026)
+
+See content-status.md. Supersedes the open-palette assumption above. Collection remains the recommended lead; the production candidate is built on it and awaits visual review. Fonts: Fraunces (display) and Figtree (body), both open-licence and self-hosted via Fontsource.
+
