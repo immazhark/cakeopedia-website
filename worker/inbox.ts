@@ -1,28 +1,20 @@
 import { authorize, type AccessConfig } from './auth.ts';
+import { CURRENT, isStatus, out, uuid, type AdminDb, type Status } from './admin-common.ts';
+import { confirmBlocker, orderSummary, routeOrders } from './orders.ts';
 
-// Private owner API. Every route authorises first; responses are never cacheable. Pagination is keyset-based and bounded.
-interface Stmt {
-  bind(...values: (string | number | null)[]): Stmt;
-  first<T>(): Promise<T | null>;
-  all<T>(): Promise<{ results: T[] }>;
-  run(): Promise<unknown>;
-}
-export interface InboxDb { prepare(sql: string): Stmt }
-export const STATUSES = ['new', 'replied', 'quoted', 'confirmed', 'closed'] as const;
-type Status = (typeof STATUSES)[number];
-const isStatus = (v: unknown): v is Status => typeof v === 'string' && (STATUSES as readonly string[]).includes(v);
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Private owner API entry. Authorises once per request, then routes. Responses are never cacheable;
+// list pagination is keyset-based and bounded.
+export type InboxDb = AdminDb;
+export { STATUSES } from './admin-common.ts';
 
-const CURRENT = `COALESCE((SELECT ev.status FROM enquiry_events ev WHERE ev.enquiry_id = e.id ORDER BY ev.created_at DESC, ev.rowid DESC LIMIT 1),
-  CASE e.status WHEN 'booked' THEN 'confirmed' ELSE e.status END)`;
-const out = (status: number, body?: object) => new Response(body ? JSON.stringify(body) : null, { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
-
-export async function handleInbox(request: Request, db: InboxDb, cfg: AccessConfig, now: () => number = Date.now): Promise<Response> {
+export async function handleInbox(request: Request, db: AdminDb, cfg: AccessConfig, now: () => number = Date.now): Promise<Response> {
   const op = await authorize(request, cfg);
   if (!op.ok) return op.response;
   const url = new URL(request.url);
-  const path = url.pathname.replace(/^\/admin\/api\/enquiries/, '');
   try {
+    const order = await routeOrders(request, db, op.email, now, url);
+    if (order) return order;
+    const path = url.pathname.replace(/^\/admin\/api\/enquiries/, '');
     if (path === '' && request.method === 'GET') {
       const status = url.searchParams.get('status');
       if (status && !isStatus(status)) return out(400, { error: 'invalid_input' });
@@ -48,16 +40,20 @@ export async function handleInbox(request: Request, db: InboxDb, cfg: AccessConf
     if (!m[2] && request.method === 'GET') {
       const events = await db.prepare('SELECT status, created_at AS at, actor, note FROM enquiry_events WHERE enquiry_id = ? ORDER BY created_at, rowid').bind(id).all();
       const pictures = await db.prepare('SELECT id, content_type AS type, bytes FROM uploads WHERE enquiry_id = ? ORDER BY created_at').bind(id).all();
-      return out(200, { ...row, payload: JSON.parse(row.payload), events: events.results, pictures: pictures.results });
+      return out(200, { ...row, payload: JSON.parse(row.payload), events: events.results, pictures: pictures.results, order: await orderSummary(db, id) });
     }
     if (m[2] && request.method === 'POST') {
       let body: unknown;
       try { body = await request.json(); } catch { return out(400, { error: 'invalid_input' }); }
-      const b = body as Record<string, unknown>;
+      const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
       const note = b.note ?? null;
       if (!isStatus(b.status) || !isStatus(b.expected) || (note !== null && (typeof note !== 'string' || note.length > 1000))) return out(400, { error: 'invalid_input' });
       if (b.expected !== row.status) return out(409, { error: 'status_changed', current: row.status }); // optimistic concurrency
       if (b.status === row.status) return out(400, { error: 'no_change' });
+      if (b.status === 'confirmed') {
+        const blocker = await confirmBlocker(db, id); // owner-verified deposit is a precondition, never inferred
+        if (blocker) return out(409, { error: blocker });
+      }
       await db.prepare('INSERT INTO enquiry_events (id, enquiry_id, status, created_at, actor, note) VALUES (?, ?, ?, ?, ?, ?)')
         .bind(crypto.randomUUID(), id, b.status, now(), op.email, note).run();
       return out(200, { status: b.status });
