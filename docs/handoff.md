@@ -26,6 +26,11 @@ Active primary development writer: ChatGPT, authorised by the sponsor. This is d
 - Local evidence: 2 regression failures before fix; 8/8 focused tests passed after changes using Node 22.16.0 and SQLite 3.49.1, strict TypeScript 5.8.3 passed for isolated sources and tests with narrow existing DB contract. Five Git blob hashes match tested files. Original Miniflare regression expectations updated but full repository CI is needed. No cloud migration, scheduler, sender wiring or live messages.
 - Next: integrate lease-aware sender and bounded scheduler, enforce explicit skip/reconcile outcomes, provider verification, retention and production gates. Recover unpublished hardening before modifying shared intake or migration history.
 
+## Bounded notification scheduling and CI (F20) — latest checkpoint
+- 1bcbfd2 fixes the exactOptionalPropertyTypes failure reported by CI run 45544857074; 5/5 transport tests passed locally and remote hash matched. Full CI must verify the newer head.
+- c5b7833 / 8976be4: due-event selection with deterministic ordering, at most four events per pass and two concurrent dispatches, atomic existing lease gate, and per-event failure isolation. 5 new SQLite scheduler tests and 13/13 combined scheduler/persistence/uncertainty tests passed on Node 22.16.0. Isolated strict TypeScript passed. Both scheduler file hashes matched remote. No live cron or sender wiring. D1 and pinned Node 24 repository CI remain required.
+- Feature-map reconciled with actual partial F02/F03/F13/F20 work and existing private owner viewing. Next: lease-aware snapshot sender integration, explicit non-email disposition, bounded D1 verification, approved provider config and scheduled entry point behind release gates. Continue independent public menu/serving work while unpublished hardening recovery is blocked.
+
 No provider changes, costs, DNS changes, deployments, private media publication or real customer actions. Existing owner input and release holds remain.
 
 ## Historical Claude Code checkpoint (not current ownership or verification)
