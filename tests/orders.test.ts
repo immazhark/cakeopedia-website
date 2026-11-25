@@ -3,6 +3,8 @@ import { readdir, readFile } from 'node:fs/promises';
 import { after, before, test } from 'node:test';
 import { Miniflare } from 'miniflare';
 import type { AccessConfig } from '../worker/auth.ts';
+import { defaultCatalogue, parseCatalogue } from '../src/data/catalogue.ts';
+import { handlePublicCatalogue } from '../worker/catalogue.ts';
 import { handleInbox, type InboxDb } from '../worker/inbox.ts';
 
 const ISS = 'https://synthetic.cloudflareaccess.invalid', AUD = 'a', ORIGIN = 'https://admin.example.invalid', OWNER = 'owner@example.invalid', NOW = 1_800_000_000;
@@ -23,10 +25,11 @@ before(async () => {
 });
 after(async () => { await mf?.dispose(); });
 
+let rebuildHook: (() => Promise<boolean>) | undefined;
 const call = (path: string, method = 'GET', body?: object, jwt: string | null = token) => handleInbox(new Request(`${ORIGIN}${path}`, {
   method, ...(body ? { body: JSON.stringify(body) } : {}),
   headers: { ...(jwt ? { 'Cf-Access-Jwt-Assertion': jwt } : {}), ...(method !== 'GET' ? { Origin: ORIGIN, 'X-Cakeopedia-Admin': '1', 'Content-Type': 'application/json' } : {}) },
-}), spy as unknown as InboxDb, cfg, () => 7000);
+}), spy as unknown as InboxDb, cfg, () => 7000, undefined, rebuildHook);
 // Fault injection: run a competing operation once, immediately before the first statement matching `match`.
 let race: { match: RegExp; run: () => Promise<unknown> } | null = null;
 const wrap = (st: any, sql: string): any => new Proxy(st, { get: (t, k) => k === 'bind' ? (...a: unknown[]) => wrap(t.bind(...a), sql) : k === 'sql' ? sql : k === 'run' ? async () => { await fire(sql); return t.run(); } : k === 'first' ? async () => { await fire(sql); return t.first(); } : Reflect.get(t, k) });
@@ -245,4 +248,51 @@ test('request bodies are bounded and list parameters validated', async () => {
   const id = await seed();
   assert.equal((await call(url(id, 'quote'), 'POST', quote({ designNotes: 'x'.repeat(70_000) }))).status, 413);
   assert.equal((await call('/admin/api/busy?from=garbage')).status, 400);
+});
+
+// ---- catalogue: draft -> publish -> rollback, with the public side seeing only published snapshots
+const cat = (over: Record<string, unknown> = {}) => ({ ...structuredClone(defaultCatalogue), ...over });
+const pub = async () => handlePublicCatalogue(new Request(`${ORIGIN}/api/catalogue`), db as never);
+test('catalogue parse is strict and the seed carries the confirmed prices', () => {
+  assert.equal(parseCatalogue(defaultCatalogue).baseCents['9']! + parseCatalogue(defaultCatalogue).rasmalaiCents['9']!, 24500);
+  for (const bad of [{ extra: 1 }, { celebrationCents: 0 }, { celebrationCents: 75.5 }, { flavours: [] }, { flavours: [defaultCatalogue.flavours[0], defaultCatalogue.flavours[0]] }, { baseCents: { ...defaultCatalogue.baseCents, '9': -1 } }])
+    assert.throws(() => parseCatalogue({ ...defaultCatalogue, ...bad }));
+});
+test('catalogue: unauthenticated writes are refused; drafts stay private until published', async () => {
+  assert.equal((await call('/admin/api/catalogue', 'PUT', { expectedRevision: 0, catalogue: cat() }, null)).status, 401);
+  const g = await json<{ draft: { revision: number }; published: unknown }>(await call('/admin/api/catalogue'));
+  assert.deepEqual([g.draft.revision, g.published], [0, null]);
+  assert.equal((await pub()).status, 404); // nothing approved yet: the public side falls back to the build seed
+  assert.equal((await call('/admin/api/catalogue', 'PUT', { expectedRevision: 0, catalogue: cat({ celebrationCents: 8000 }) })).status, 200);
+  assert.equal((await pub()).status, 404); // a saved draft is not public
+  assert.equal((await call('/admin/api/catalogue', 'PUT', { expectedRevision: 0, catalogue: cat() })).status, 409); // stale
+  assert.equal((await call('/admin/api/catalogue', 'PUT', { expectedRevision: 1, catalogue: { ...cat(), celebrationCents: 0 } })).status, 400);
+  assert.equal((await call('/admin/api/catalogue', 'PUT', { expectedRevision: 1, catalogue: cat({ celebrationCents: 7800 }) })).status, 200);
+});
+test('catalogue: publish only the previewed revision, public updates, rebuild is requested or reported absent', async () => {
+  assert.equal((await call('/admin/api/catalogue/publish', 'POST', { expectedRevision: 1 })).status, 409); // draft moved on to revision 2
+  const r = await json<{ version: number; rebuild: string }>(await call('/admin/api/catalogue/publish', 'POST', { expectedRevision: 2 }));
+  assert.deepEqual([r.version, r.rebuild], [1, 'not_configured']);
+  let hits = 0; rebuildHook = async () => { hits++; return true; };
+  await call('/admin/api/catalogue', 'PUT', { expectedRevision: 2, catalogue: cat({ celebrationCents: 8200 }) });
+  assert.equal((await json<{ catalogue: { celebrationCents: number } }>(await pub())).catalogue.celebrationCents, 7800); // draft edit not public
+  const r2 = await json<{ version: number; rebuild: string }>(await call('/admin/api/catalogue/publish', 'POST', { expectedRevision: 3 }));
+  rebuildHook = async () => { throw new Error('hook down'); };
+  const r3 = await json<{ rebuild: string }>(await call('/admin/api/catalogue/rollback', 'POST', { version: 1, expectedCurrent: 2 }));
+  rebuildHook = undefined;
+  assert.deepEqual([r2.version, r2.rebuild, hits, r3.rebuild], [2, 'requested', 1, 'failed']); // a failed hook never undoes a publish
+  assert.equal((await json<{ version: number; catalogue: { celebrationCents: number } }>(await pub())).catalogue.celebrationCents, 7800); // rolled back to v1 content, as v3
+});
+test('catalogue: rollback appends history, needs the current version, and concurrent rollbacks yield exactly one winner', async () => {
+  const h = await json<{ versions: { version: number; source: string; fromVersion: number | null }[] }>(await call('/admin/api/catalogue/history'));
+  assert.deepEqual(h.versions.map((v) => [v.version, v.source, v.fromVersion]), [[3, 'rollback', 1], [2, 'publish', null], [1, 'publish', null]]);
+  assert.equal((await call('/admin/api/catalogue/rollback', 'POST', { version: 2, expectedCurrent: 2 })).status, 409); // stale: current is 3
+  assert.equal((await call('/admin/api/catalogue/rollback', 'POST', { version: 99, expectedCurrent: 3 })).status, 409); // unknown version
+  assert.equal((await call('/admin/api/catalogue/rollback', 'POST', { version: 3, expectedCurrent: 3 })).status, 409); // already current
+  const both = await Promise.all([1, 2].map(() => call('/admin/api/catalogue/rollback', 'POST', { version: 2, expectedCurrent: 3 })));
+  assert.deepEqual(both.map((r) => r.status).sort(), [200, 409]);
+  assert.equal((await json<{ version: number }>(await pub())).version, 4);
+});
+test('catalogue: oversized bodies are refused', async () => {
+  assert.equal((await call('/admin/api/catalogue', 'PUT', { expectedRevision: 4, catalogue: cat({ junk: 'x'.repeat(70_000) }) })).status, 413);
 });

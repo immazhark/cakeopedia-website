@@ -7,6 +7,7 @@ import { runConfiguredMaintenance } from './maintenance-runtime.ts';
 import { createRateLimiter } from './rate-limit.ts';
 import { EnquiryStore, type Database } from './store.ts';
 import { createTurnstileVerifier } from './turnstile.ts';
+import { handlePublicCatalogue } from './catalogue.ts';
 import { handleUpload, handleUploadDelete, ownsUploads, purgeOrphans, type Bucket, type UploadDatabase } from './uploads.ts';
 import { creationSlugs } from './creation-slugs.ts';
 
@@ -18,7 +19,7 @@ export type Env = Opt<{
   LIVE_ENABLED?: string; SITE_ORIGIN?: string; ACCESS_ISSUER?: string; ACCESS_AUD?: string; OPERATORS?: string;
   TURNSTILE_SECRET?: string; RATE_SECRET?: string;
   RESEND_API_KEY?: string; MAIL_FROM?: string; OWNER_EMAIL?: string;
-  NOTIFICATIONS_ENABLED?: string; RATE_CLEANUP_ENABLED?: string; UPLOAD_CLEANUP_ENABLED?: string;
+  CATALOGUE_REBUILD_HOOK?: string; NOTIFICATIONS_ENABLED?: string; RATE_CLEANUP_ENABLED?: string; UPLOAD_CLEANUP_ENABLED?: string;
 }>;
 export interface Live { fetch(request: Request): Promise<Response>; scheduled(): Promise<void> }
 const POLICY = { enquiry: { clientLimit: 3, globalLimit: 60 }, upload: { clientLimit: 10, globalLimit: 100 }, delete: { clientLimit: 10, globalLimit: 100 } } as const;
@@ -46,14 +47,18 @@ function build(env: Env, transport: typeof fetch): Live | null {
   };
   const verifyBot = createTurnstileVerifier({ secret: turnstile, hostname: site.hostname, action: 'enquiry' }, transport);
   const uploads = { db, bucket, origin, allowRequest: guard('upload') };
+  // Optional deploy hook (a secret URL) that rebuilds the static site after the owner publishes. Absent: publishing still works and says so.
+  const hook = env.CATALOGUE_REBUILD_HOOK;
+  const rebuild = hook?.startsWith('https://') ? async () => (await fetch(hook, { method: 'POST' })).ok : undefined;
   const notify = env.RESEND_API_KEY && env.MAIL_FROM && env.OWNER_EMAIL ? { apiKey: env.RESEND_API_KEY, from: env.MAIL_FROM, owner: env.OWNER_EMAIL } : undefined;
   return {
     async fetch(request) {
       const { pathname } = new URL(request.url);
-      if (pathname.startsWith('/admin/api/')) return handleInbox(request, db, access, Date.now, bucket);
+      if (pathname.startsWith('/admin/api/')) return handleInbox(request, db, access, Date.now, bucket, rebuild);
       if (pathname === '/api/enquiries') {
         return handleEnquiry(request, { store: new EnquiryStore(db), origin, creationIds: creationSlugs, allowRequest: guard('enquiry'), verifyBot, ownsUploads: (s, ids) => ownsUploads(db, s, ids) });
       }
+      if (pathname === '/api/catalogue') return handlePublicCatalogue(request, db as never);
       if (pathname === '/api/uploads') return handleUpload(request, uploads);
       if (pathname.startsWith('/api/uploads/')) return handleUploadDelete(request, pathname.slice('/api/uploads/'.length), { ...uploads, allowRequest: guard('delete') });
       return closed();

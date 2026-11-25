@@ -38,3 +38,11 @@ test('care: four-week freezing only; no invented durations or claims', () => {
   assert.match(all, /four weeks/);
   assert.doesNotMatch(all, /six.month|6.month|halal|allergen-free|room.temperature|shelf life/i);
 });
+
+test('catalogue snapshot: null means the seed; an invalid snapshot throws so the build fails instead of publishing junk', async () => {
+  const { resolveCatalogue, defaultCatalogue } = await import('../src/data/catalogue.ts');
+  assert.deepEqual(resolveCatalogue(null), defaultCatalogue);
+  assert.throws(() => resolveCatalogue({ ...defaultCatalogue, celebrationCents: -5 }));
+  assert.throws(() => resolveCatalogue({}));
+  assert.equal(resolveCatalogue({ ...defaultCatalogue, celebrationCents: 8000 }).celebrationCents, 8000);
+});

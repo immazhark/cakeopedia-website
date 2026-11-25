@@ -1,11 +1,17 @@
 ---
 import Base from '../layouts/Base.astro';
-import { customCake, flavours, celebrationCake, addons, cupcakes, brownies, ingredientStatements, ingredientScope } from '../data/business';
-import { SIZES, BASE_CENTS, RASMALAI_SURCHARGE_CENTS } from '../data/pricing';
+import { customCake, celebrationCake, cupcakes, brownies, ingredientStatements, ingredientScope } from '../data/business';
+import { SIZES } from '../data/pricing';
+import { resolveCatalogue } from '../data/catalogue';
+import approved from '../data/catalogue-approved.json'; // the owner's last published snapshot; null until she publishes
+const cat = resolveCatalogue(approved);
+const fromCents = Math.min(...Object.values(cat.baseCents));
+const numberWords = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen'];
+const count = (n: number) => numberWords[n] ?? String(n);
 import { formatMenuPrice } from '../data/menu-presentation';
 const money = (c: number, k: 'fixed' | 'starting') => formatMenuPrice(c, k);
 ---
-<Base title="Menu · Cakeopedia Austin" description="Custom cakes from $135, Celebration Cakes at $75, twelve flavours, cupcakes and brownies from Cakeopedia Austin." current="/menu/">
+<Base title="Menu · Cakeopedia Austin" description={`Custom cakes from ${formatMenuPrice(fromCents, 'fixed')}, Celebration Cakes at ${formatMenuPrice(cat.celebrationCents, 'fixed')}, ${count(cat.flavours.length)} flavours, cupcakes and brownies from Cakeopedia Austin.`} current="/menu/">
   <div class="wrap page-head prose">
     <p class="eyebrow">The menu</p>
     <h1>Baked from scratch, made to your occasion</h1>
@@ -14,28 +20,28 @@ const money = (c: number, k: 'fixed' | 'starting') => formatMenuPrice(c, k);
 
     <section aria-labelledby="custom">
       <h2 id="custom">Custom cakes</h2>
-      <p class="price-line"><strong>{money(customCake.startingCents, 'starting')}</strong> <span>for a {customCake.base.diameterIn}-inch, {customCake.base.layers}-layer cake, about {customCake.base.servings} servings</span></p>
-      <p>{customCake.note} See the <a href="/size-guide/">size and serving guide</a> for larger cakes.</p>
+      <p class="price-line"><strong>{money(cat.baseCents['6']!, 'starting')}</strong> <span>for a {customCake.base.diameterIn}-inch, {customCake.base.layers}-layer cake, about {customCake.base.servings} servings</span></p>
+      <p>The final price depends on size, flavour, design and add-ons, and is agreed in your quotation. See the <a href="/size-guide/">size and serving guide</a> for larger cakes.</p>
       <h3>Starting prices by size</h3>
       <table class="sizes"><thead><tr><th scope="col">Size</th><th scope="col">Starting price</th><th scope="col">Rasmalai Cake</th></tr></thead>
-        <tbody>{SIZES.map((d) => <tr><th scope="row">{d} inches</th><td>{money(BASE_CENTS[d], 'starting')}</td><td>{money(BASE_CENTS[d] + RASMALAI_SURCHARGE_CENTS[d], 'starting')}</td></tr>)}</tbody></table>
+        <tbody>{SIZES.map((d) => <tr><th scope="row">{d} inches</th><td>{money(cat.baseCents[d]!, 'starting')}</td><td>{money(cat.baseCents[d]! + cat.rasmalaiCents[d]!, 'starting')}</td></tr>)}</tbody></table>
       <p class="small">Two- and three-tier cakes, including Rasmalai, are quoted personally.</p>
-      <h3>Twelve flavours</h3>
+      <h3>{count(cat.flavours.length)[0]!.toUpperCase() + count(cat.flavours.length).slice(1)} flavours</h3>
       <ul class="flavours">
-        {flavours.map((f) => <li><strong>{f.name}</strong><span>{f.description}</span></li>)}
+        {cat.flavours.map((f) => <li><strong>{f.name}</strong><span>{f.description}</span></li>)}
       </ul>
       <h3>Add-ons</h3>
       <ul class="plain">
-        {addons.map((a) => <li><span>{a.name}{a.note ? ` — ${a.note}` : ''}</span> <strong>{money(a.priceCents, 'fixed')}</strong></li>)}
+        {cat.addons.map((a) => <li><span>{a.name}{a.note ? ` — ${a.note}` : ''}</span> <strong>{money(a.priceCents, 'fixed')}</strong></li>)}
       </ul>
     </section>
 
     <section aria-labelledby="celebration">
       <h2 id="celebration">Celebration Cakes</h2>
-      <p class="price-line"><strong>{money(celebrationCake.priceCents, 'fixed')}</strong> <span>{celebrationCake.diameterIn}-inch, {celebrationCake.layers} layers, {celebrationCake.shapes.join(' or ').toLowerCase()}</span></p>
+      <p class="price-line"><strong>{money(cat.celebrationCents, 'fixed')}</strong> <span>{celebrationCake.diameterIn}-inch, {celebrationCake.layers} layers, {celebrationCake.shapes.join(' or ').toLowerCase()}</span></p>
       <p>A simpler, more accessible cake for smaller celebrations. Choose from: {celebrationCake.customisation.map((c) => c.toLowerCase()).join(', ')}.</p>
       <h3>Flavours</h3>
-      <ul class="plain">{celebrationCake.flavours.map((f) => <li>{f}</li>)}</ul>
+      <ul class="plain">{cat.celebrationFlavours.map((f) => <li>{f}</li>)}</ul>
       <p class="small">Serves about {celebrationCake.servings.min}–{celebrationCake.servings.max}. No fondant work. Final details are confirmed with your quotation.</p>
     </section>
 
@@ -51,8 +57,8 @@ const money = (c: number, k: 'fixed' | 'starting') => formatMenuPrice(c, k);
       <p>Toppings: {brownies.toppings.join(', ')}. Available as {brownies.formats.map((f) => f.toLowerCase()).join(' or ')}.</p>
       <h3>{brownies.slab.name}</h3>
       <p>{brownies.slab.description}</p>
-      <p class="price-line"><strong>{money(brownies.priceCents, 'fixed')}</strong> <span>box of nine · <strong>{money(brownies.slabPriceCents, 'fixed')}</strong> {brownies.slab.name}, serves about {brownies.slabServings.min}–{brownies.slabServings.max}</span></p>
-      <p>Add a topping to a box or slab for <strong>{money(brownies.toppingUpgradeCents, 'fixed')}</strong>: a single charge per box or slab, not per brownie or per topping. Unusual quantities or topping combinations are reviewed by the baker.</p>
+      <p class="price-line"><strong>{money(cat.brownieBoxCents, 'fixed')}</strong> <span>box of nine · <strong>{money(cat.brownieSlabCents, 'fixed')}</strong> {brownies.slab.name}, serves about {brownies.slabServings.min}–{brownies.slabServings.max}</span></p>
+      <p>Add a topping to a box or slab for <strong>{money(cat.brownieToppingCents, 'fixed')}</strong>: a single charge per box or slab, not per brownie or per topping. Unusual quantities or topping combinations are reviewed by the baker.</p>
     </section>
 
     <section aria-labelledby="ingredients">
