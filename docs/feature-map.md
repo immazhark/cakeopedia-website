@@ -7,12 +7,12 @@ verified, blocked, deferred. Nothing here is staging or production verified.
 | ID | Feature | Status | Evidence / gap |
 |---|---|---|---|
 | F01 | Genuine Austin portfolio | Partially implemented | 19 real creations, gallery, collections. Austin provenance and name clearance pending owner; media not in Git. |
-| F02, F03 | Sizes, prices, flavours, add-ons | Partially implemented | Typed validated menu domain and publication controls; approved menu, ingestion and public UI pending. |
+| F02, F03 | Sizes, prices, flavours, add-ons | Partially implemented | Validated menu domain, precise price formatting, empty approved dataset and review-only editorial UI. Owner menu data, CMS workflow and production publication pending. |
 | F04 | Short enquiry | Implemented locally | Form to local Worker to D1: validated, replay-safe, offline retry tested in Edge at 390px. Closed in production builds. |
 | F05 | Ordering steps | Implemented locally | Home page steps (wording pending approval). |
 | F06 | Story and identity | Partially implemented | Draft story; logo and baker name pending. |
 | F07, F08 | Care, pickup/delivery | Not started | Owner wording pending. |
-| F13 | Serving guide | Partially implemented | Serving-range model exists; approved guide and public UI pending. |
+| F13 | Serving guide | Partially implemented | Serving-range model, formatter and review-only layout exist; approved portion data, visual verification and public release pending. |
 | F09 | Contact and Instagram | Partially implemented | Instagram only. |
 | F10 | Owner content updates | Not started | CMS trial pending. |
 | F11 | Gallery filters | Implemented locally | Crawlable /collections/ pages, no JS needed. |
@@ -21,7 +21,7 @@ verified, blocked, deferred. Nothing here is staging or production verified.
 | F17 | Shareable creation pages | Implemented locally | 19 pages; sitemap, canonical, schema pending. |
 | F18 | Customer feedback | Blocked (no permissioned reviews) | |
 | F19 | Private enquiry list | Implemented locally | /admin screen (phone-first) over the authenticated API: filters, detail, private picture viewing, status history, manual Instagram orders. Verified in Edge at 390px with a local dev login that exercises the real token verifier. Not yet behind a real Cloudflare Access app. |
-| F20 | New-enquiry alerts | Partially implemented | Bounded transport, immutable snapshot preparation, uncertainty reconciliation and due-event scheduling with isolated SQLite tests. Lease-aware sender integration, approved configuration, cron and cloud verification pending; no live delivery. |
+| F20 | New-enquiry alerts | Partially implemented | Bounded transport, immutable snapshot preparation, uncertainty reconciliation and due-event scheduling with isolated SQLite tests. Lease-aware sender composition implemented; integration tests committed, approved configuration, cron and cloud verification pending; no live delivery. |
 | F21 | Busy dates | Implemented locally | Per-day toggle in the calendar tab; owner note only, no public availability. |
 | F22 | Quote and order summary | Implemented locally | Versioned quotes (integer cents), agreed design and prep notes. |
 | F23 | Deposit and balance records | Implemented locally | Append-only owner-recorded payments, void with reason, confirmation blocked until the agreed deposit is recorded. No payment automation. |
