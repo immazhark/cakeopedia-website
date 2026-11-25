@@ -8,7 +8,7 @@ type Row = {kind:'send'|'skip';payload:string|null};
 // Call only after acquiring an outbox lease. Null means do not send; reconcile
 // an old attempt without a durable snapshot rather than guessing its bytes.
 export async function freezeNotificationSnapshot(db: Database, event: Lease,
-  build: () => Snapshot, clock: () => number = Date.now): Promise<Snapshot|null> {
+  build: () => Snapshot | Promise<Snapshot>, clock: () => number = Date.now): Promise<Snapshot|null> {
   const current = async () => db.prepare(`SELECT s.kind,s.payload FROM notification_snapshots s
     JOIN notification_outbox o ON o.id=s.event_id
     WHERE o.id=? AND o.state='leased' AND o.lease_token=? AND o.lease_until>?`)
@@ -23,7 +23,7 @@ export async function freezeNotificationSnapshot(db: Database, event: Lease,
   const first=await db.prepare(`SELECT id FROM notification_outbox WHERE id=? AND state='leased'
     AND lease_token=? AND lease_until>? AND attempts=1`).bind(event.id,event.lease_token,clock()).first<{id:string}>();
   if (!first) return null;
-  const candidate=build();
+  const candidate=await build();
   const payload=candidate.kind==='send'?candidate.payload:null;
   if (payload!==null && (payload.length>16384 || new TextEncoder().encode(payload).byteLength>16384)) throw Error('Notification payload too large');
   const now=clock();
