@@ -21,6 +21,7 @@ import Base from '../../layouts/Base.astro';
   <noscript><p class="wrap">This area needs JavaScript.</p></noscript>
   <script>
     // Phone-first owner screens. All authority lives on the server: this page only calls the authenticated API.
+    import { splitPayment } from '../../data/pricing';
     type Json = Record<string, any>;
     const $ = (id: string) => document.getElementById(id)!;
     const money = (c: number) => '$' + (c / 100).toFixed(2);
@@ -112,6 +113,9 @@ import Base from '../../layouts/Base.astro';
       // quote
       const q = o.quote as Json | null;
       const total = input('text', { inputmode: 'decimal', value: q ? (q.totalCents / 100).toFixed(2) : '' }), dep = input('text', { inputmode: 'decimal', value: q ? (q.depositCents / 100).toFixed(2) : '' });
+      // Suggest the agreed 50% advance; the owner can still overwrite it (e.g. for an approved rush arrangement).
+      let depEdited = !!q; dep.addEventListener('input', () => { depEdited = true; });
+      total.addEventListener('input', () => { const t = cents(total.value); if (!depEdited && t !== null) dep.value = (splitPayment(t).depositCents / 100).toFixed(2); });
       const ful = select([['pickup', 'Pickup'], ['delivery', 'Delivery']]); if (q) ful.value = q.fulfilment;
       const date = input('date', { value: q?.date ?? '' }), time = input('time', { value: q?.time ?? '' });
       const qrid = crypto.randomUUID(), dn = h('textarea', { rows: '3', maxlength: '2000' }) as HTMLTextAreaElement, pn = h('textarea', { rows: '3', maxlength: '2000' }) as HTMLTextAreaElement; dn.value = q?.designNotes ?? ''; pn.value = q?.prepNotes ?? '';
