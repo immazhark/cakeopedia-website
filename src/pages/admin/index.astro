@@ -27,6 +27,10 @@ import Base from '../../layouts/Base.astro';
     function cents(s: string): number | null { const m = /^\s*\$?(\d{1,6})(?:\.(\d{1,2}))?\s*$/.exec(s); return m ? Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0') || 0) : null; }
     const h = (tag: string, attrs: Record<string, string> = {}, ...kids: (Node | string)[]) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); e.append(...kids); return e; };
     const when = (t: number) => new Date(t).toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' });
+    // Screens are rebuilt from scratch; put keyboard focus back on the same control (by position) so it is not dropped to the page top.
+    const FOCUSABLE = 'button,a[href],input,select,textarea';
+    const focusIndex = (root: HTMLElement) => root.contains(document.activeElement) ? [...root.querySelectorAll(FOCUSABLE)].indexOf(document.activeElement!) : -1;
+    const refocus = (root: HTMLElement, i: number) => { if (i >= 0) (root.querySelectorAll(FOCUSABLE)[i] as HTMLElement | undefined)?.focus(); };
     const notice = (m: string) => { const n = $('notice'); n.hidden = !m; n.textContent = m; };
     async function api(path: string, method = 'GET', body?: object): Promise<{ ok: boolean; status: number; data: Json }> {
       try {
@@ -60,7 +64,7 @@ import Base from '../../layouts/Base.astro';
       items.push(...r.data.items); next = r.data.next; renderInbox();
     }
     function renderInbox() {
-      const root = $('inbox'); root.replaceChildren();
+      const root = $('inbox'), fi = focusIndex(root); root.replaceChildren();
       const chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filter by status' });
       for (const s of ['', 'new', 'replied', 'quoted', 'confirmed', 'closed']) { const c = btn(s || 'All', () => { filter = s; loadInbox(true); }, 'chip'); c.setAttribute('aria-pressed', String(filter === s)); chips.append(c); }
       root.append(chips, addForm());
@@ -72,6 +76,7 @@ import Base from '../../layouts/Base.astro';
       }
       if (!items.length) list.append(h('li', { class: 'hint' }, 'No enquiries here yet.'));
       root.append(list); if (next) root.append(btn('Load more', () => loadInbox(false), 'btn btn--ghost'));
+      refocus(root, fi);
     }
     function addForm() {
       const d = h('details', { class: 'add' }, h('summary', {}, 'Add an Instagram order'));
@@ -148,7 +153,7 @@ import Base from '../../layouts/Base.astro';
       const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1), last = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
       const r = await api(`/admin/api/calendar?from=${iso(first)}&to=${iso(last)}`); if (!r.ok) return;
       const orders: Json[] = r.data.orders, busy = new Map<string, string>((r.data.busy as Json[]).map((b) => [b.date, b.note ?? '']));
-      const root = $('calendar'); root.replaceChildren();
+      const root = $('calendar'), fi = focusIndex(root); root.replaceChildren();
       root.append(h('div', { class: 'cal-nav' }, btn('‹', () => { cursor.setMonth(cursor.getMonth() - 1); loadCalendar(); }, 'chip'), h('strong', { 'aria-live': 'polite' }, first.toLocaleString('en-US', { month: 'long', year: 'numeric' })), btn('›', () => { cursor.setMonth(cursor.getMonth() + 1); loadCalendar(); }, 'chip')),
         h('p', { class: 'hint' }, 'Tap a day to mark it busy or free. Confirmed orders show under their date. Busy dates are a note for you; the public site does not show availability.'));
       const list = h('ul', { class: 'admin-list' });
@@ -159,7 +164,7 @@ import Base from '../../layouts/Base.astro';
         const li = h('li', {}, b); for (const o of todays) li.append(btn(`${o.time ?? ''} ${o.name} (${o.fulfilment})`, () => openDetail(o.id), 'row'));
         list.append(li);
       }
-      root.append(list);
+      root.append(list); refocus(root, fi);
     }
 
     // ---- menu (private drafts; only published + available items can ever reach the public site)

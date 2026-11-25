@@ -107,6 +107,16 @@ try {
   check(bump === 200, 'second device edit succeeds');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await page.getByText('changed somewhere else').waitFor({ timeout: 5000 }).then(() => check(true, 'stale save shows the conflict message'), () => check(false, 'stale save shows the conflict message'));
+  // Owner Enquiries and Calendar by keyboard: re-rendering must not drop focus to the top of the page.
+  const kept = (id) => page.evaluate((i) => document.getElementById(i).contains(document.activeElement), id);
+  await page.getByRole('button', { name: 'Enquiries', exact: true }).click();
+  await page.getByRole('button', { name: 'new', exact: true }).focus(); await page.keyboard.press('Enter'); await page.waitForTimeout(600);
+  check(await kept('inbox'), 'focus stays in Enquiries after using a status filter by keyboard');
+  await page.getByRole('button', { name: 'Calendar', exact: true }).click();
+  const day = page.locator('#calendar ul button.chip').first(); await day.waitFor();
+  await day.focus(); await page.keyboard.press('Enter'); await page.waitForTimeout(600);
+  check(await kept('calendar'), 'focus stays in Calendar after toggling a day by keyboard');
+  await page.keyboard.press('Enter'); await page.waitForTimeout(600); // toggle it back so test data stays clean
   check(errors.length === 0, 'no uncaught page errors in owner journey ' + errors.join(' | '));
   void id;
   await ctx.close();
