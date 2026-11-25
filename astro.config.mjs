@@ -30,4 +30,11 @@ const envOutput = {
 };
 
 // The dev proxy only applies to `astro dev`: the local form talks to the local Worker (npm run dev:api) same-origin.
-export default defineConfig({ output: 'static', devToolbar: { enabled: false }, integrations: [envOutput], vite: { server: { proxy: { '/api': 'http://127.0.0.1:8787', '/admin/api': 'http://127.0.0.1:8787' } } } });
+// Hash-based CSP (Astro emits a <meta> for static pages). Turnstile needs its script, frame and verification calls.
+const turnstile = 'https://challenges.cloudflare.com';
+const csp = {
+  scriptDirective: { resources: ["'self'", turnstile] },
+  styleDirective: { resources: [{ resource: "'unsafe-inline'", kind: 'attribute' }] },
+  directives: ["default-src 'self'", `frame-src ${turnstile}`, `connect-src 'self' ${turnstile}`, "img-src 'self' blob: data:", "object-src 'none'", "base-uri 'self'", "form-action 'self'"],
+};
+export default defineConfig({ output: 'static', security: { csp }, devToolbar: { enabled: false }, integrations: [envOutput], vite: { server: { proxy: { '/api': 'http://127.0.0.1:8787', '/admin/api': 'http://127.0.0.1:8787' } } } });

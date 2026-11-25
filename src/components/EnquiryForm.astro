@@ -1,5 +1,9 @@
 ---
 import { creations } from '../data/creations';
+// Site key is public but environment-specific: Cloudflare's always-pass test key in dev only; a real key must be supplied at build.
+const testKey = '1x00000000000000000000AA';
+const siteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || (import.meta.env.DEV ? testKey : '');
+if (!siteKey || (!import.meta.env.DEV && /^[123]x/.test(siteKey))) throw new Error('Open enquiry form needs a real PUBLIC_TURNSTILE_SITE_KEY (test keys are dev-only).');
 const occasions = ['Birthday', 'Anniversary', 'Wedding or engagement', 'Baby or family celebration', 'Religious or cultural celebration', 'Something else', 'Not sure'];
 ---
 <div class="wrap page-head">
@@ -51,6 +55,11 @@ const occasions = ['Birthday', 'Anniversary', 'Wedding or engagement', 'Baby or 
 
     <div class="field field--check"><input id="privacy" name="privacy" type="checkbox" required aria-describedby="privacy-err" /><label for="privacy">I agree that Cakeopedia may use these details to reply to my enquiry. <a href="/privacy/">Privacy</a> *</label></div>
     <p class="err" id="privacy-err" hidden></p>
+    <div class="field" id="bot-field">
+      <div id="bot" data-sitekey={siteKey} aria-label="Security check"></div>
+      <p class="err" id="bot-err" role="alert" hidden></p>
+      <button class="chip" id="bot-retry" type="button" hidden>Try the security check again</button>
+    </div>
     <button class="btn" id="submit" type="submit">Send enquiry</button>
     <p class="hint" id="status" role="status" aria-live="polite"></p>
   </form>
@@ -141,6 +150,34 @@ const occasions = ['Birthday', 'Anniversary', 'Wedding or engagement', 'Baby or 
     }
     return Object.keys(errs).length === 0;
   }
+  // Turnstile: explicit render. Tokens are single-use and expire, so the widget resets after every attempt that is not a success.
+  type TS = { render: (el: HTMLElement, o: Record<string, unknown>) => string; reset: (id?: string) => void; remove: (id?: string) => void };
+  const botEl = $('bot'), botErr = $('bot-err'), botRetry = $<HTMLButtonElement>('bot-retry');
+  let botToken = '', widget: string | undefined, botLoading: Promise<void> | undefined;
+  const botMsg = (m: string, retry = false) => { botErr.hidden = !m; botErr.textContent = m; botRetry.hidden = !retry; };
+  const loadTurnstile = () => (botLoading ??= new Promise<void>((ok, no) => {
+    const s = document.createElement('script'); s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'; s.async = true;
+    s.onload = () => ok(); s.onerror = () => { s.remove(); botLoading = undefined; no(new Error('load')); };
+    document.head.append(s);
+  }));
+  async function mountBot() {
+    botToken = ''; botMsg('');
+    try {
+      await loadTurnstile();
+      const ts = (window as unknown as { turnstile: TS }).turnstile;
+      if (widget !== undefined) ts.remove(widget);
+      widget = ts.render(botEl, {
+        sitekey: botEl.dataset.sitekey, action: 'enquiry', size: 'flexible', theme: 'auto', 'response-field': false,
+        callback: (t: string) => { botToken = t; botMsg(''); },
+        'expired-callback': () => { botToken = ''; botMsg('The security check expired. Please complete it again.'); },
+        'timeout-callback': () => { botToken = ''; botMsg('The security check timed out. Please complete it again.'); },
+        'error-callback': () => { botToken = ''; botMsg('The security check could not run. Check your connection and try again.', true); return true; },
+      });
+    } catch { botMsg('The security check could not load. Check your connection and try again.', true); }
+  }
+  botRetry.addEventListener('click', () => { void mountBot(); });
+  const resetBot = () => { botToken = ''; try { (window as unknown as { turnstile: TS }).turnstile.reset(widget); } catch { void mountBot(); } };
+  void mountBot();
   const box = $('errors'), btn = $<HTMLButtonElement>('submit'), status = $('status');
   function showSummary(lines: string[]) { box.hidden = false; box.innerHTML = '<p><strong>Please check the form</strong></p><ul>' + lines.map((l) => `<li>${l.replace(/</g, '&lt;')}</li>`).join('') + '</ul>'; box.focus(); }
 
@@ -149,6 +186,8 @@ const occasions = ['Birthday', 'Anniversary', 'Wedding or engagement', 'Baby or 
     if (btn.disabled) return; // duplicate-click guard
     box.hidden = true;
     if (!validate()) { showSummary(Object.values(errs)); const first = Object.keys(errs)[0]!; ($(first) as HTMLElement).focus(); return; }
+    if (!botToken) { botMsg('Please complete the security check before sending.', !widget); showSummary(['Please complete the security check before sending.']); return; }
+    const sentToken = botToken;
     const dollars = $<HTMLInputElement>('budget').value, servings = $<HTMLInputElement>('servings').value;
     const body = {
       submissionId, name: $<HTMLInputElement>('name').value.trim(),
@@ -159,7 +198,7 @@ const occasions = ['Birthday', 'Anniversary', 'Wedding or engagement', 'Baby or 
       addons: $<HTMLInputElement>('addons').value.split(',').map((x) => x.trim()).filter(Boolean),
       fulfilment: (form.querySelector<HTMLInputElement>('input[name=fulfilment]:checked')?.value ?? 'not-sure'),
       budgetCents: dollars ? Number(dollars) * 100 : null, notes: $<HTMLTextAreaElement>('notes').value.trim() || null,
-      creationIds: $<HTMLSelectElement>('creation').value ? [$<HTMLSelectElement>('creation').value] : [], attachmentIds: pics.map((p) => p.id), privacyAck: true, botToken: 'local-dev',
+      creationIds: $<HTMLSelectElement>('creation').value ? [$<HTMLSelectElement>('creation').value] : [], attachmentIds: pics.map((p) => p.id), privacyAck: true, botToken: sentToken,
     };
     btn.disabled = true; status.textContent = 'Sending…';
     try {
@@ -169,11 +208,15 @@ const occasions = ['Birthday', 'Anniversary', 'Wedding or engagement', 'Baby or 
         sessionStorage.removeItem(KEY); sessionStorage.removeItem(SID);
         location.assign(`/enquiry-received/?ref=${encodeURIComponent(reference)}`); return;
       }
-      if (res.status === 400) showSummary(['Some details were not accepted. Please check each field and try again.']);
+      resetBot(); // the token may be spent; a replayed submission never needs it
+      const err = res.status === 400 ? (await res.json().catch(() => ({}))) as { error?: string } : {};
+      if (err.error === 'verification_failed') showSummary(['The security check did not pass. Please complete it again and press Send enquiry.']);
+      else if (res.status === 400) showSummary(['Some details were not accepted. Please check each field and try again.']);
       else if (res.status === 409) { sessionStorage.removeItem(SID); showSummary(['This form changed after an earlier attempt. Please press Send enquiry once more.']); }
       else if (res.status === 429) showSummary(['Too many attempts just now. Please wait a minute and try again. Your details are still here.']);
       else showSummary(['We could not confirm that your enquiry was received. Your details are still here. Press Send enquiry again; sending twice is safe.']);
     } catch {
+      resetBot();
       showSummary(['The connection dropped, so we cannot tell if your enquiry arrived. Your details are still here. Press Send enquiry again; sending twice is safe.']);
     } finally { btn.disabled = false; status.textContent = ''; }
   });

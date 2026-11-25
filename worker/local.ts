@@ -44,7 +44,7 @@ export default {
     if (url.pathname !== '/api/enquiries') return Response.json({ error: 'not_found' }, { status: 404 });
     return handleEnquiry(request, {
       store: new EnquiryStore(env.DB), origin, creationIds, allowRequest,
-      verifyBot: async (token) => token === 'local-dev',
+      verifyBot: async (token) => token === 'XXXX.DUMMY.TOKEN.XXXX', // Cloudflare's always-pass test-key token,
       ownsUploads: (submissionId, ids) => ownsUploads(env.DB, submissionId, ids),
     });
   },

@@ -85,3 +85,7 @@ inbox/auth/uploads/notifications; provider accounts; DNS/hosting. No provider, p
 
 Next: (1) owner answers in media-plan.md; (2) menu data model and enquiry UI with the three-image lifecycle behind the closed
 intake; (3) private inbox; (4) a real-browser pass at 390px with keyboard and reduced motion.
+
+## Turnstile frontend (uncommitted, branch feat/local-application-foundation)
+- EnquiryForm.astro: explicit-render widget (action `enquiry`, flexible size), token/expiry/timeout/error callbacks, load-failure retry button, reset after every non-success response, submit blocked without token. Site key from PUBLIC_TURNSTILE_SITE_KEY; dev falls back to Cloudflare's always-pass test key; a non-dev build with a missing or test key fails. worker/local.ts accepts only the test dummy token. Server replay path already skips token consumption.
+- Checks: `npm run verify` (150 tests, build). Not done: real-browser widget pass (incl. CSP behaviour with the live widget), real siteverify against production secret, release gates. Hash-based CSP meta added in astro.config.mjs (self + challenges.cloudflare.com); build output inspected, not browser-tested; meta cannot set frame-ancestors, so a header CSP is still needed at deploy. Secret key is never in the repo; set as Worker secret TURNSTILE_SECRET at authorised deployment.
