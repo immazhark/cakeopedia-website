@@ -4,7 +4,7 @@ import { sendResendEmail } from '../worker/resend-transport.ts';
 
 const message = JSON.stringify({ from: 'sender@example.invalid', to: ['receiver@example.invalid'], subject: 'Synthetic test', text: 'Synthetic only' });
 const key = 'cakeopedia/synthetic-event';
-const response = (status: number, body: unknown, headers?: HeadersInit) => new Response(JSON.stringify(body), { status, headers });
+const response = (status: number, body: unknown, headers?: HeadersInit) => new Response(JSON.stringify(body), { status, ...(headers === undefined ? {} : { headers }) });
 
 test('transmits the frozen bytes and same idempotency key on retries', async () => {
   const requests: RequestInit[] = [];
