@@ -64,8 +64,11 @@ export async function handleInbox(request: Request, db: AdminDb, cfg: AccessConf
         const blocker = await confirmBlocker(db, id); // owner-verified deposit is a precondition, never inferred
         if (blocker) return out(409, { error: blocker });
       }
-      await db.prepare('INSERT INTO enquiry_events (id, enquiry_id, status, created_at, actor, note) VALUES (?, ?, ?, ?, ?, ?)')
-        .bind(crypto.randomUUID(), id, b.status, now(), op.email, note).run();
+      // Compare-and-set in one statement: the event is written only if the status is still what the owner saw.
+      const eid = crypto.randomUUID();
+      await db.prepare(`INSERT INTO enquiry_events (id, enquiry_id, status, created_at, actor, note)
+        SELECT ?, e.id, ?, ?, ?, ? FROM enquiries e WHERE e.id = ? AND ${CURRENT} = ?`).bind(eid, b.status, now(), op.email, note, id, b.expected).run();
+      if (!await db.prepare('SELECT 1 AS x FROM enquiry_events WHERE id = ?').bind(eid).first()) return out(409, { error: 'status_changed' });
       return out(200, { status: b.status });
     }
     return new Response(null, { status: 405, headers: { 'Cache-Control': 'no-store' } });

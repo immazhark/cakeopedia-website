@@ -126,3 +126,13 @@ test('status workflow: history, optimistic concurrency, legacy booked mapping, n
   const filtered = (await (await call('/admin/api/enquiries?status=confirmed&limit=50')).json()) as { items: { id: string }[] };
   assert.ok(filtered.items.some((i) => i.id === legacy));
 });
+
+test('two simultaneous status changes cannot both win', async () => {
+  const token = await sign(good, {}), id = crypto.randomUUID();
+  await db.prepare('INSERT INTO enquiries (id, submission_id, payload_hash, public_reference, created_at, payload_json) VALUES (?,?,?,?,?,?)').bind(id, crypto.randomUUID(), 'h', `CK-${id}`, 1, '{"name":"Race"}').run();
+  const go = (status: string) => handleInbox(new Request(`${ORIGIN}/admin/api/enquiries/${id}/status`, { method: 'POST', body: JSON.stringify({ status, expected: 'new' }),
+    headers: { 'Cf-Access-Jwt-Assertion': token, Origin: ORIGIN, 'X-Cakeopedia-Admin': '1', 'Content-Type': 'application/json' } }), db as unknown as InboxDb, cfg, () => 7000);
+  const r = await Promise.all([go('replied'), go('closed')]);
+  assert.deepEqual(r.map((x) => x.status).sort(), [200, 409]);
+  assert.equal((await db.prepare("SELECT count(*) AS n FROM enquiry_events WHERE enquiry_id = ? AND status != 'new'").bind(id).first<{ n: number }>())!.n, 1);
+});
