@@ -50,6 +50,13 @@ Active primary development writer: ChatGPT, authorised by the sponsor. This is d
 - Sixteen new test cases committed. No successful latest combined CI evidence yet; previous test-only/partial runs were superseded. No complete RED/GREEN claim. New modules remain disconnected from production; do not enable live routing or apply cloud migrations. Reconcile unpublished migration lineage before provider application.
 - Next: check latest CI once, correct any failures, implement explicit closed maintenance entry and provider configuration validation, then owner menu editing/content ingestion and visual verification. cb7f02d still unavailable. No account/provider actions or expenditure.
 
+## Maintenance integration and editorial publication — latest checkpoint
+- Full repository CI 45546135329 passed at 8efd5da, including all earlier signing-key, IP normalization, SQLite and D1 emulator rate-limit tests.
+- d8c6927 / 2f1c6ac: closed-by-default maintenance coordinator, separate exact opt-ins, validated clock, isolated bounded jobs and aggregate operational reports. 434958f / d72e75d / eaf4812: compose actual scheduler, durable sender, address/secret preflight before lease acquisition, bounded rate cleanup, synthetic transport integration tests. No live cron, HTTP maintenance route or provider binding. Orphan cleanup deliberately excluded until attachment lifecycle race is fixed.
+- aa15c97 / 40c3800 / f2605fd: pure revision-aware menu editor and approved-only export/ingestion. Edits validate immutable IDs, server-owned revision/time, stale edits and published completeness. A real authenticated storage adapter must implement atomic compare-and-set; owner review is required before export. Public static dataset rejects non-public entries, remains empty and review concept stays non-indexable. No CMS deployment or actual menu publication.
+- 7ed5d63: tests explicitly require closed production health/intake/admin and no scheduled trigger. Fifteen new tests across maintenance, runtime, menu and release checks committed. Latest combined CI pending; intermediate runs cancelled by newer commits; no claim of completed RED/GREEN or cloud verification.
+- Next: verify latest combined CI; begin authenticated CMS storage/persistence and mobile editing workflow with explicit publish approval; reconcile missing cb7f02d payment/upload/SEO hardening without overwriting unpublished work. Continue release-safe independent work. No production changes or cloud migrations.
+
 No provider changes, costs, DNS changes, deployments, private media publication or real customer actions. Existing owner input and release holds remain.
 
 ## Historical Claude Code checkpoint (not current ownership or verification)
