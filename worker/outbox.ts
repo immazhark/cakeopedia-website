@@ -58,7 +58,9 @@ export class Outbox {
       return await this.finish(event, 'sent', now, null, result.providerId) ? 'accepted' : 'lease_lost';
     }
     if (result.kind === 'permanent') {
-      return await this.finish(event, 'failed', now, 'permanent_rejection') ? 'failed' : 'lease_lost';
+      // A later rejection cannot disprove acceptance of an earlier attempt (including an expired lease).
+      const state = event.attempts > 1 ? 'reconcile' : 'failed';
+      return await this.finish(event, state, now, state === 'reconcile' ? 'prior_attempt_uncertain' : 'permanent_rejection') ? state : 'lease_lost';
     }
     const retryAfter = result.kind === 'retry' && Number.isFinite(result.retryAfterMs) ? Math.max(0, result.retryAfterMs ?? 0) : 0;
     const delay = Math.max(Math.min(60_000 * 2 ** (event.attempts - 1), 3_600_000), retryAfter);
