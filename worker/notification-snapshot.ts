@@ -7,6 +7,10 @@ function address(value: string): string {
   if (value.length > 254 || !/^[a-zA-Z0-9.!#$%&'*+\/=\?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+$/.test(value) || /[\r\n]/.test(value)) throw Error('Invalid notification address');
   return value;
 }
+export function validateNotificationAddresses(config: Config): void {
+  address(config.from);
+  address(config.owner);
+}
 export function notificationSnapshot(config: Config, role: 'owner' | 'customer', reference: string, contact: Contact): Snapshot {
   if (!/^CK-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(reference)) throw Error('Invalid notification reference');
   if (role === 'customer' && contact.kind !== 'email') return { kind: 'skip', reason: 'non_email_contact' };
