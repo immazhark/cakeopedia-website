@@ -13,6 +13,12 @@ Active primary development writer: ChatGPT, authorised by the sponsor. This is d
 - This is a partial domain foundation only; no public menu route, CMS, persistence, owner editing, approved serving data or end-to-end proof. Full repository build/test requires the pinned Node 24 environment and dependencies; this chat's container cannot resolve GitHub directly.
 - Next: recover cb7f02d; verify PR head CI, integrate without loss, add approved-content ingestion and preview, then a mobile menu/serving guide with no synthetic publication. Continue independent work while recovery is blocked.
 
+## Notification foundation (F20) — current session
+- Transport b8b01a5 and tests 0f8bef7: explicit injected transport; fixed HTTPS endpoint, stable idempotency key, bounded body/response/deadline, safe provider outcomes and quota retry delay. Resend official idempotency semantics: https://resend.com/changelog/idempotency-keys.
+- Snapshot builder d8d7cc2 and tests 1599b5c: deterministic minimal plain-text draft payloads; owner alert excludes customer details; customer email only for email contact; explicit skip for other channels; enquiry is not an order confirmation.
+- Nine focused tests passed under Node 22.16.0 with --experimental-strip-types. Standalone source check passed with TypeScript 5.8.3 strict, noUncheckedIndexedAccess and exactOptionalPropertyTypes. Delivery type mirrored from existing outbox; no full repo checkout, build, D1 or live provider tests in this session. Files remain disconnected from production.
+- Next: persist exact payload and channel disposition atomically before first send; protect existing ambiguous outcomes on subsequent permanent rejection, integrate bounded scheduled outbox dispatch, validate approved sender/owner configuration and copy. Recover unpublished hardening before changing shared store/migrations. Do not enable delivery.
+
 No provider changes, costs, DNS changes, deployments, private media publication or real customer actions. Existing owner input and release holds remain.
 
 ## Historical Claude Code checkpoint (not current ownership or verification)
