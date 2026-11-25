@@ -61,7 +61,7 @@ const steps = [
         <p class="eyebrow">Find your style</p>
         <h2>Start from the occasion</h2>
         <ul class="chips" style="margin-top: var(--space-3)">
-          {(Object.keys(categories) as Category[]).map((k) => <li><a class="chip" href={`/creations/?c=${k}`}>{categories[k]}</a></li>)}
+          {(Object.keys(categories) as Category[]).map((k) => <li><a class="chip" href={`/collections/${k}/`}>{categories[k]}</a></li>)}
         </ul>
         <p>Cakes are previous work. Each one is made to order, so a similar design is a conversation, not a copy.</p>
       </div>
@@ -115,12 +115,13 @@ const steps = [
     const v = document.querySelector<HTMLVideoElement>('#hero-video');
     const t = document.querySelector<HTMLButtonElement>('#hero-toggle');
     if (v && t) {
-      t.hidden = false;
-      const set = (playing: boolean) => { t.textContent = playing ? 'Pause video' : 'Play video'; t.setAttribute('aria-pressed', String(!playing)); };
-      const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-      set(false);
-      if (!reduced) v.play().then(() => set(true)).catch(() => set(false));
-      t.addEventListener('click', () => { if (v.paused) { v.play(); set(true); } else { v.pause(); set(false); } });
+      // Button text follows the real playback state; a failed load removes the control and leaves the poster.
+      const sync = () => { t.textContent = v.paused ? 'Play video' : 'Pause video'; t.setAttribute('aria-pressed', String(v.paused)); };
+      v.addEventListener('play', sync); v.addEventListener('pause', sync);
+      v.addEventListener('error', () => { t.hidden = true; });
+      t.hidden = false; sync();
+      if (!matchMedia('(prefers-reduced-motion: reduce)').matches) v.play().catch(sync);
+      t.addEventListener('click', () => { v.paused ? v.play().catch(sync) : v.pause(); });
     }
   </script>
 </Base>

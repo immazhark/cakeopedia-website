@@ -1,0 +1,132 @@
+---
+import { creations } from '../data/creations';
+const occasions = ['Birthday', 'Anniversary', 'Wedding or engagement', 'Baby or family celebration', 'Religious or cultural celebration', 'Something else', 'Not sure'];
+---
+<div class="wrap page-head">
+  <p class="eyebrow">Enquire</p>
+  <h1 style="font-size:var(--step-3)">Tell us about your cake</h1>
+  <p class="lede" style="margin-top:var(--space-2)">This is an enquiry, not an order. We will reply personally about availability, then agree the design, price and details with you.</p>
+  <div class="note" style="margin-top:var(--space-3)"><p><strong>Local test mode.</strong> Nothing here reaches a real inbox. Required fields are marked with an asterisk.</p></div>
+</div>
+<div class="wrap">
+  <div id="errors" class="form-errors" role="alert" tabindex="-1" hidden></div>
+  <form id="enquiry" class="form" novalidate>
+    <fieldset>
+      <legend>About you</legend>
+      <div class="field"><label for="name">Your name *</label><input id="name" name="name" autocomplete="name" maxlength="100" required /><p class="err" id="name-err" hidden></p></div>
+      <div class="field"><label for="kind">Best way to reach you *</label>
+        <select id="kind" name="kind"><option value="email">Email</option><option value="phone">Phone or text</option><option value="instagram">Instagram</option></select></div>
+      <div class="field"><label for="contact" id="contact-label">Email address *</label><input id="contact" name="contact" type="email" inputmode="email" autocomplete="email" maxlength="254" required aria-describedby="contact-hint contact-err" /><p class="hint" id="contact-hint">We only use this to reply to your enquiry.</p><p class="err" id="contact-err" hidden></p></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>The celebration</legend>
+      <div class="field"><label for="occasion">Occasion</label><select id="occasion" name="occasion"><option value="">Choose one</option>{occasions.map((o) => <option>{o}</option>)}</select></div>
+      <div class="field"><label for="date">Date you need it</label><input id="date" name="date" type="date" aria-describedby="date-hint date-err" /><p class="hint" id="date-hint">Please allow about two weeks if you can.</p><p class="err" id="date-err" hidden></p></div>
+      <div class="field field--check"><input id="undecided" name="undecided" type="checkbox" /><label for="undecided">I don't know the date yet</label></div>
+      <div class="field"><label for="servings">About how many people? <span class="opt">(optional)</span></label><input id="servings" name="servings" type="number" inputmode="numeric" min="1" max="10000" aria-describedby="servings-err" /><p class="err" id="servings-err" hidden></p></div>
+      <fieldset class="radios"><legend>Pickup or delivery</legend>
+        <label><input type="radio" name="fulfilment" value="pickup" /> Pickup</label>
+        <label><input type="radio" name="fulfilment" value="delivery" /> Delivery</label>
+        <label><input type="radio" name="fulfilment" value="not-sure" checked /> Not sure yet</label>
+      </fieldset>
+    </fieldset>
+
+    <fieldset>
+      <legend>The cake</legend>
+      <div class="field"><label for="size">Size <span class="opt">(optional)</span></label><input id="size" name="size" maxlength="100" aria-describedby="size-hint" /><p class="hint" id="size-hint">For example "6 inch" or "two tiers". Leave blank if you are not sure.</p></div>
+      <div class="field"><label for="flavour">Flavour ideas <span class="opt">(optional)</span></label><input id="flavour" name="flavour" maxlength="100" /></div>
+      <div class="field"><label for="addons">Add-ons or extras <span class="opt">(optional)</span></label><input id="addons" name="addons" maxlength="200" aria-describedby="addons-hint addons-err" /><p class="hint" id="addons-hint">Separate with commas, for example "topper, extra flowers".</p><p class="err" id="addons-err" hidden></p></div>
+      <div class="field"><label for="budget">Budget in US dollars <span class="opt">(optional)</span></label><input id="budget" name="budget" type="number" inputmode="numeric" min="0" max="100000" step="1" aria-describedby="budget-err" /><p class="err" id="budget-err" hidden></p></div>
+      <div class="field"><label for="creation">A Cakeopedia cake you like <span class="opt">(optional)</span></label>
+        <select id="creation" name="creation"><option value="">None</option>{creations.map((c) => <option value={c.slug}>{c.title}</option>)}</select></div>
+      <div class="field"><label for="notes">Additional comments <span class="opt">(optional)</span></label><textarea id="notes" name="notes" rows="5" maxlength="2000" aria-describedby="notes-hint"></textarea><p class="hint" id="notes-hint">Colours, cake wording, preferred time of day and anything else we should know.</p></div>
+    </fieldset>
+
+    <div class="field field--check"><input id="privacy" name="privacy" type="checkbox" required aria-describedby="privacy-err" /><label for="privacy">I agree that Cakeopedia may use these details to reply to my enquiry. <a href="/privacy/">Privacy</a> *</label></div>
+    <p class="err" id="privacy-err" hidden></p>
+    <button class="btn" id="submit" type="submit">Send enquiry</button>
+    <p class="hint" id="status" role="status" aria-live="polite"></p>
+  </form>
+</div>
+<div style="height:var(--space-6)"></div>
+<script>
+  // Local-test form. Same submissionId is reused for every retry so a lost response is replay-safe.
+  const form = document.querySelector<HTMLFormElement>('#enquiry')!;
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+  const KEY = 'cakeopedia-enquiry-draft';
+  const SID = 'cakeopedia-enquiry-sid';
+  const submissionId = sessionStorage.getItem(SID) ?? (sessionStorage.setItem(SID, crypto.randomUUID()), sessionStorage.getItem(SID)!);
+  const kindCfg = { email: ['Email address *', 'email', 'email', 'email'], phone: ['Phone or text number *', 'tel', 'tel', 'tel'], instagram: ['Instagram handle *', 'text', 'off', 'text'] } as const;
+  const kind = $<HTMLSelectElement>('kind'), contact = $<HTMLInputElement>('contact');
+  const applyKind = () => { const [label, type, ac, mode] = kindCfg[kind.value as keyof typeof kindCfg]; $('contact-label').textContent = label; contact.type = type; contact.autocomplete = ac; contact.inputMode = mode; };
+  kind.addEventListener('change', applyKind);
+  const date = $<HTMLInputElement>('date'), undecided = $<HTMLInputElement>('undecided');
+  date.min = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+  undecided.addEventListener('change', () => { date.disabled = undecided.checked; if (undecided.checked) date.value = ''; });
+  const q = new URLSearchParams(location.search).get('creation'); if (q) $<HTMLSelectElement>('creation').value = q;
+
+  // Draft: non-contact fields only, session-scoped, never the contact details.
+  const draftFields = ['occasion', 'servings', 'size', 'flavour', 'addons', 'budget', 'creation', 'notes'];
+  try { const d = JSON.parse(sessionStorage.getItem(KEY) ?? '{}'); for (const f of draftFields) if (typeof d[f] === 'string' && !q) ($(f) as HTMLInputElement).value = d[f]; } catch { /* ignore corrupt draft */ }
+  form.addEventListener('input', () => sessionStorage.setItem(KEY, JSON.stringify(Object.fromEntries(draftFields.map((f) => [f, ($(f) as HTMLInputElement).value])))));
+
+  const errs: Record<string, string> = {};
+  const setErr = (id: string, msg: string) => { errs[id] = msg; };
+  function validate() {
+    for (const k of Object.keys(errs)) delete errs[k];
+    if (!$<HTMLInputElement>('name').value.trim()) setErr('name', 'Please tell us your name.');
+    const v = contact.value.trim(), k = kind.value;
+    if (!v) setErr('contact', 'Please add a way to reach you.');
+    else if (k === 'email' && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(v)) setErr('contact', 'That email address does not look right.');
+    else if (k === 'phone' && !/^\+?\d{10,15}$/.test(v.replace(/[\s().-]/g, ''))) setErr('contact', 'Please enter a phone number with area code, for example (512) 555-0100. Try Instagram or email if your number has an unusual format.');
+    else if (k === 'instagram' && !/^[A-Za-z0-9._]{1,30}$/.test(v.replace(/^@/, ''))) setErr('contact', 'Instagram handles use letters, numbers, dots and underscores.');
+    if (!undecided.checked && !date.value) setErr('date', 'Choose a date, or tick "I don\'t know the date yet".');
+    const s = $<HTMLInputElement>('servings').value; if (s && !(Number.isInteger(+s) && +s >= 1 && +s <= 10000)) setErr('servings', 'Please enter a whole number.');
+    const b = $<HTMLInputElement>('budget').value; if (b && !(Number.isInteger(+b) && +b >= 0 && +b <= 100000)) setErr('budget', 'Please enter whole dollars.');
+    const a = $<HTMLInputElement>('addons').value.split(',').map((x) => x.trim()).filter(Boolean); if (a.length > 8 || a.some((x) => x.length > 60)) setErr('addons', 'Please list up to eight short add-ons.');
+    if (!$<HTMLInputElement>('privacy').checked) setErr('privacy', 'Please tick the box so we can use your details to reply.');
+    for (const id of ['name', 'contact', 'date', 'servings', 'budget', 'addons', 'privacy']) {
+      const p = $(`${id}-err`); p.hidden = !errs[id]; p.textContent = errs[id] ?? '';
+      const input = $(id); if (errs[id]) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid');
+    }
+    return Object.keys(errs).length === 0;
+  }
+  const box = $('errors'), btn = $<HTMLButtonElement>('submit'), status = $('status');
+  function showSummary(lines: string[]) { box.hidden = false; box.innerHTML = '<p><strong>Please check the form</strong></p><ul>' + lines.map((l) => `<li>${l.replace(/</g, '&lt;')}</li>`).join('') + '</ul>'; box.focus(); }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (btn.disabled) return; // duplicate-click guard
+    box.hidden = true;
+    if (!validate()) { showSummary(Object.values(errs)); const first = Object.keys(errs)[0]!; ($(first) as HTMLElement).focus(); return; }
+    const dollars = $<HTMLInputElement>('budget').value, servings = $<HTMLInputElement>('servings').value;
+    const body = {
+      submissionId, name: $<HTMLInputElement>('name').value.trim(),
+      contact: { kind: kind.value, value: contact.value.trim() },
+      eventDate: undecided.checked ? null : date.value, dateUndecided: undecided.checked,
+      occasion: $<HTMLSelectElement>('occasion').value || null, servings: servings ? Number(servings) : null,
+      size: $<HTMLInputElement>('size').value.trim() || null, flavour: $<HTMLInputElement>('flavour').value.trim() || null,
+      addons: $<HTMLInputElement>('addons').value.split(',').map((x) => x.trim()).filter(Boolean),
+      fulfilment: (form.querySelector<HTMLInputElement>('input[name=fulfilment]:checked')?.value ?? 'not-sure'),
+      budgetCents: dollars ? Number(dollars) * 100 : null, notes: $<HTMLTextAreaElement>('notes').value.trim() || null,
+      creationIds: $<HTMLSelectElement>('creation').value ? [$<HTMLSelectElement>('creation').value] : [], privacyAck: true, botToken: 'local-dev',
+    };
+    btn.disabled = true; status.textContent = 'Sending…';
+    try {
+      const res = await fetch('/api/enquiries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (res.ok) {
+        const { reference } = await res.json() as { reference: string };
+        sessionStorage.removeItem(KEY); sessionStorage.removeItem(SID);
+        location.assign(`/enquiry-received/?ref=${encodeURIComponent(reference)}`); return;
+      }
+      if (res.status === 400) showSummary(['Some details were not accepted. Please check each field and try again.']);
+      else if (res.status === 409) { sessionStorage.removeItem(SID); showSummary(['This form changed after an earlier attempt. Please press Send enquiry once more.']); }
+      else if (res.status === 429) showSummary(['Too many attempts just now. Please wait a minute and try again. Your details are still here.']);
+      else showSummary(['We could not confirm that your enquiry was received. Your details are still here. Press Send enquiry again; sending twice is safe.']);
+    } catch {
+      showSummary(['The connection dropped, so we cannot tell if your enquiry arrived. Your details are still here. Press Send enquiry again; sending twice is safe.']);
+    } finally { btn.disabled = false; status.textContent = ''; }
+  });
+  applyKind();
+</script>

@@ -1,8 +1,8 @@
 ---
 import Base from '../../layouts/Base.astro';
 import CreationCard from '../../components/CreationCard.astro';
-import { creations, categories, type Category } from '../../data/creations';
-const keys = Object.keys(categories) as Category[];
+import CategoryNav from '../../components/CategoryNav.astro';
+import { creations } from '../../data/creations';
 ---
 <Base title="Creations · Cakeopedia Austin" description="Browse vintage, floral and celebration cakes made by hand by Cakeopedia Austin. Previous work, shown as it was made." current="/creations/">
   <div class="wrap page-head">
@@ -11,30 +11,10 @@ const keys = Object.keys(categories) as Category[];
     <p class="lede" style="margin-top:var(--space-2)">Real cakes from the Cakeopedia kitchen. They are previous work, not a menu: each new cake is designed with you.</p>
   </div>
   <div class="wrap">
-    <ul class="chips" id="filters" aria-label="Filter creations">
-      <li><a class="chip" href="/creations/" data-f="all" aria-pressed="true">All</a></li>
-      {keys.map((k) => <li><a class="chip" href={`/creations/?c=${k}`} data-f={k} aria-pressed="false">{categories[k]}</a></li>)}
-    </ul>
-    <p id="count" class="caption" role="status" aria-live="polite" style="margin-top:0"></p>
-    <ul class="grid" id="grid">
-      {creations.map((c, i) => <li data-cats={c.cats.join(' ')}><CreationCard c={c} eager={i < 3} /></li>)}
+    <CategoryNav />
+    <ul class="grid">
+      {creations.map((c, i) => <li><CreationCard c={c} eager={i < 3} /></li>)}
     </ul>
   </div>
   <div style="height:var(--space-6)"></div>
-  <script>
-    // Filter is an enhancement: without JS every creation shows and chips are plain links.
-    const items = [...document.querySelectorAll<HTMLElement>('#grid > li')];
-    const chips = [...document.querySelectorAll<HTMLAnchorElement>('#filters .chip')];
-    const count = document.querySelector('#count')!;
-    const apply = (f: string, push: boolean) => {
-      let n = 0;
-      items.forEach((li) => { const on = f === 'all' || li.dataset.cats!.split(' ').includes(f); li.hidden = !on; if (on) n++; });
-      chips.forEach((ch) => ch.setAttribute('aria-pressed', String(ch.dataset.f === f)));
-      count.textContent = f === 'all' ? '' : `${n} creation${n === 1 ? '' : 's'}`;
-      if (push) history.replaceState(null, '', f === 'all' ? '/creations/' : `/creations/?c=${f}`);
-    };
-    chips.forEach((ch) => ch.addEventListener('click', (e) => { e.preventDefault(); apply(ch.dataset.f!, true); }));
-    const q = new URLSearchParams(location.search).get('c');
-    apply(chips.some((c) => c.dataset.f === q) ? q! : 'all', false);
-  </script>
 </Base>

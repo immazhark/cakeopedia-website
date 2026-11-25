@@ -16,7 +16,7 @@ before(async () => {
 });
 after(async () => { await mf?.dispose(); });
 function input(extra: Record<string, unknown> = {}) {
-  return { submissionId: crypto.randomUUID(), name: 'Synthetic Test', contact: { kind: 'email', value: 'test@example.invalid' }, dateUndecided: true, creationIds: [], ...extra };
+  return { submissionId: crypto.randomUUID(), name: 'Synthetic Test', contact: { kind: 'email', value: 'test@example.invalid' }, dateUndecided: true, creationIds: [], privacyAck: true, ...extra };
 }
 function request(body: unknown, headers: Record<string, string> = {}) {
   return new Request('https://preview.example.invalid/api/enquiries', { method: 'POST', headers: { Origin: 'https://preview.example.invalid', 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
@@ -123,4 +123,19 @@ test('public Worker stays closed, including all private endpoints', async () => 
   }
   const health = await entry.fetch(new Request('http://localhost/health'));
   assert.deepEqual(await health.json(), { stage: 'local-foundation', intakeEnabled: false });
+});
+test('contact routes, fulfilment, add-ons and budget validate and normalise', async () => {
+  const ok = async (extra: Record<string, unknown>) => (await handleEnquiry(request(input(extra)), deps())).status;
+  assert.equal(await ok({ contact: { kind: 'phone', value: '(512) 555-0100' } }), 201);
+  assert.equal(await ok({ contact: { kind: 'instagram', value: '@synthetic.user' } }), 201);
+  assert.equal(await ok({ fulfilment: 'delivery', size: '6 inch', flavour: 'Not sure', addons: ['topper', 'topper'], budgetCents: 15000 }), 201);
+  for (const bad of [
+    { contact: { kind: 'phone', value: '12345' } }, { contact: { kind: 'instagram', value: 'bad handle!' } },
+    { contact: { kind: 'sms', value: 'x' } }, { fulfilment: 'courier' }, { budgetCents: 12.5 }, { budgetCents: -1 },
+    { addons: Array.from({ length: 9 }, (_, i) => `a${i}`) }, { privacyAck: false }, { privacyAck: undefined },
+  ]) assert.equal(await ok(bad), 400, JSON.stringify(bad));
+  const normal = input({ contact: { kind: 'phone', value: '(512) 555-0100' }, addons: ['b', 'a', 'a'] });
+  await handleEnquiry(request(normal), deps());
+  const stored = JSON.parse((await db.prepare('SELECT payload_json AS p FROM enquiries WHERE submission_id = ?').bind(normal.submissionId).first<{ p: string }>())!.p);
+  assert.deepEqual([stored.contact.value, stored.addons], ['5125550100', ['a', 'b']]);
 });

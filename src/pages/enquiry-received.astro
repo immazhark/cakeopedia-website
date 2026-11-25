@@ -1,0 +1,16 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="Enquiry received · Cakeopedia Austin" description="Your enquiry to Cakeopedia Austin has been received.">
+  <div class="wrap page-head prose">
+    <p class="eyebrow">Enquiry received</p>
+    <h1>Thank you. We have your enquiry.</h1>
+    <p class="lede" style="margin-top:var(--space-3)">This is not a confirmed order. We will reply personally about availability and your quote; your date is only held once details and a deposit are agreed.</p>
+    <p id="ref" hidden>Your reference: <strong id="ref-value"></strong></p>
+    <div class="actions"><a class="btn" href="/creations/">Keep browsing</a></div>
+  </div>
+  <script>
+    const ref = new URLSearchParams(location.search).get('ref');
+    if (ref && /^CK-[0-9a-f-]{36}$/i.test(ref)) { document.getElementById('ref-value')!.textContent = ref; document.getElementById('ref')!.hidden = false; }
+  </script>
+</Base>

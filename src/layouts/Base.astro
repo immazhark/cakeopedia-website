@@ -4,6 +4,7 @@ import '@fontsource-variable/figtree';
 import '../styles/global.css';
 interface Props { title: string; description: string; current?: string; image?: string }
 const { title, description, current, image } = Astro.props;
+const indexable = import.meta.env.PUBLIC_SITE_ENV === 'production';
 const nav = [['/creations/', 'Creations'], ['/story/', 'Story'], ['/enquiry/', 'Enquire']];
 ---
 <!doctype html>
@@ -11,8 +12,9 @@ const nav = [['/creations/', 'Creations'], ['/story/', 'Story'], ['/enquiry/', '
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Development preview: keep out of search until a deliberate, authorised launch. -->
-    <meta name="robots" content="noindex, nofollow" />
+    <!-- Previews stay out of search; robots.txt and this tag flip only for a production build. -->
+    {!indexable && <meta name="robots" content="noindex, nofollow" />}
+    <link rel="icon" href="data:," />
     <meta name="description" content={description} />
     <meta name="theme-color" content="#91ae8f" />
     <meta property="og:title" content={title} />
@@ -38,7 +40,7 @@ const nav = [['/creations/', 'Creations'], ['/story/', 'Story'], ['/enquiry/', '
       <div class="wrap">
         <div>
           <p><strong>Cakeopedia Austin</strong> is a small home bakery in Austin, Texas. Cakes shown on this site are previous work, not a menu.</p>
-          <p>Development preview. Prices, flavours, sizes and fulfilment details are being confirmed with the baker.</p>
+          <p>{!indexable && "Development preview. "}Prices, flavours, sizes and fulfilment details are being confirmed with the baker.</p>
         </div>
         <div>
           <p><a href="https://www.instagram.com/cakeopedia.austin/" rel="noopener">@cakeopedia.austin on Instagram</a></p>

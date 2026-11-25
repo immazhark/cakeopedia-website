@@ -46,3 +46,14 @@ test('no original-media paths or private provenance in built pages', async () =>
     assert.doesNotMatch(html, /CakeopediaMedia|C:\\|OneDrive|\.HEIC|1000\d{6}/i);
   }
 });
+
+test('collections are crawlable links with correct semantics, and the preview emits noindex headers', async () => {
+  for (const cat of ['floral', 'vintage', 'celebration', 'minis']) {
+    const html = await read(`collections/${cat}/index.html`);
+    assert.match(html, /<h1/);
+    assert.match(html, /aria-current="page"/);
+    assert.doesNotMatch(html, /aria-pressed/);
+  }
+  assert.match(await read('creations/index.html'), /href="\/collections\/floral\/"/);
+  assert.match(await read('_headers'), /X-Robots-Tag: noindex/);
+});

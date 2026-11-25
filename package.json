@@ -15,7 +15,8 @@
     "dev:api": "wrangler dev --config wrangler.local.jsonc --local",
     "db:local": "wrangler d1 migrations apply DB --config wrangler.local.jsonc --local",
     "verify": "npm run check && npm test && npm run build && node --test tests/build.test.mjs",
-    "media": "node scripts/build-media.mjs"
+    "media": "node scripts/build-media.mjs",
+    "check:media": "node scripts/check-media.mjs"
   },
   "dependencies": {
     "astro": "7.4.13"

@@ -1,0 +1,10 @@
+---
+import { categories, type Category } from '../data/creations';
+const { active } = Astro.props as { active?: Category };
+---
+<nav aria-label="Browse by style">
+  <ul class="chips">
+    <li><a class="chip" href="/creations/" aria-current={!active ? 'page' : undefined}>All</a></li>
+    {(Object.keys(categories) as Category[]).map((k) => <li><a class="chip" href={`/collections/${k}/`} aria-current={active === k ? 'page' : undefined}>{categories[k]}</a></li>)}
+  </ul>
+</nav>
