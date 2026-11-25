@@ -23,7 +23,7 @@ export async function runDueNotifications(db: Database, send: Sender,
   if (!Array.isArray(ids) || ids.length > limit || ids.some(id => typeof id !== 'string') || new Set(ids).size !== ids.length) {
     throw Error('Invalid notification candidate selection');
   }
-  const report: Report = { selected: ids.length, idle: 0, accepted: 0, pending: 0, failed: 0, reconcile: 0, lease_lost: 0, errors: 0 };
+  const report: Report = { selected: ids.length, idle: 0, accepted: 0, pending: 0, failed: 0, reconcile: 0, lease_lost: 0, skipped: 0, errors: 0 };
   const outbox = new Outbox(db);
   const dispatch = async (id: string) => {
     try { report[await outbox.dispatch(id, send, clock)]++; }
