@@ -15,7 +15,7 @@ let db: Awaited<ReturnType<Miniflare['getD1Database']>>;
 before(async () => {
   mf = new Miniflare({ modules: true, script: 'export default { fetch() { return new Response("t"); } }', compatibilityDate: '2026-07-30', d1Databases: ['DB'] });
   db = await mf.getD1Database('DB');
-  for (const file of ['0001_enquiries.sql', '0002_outbox_leases.sql', '0003_uploads.sql', '0004_enquiry_events.sql', '0005_orders.sql']) {
+  for (const file of ['0001_enquiries.sql', '0002_outbox_leases.sql', '0003_uploads.sql', '0004_enquiry_events.sql', '0005_orders.sql', '0012_upload_tombstones.sql']) {
     const sql = (await readFile(new URL(`../migrations/${file}`, import.meta.url), 'utf8')).replace(/^--.*$/gm, '');
     await db.batch(sql.split(';').map((s) => s.trim()).filter(Boolean).map((s) => db.prepare(s)));
   }
@@ -138,4 +138,36 @@ test('owner can read an attached picture only when authorised; unattached and un
   assert.match(ok.headers.get('Cache-Control') ?? '', /no-store/);
   assert.equal(ok.headers.get('X-Content-Type-Options'), 'nosniff');
   assert.equal((await read(crypto.randomUUID(), token)).status, 404);
+});
+
+test('concurrent uploads cannot exceed the three-image quota', async () => {
+  const bucket = new MemoryBucket(), sid = crypto.randomUUID();
+  const res = await Promise.all(await Promise.all([0, 1, 2, 3, 4, 5].map(async (i) => handleUpload(up(await png({ w: i }), sid), deps(bucket)))));
+  assert.deepEqual(res.map((r) => r.status).sort(), [201, 201, 201, 422, 422, 422]);
+  assert.equal(await rows(sid), 3);
+  assert.equal(bucket.objects.size, 3);
+});
+
+test('a delete in flight cannot race an enquiry: the picture is never attached with its object gone', async () => {
+  const bucket = new MemoryBucket(), sid = crypto.randomUUID();
+  const { attachmentId } = (await (await handleUpload(up(await png(), sid), deps(bucket))).json()) as { attachmentId: string };
+  let release!: () => void; const gate = new Promise<void>((r) => { release = r; });
+  const slow: Bucket = { put: bucket.put.bind(bucket), delete: async (k) => { await gate; await bucket.delete(k); } };
+  const del = handleUploadDelete(new Request(`${ORIGIN}/api/uploads/${attachmentId}`, { method: 'DELETE', headers: { Origin: ORIGIN, 'X-Submission-Id': sid } }), attachmentId, deps(slow));
+  await new Promise((r) => setTimeout(r, 50)); // delete has claimed the row and is waiting on storage
+  assert.equal(await ownsUploads(deps(bucket).db, sid, [attachmentId]), false); // cannot be attached any more
+  release(); assert.equal((await del).status, 204);
+  assert.equal(bucket.objects.size, 0);
+  assert.equal(await rows(sid), 0);
+});
+
+test('a lost object delete leaves a tombstone the purge finishes, never an untracked object', async () => {
+  const bucket = new MemoryBucket(), sid = crypto.randomUUID();
+  const { attachmentId } = (await (await handleUpload(up(await png(), sid), deps(bucket))).json()) as { attachmentId: string };
+  const flaky: Bucket = { put: bucket.put.bind(bucket), delete: async () => { throw new Error('r2 down'); } };
+  const r = await handleUploadDelete(new Request(`${ORIGIN}/api/uploads/${attachmentId}`, { method: 'DELETE', headers: { Origin: ORIGIN, 'X-Submission-Id': sid } }), attachmentId, deps(flaky));
+  assert.equal(r.status, 503);
+  assert.equal(bucket.objects.size, 1); assert.equal(await rows(sid), 1); // still tracked
+  assert.ok((await purgeOrphans(deps(bucket).db, bucket, Date.now())) >= 1); // immediately, not after 24 hours
+  assert.equal(bucket.objects.size, 0); assert.equal(await rows(sid), 0);
 });

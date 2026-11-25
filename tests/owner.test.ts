@@ -21,7 +21,7 @@ before(async () => {
   cfg = { issuer: ISS, audience: AUD, operators: new Set([OWNER]), getKeys: async () => [jwk], now: () => NOW, origin: ORIGIN };
   mf = new Miniflare({ modules: true, script: 'export default { fetch() { return new Response("t"); } }', compatibilityDate: '2026-07-30', d1Databases: ['DB'] });
   db = await mf.getD1Database('DB');
-  for (const f of ['0001_enquiries.sql', '0002_outbox_leases.sql', '0003_uploads.sql', '0004_enquiry_events.sql', '0005_orders.sql']) {
+  for (const f of ['0001_enquiries.sql', '0002_outbox_leases.sql', '0003_uploads.sql', '0004_enquiry_events.sql', '0005_orders.sql', '0012_upload_tombstones.sql']) {
     const sql = (await readFile(new URL(`../migrations/${f}`, import.meta.url), 'utf8')).replace(/^--.*$/gm, '');
     await db.batch(sql.split(';').map((s) => s.trim()).filter(Boolean).map((s) => db.prepare(s)));
   }

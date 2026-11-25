@@ -51,6 +51,14 @@ function submissionOf(request: Request): string | null {
   return uuid.test(id) ? id.toLowerCase() : null;
 }
 
+/** Tombstone first (no longer attachable or counted), then delete object, then row. Safe to repeat. */
+async function retire(deps: UploadDeps, id: string, now: number): Promise<void> {
+  const row = await deps.db.prepare('UPDATE uploads SET deleted_at = COALESCE(deleted_at, ?) WHERE id = ? AND enquiry_id IS NULL RETURNING object_key AS key').bind(now, id).first<{ key: string }>();
+  if (!row) return;
+  await deps.bucket.delete(row.key);
+  await deps.db.prepare('DELETE FROM uploads WHERE id = ? AND enquiry_id IS NULL').bind(id).run();
+}
+
 /** POST /api/uploads  (raw image bytes, header X-Submission-Id) */
 export async function handleUpload(request: Request, deps: UploadDeps): Promise<Response> {
   if (request.method !== 'POST') return new Response(null, { status: 405, headers: { Allow: 'POST' } });
@@ -69,20 +77,25 @@ export async function handleUpload(request: Request, deps: UploadDeps): Promise<
       if (e instanceof RejectedImage) return reply(e.reason === 'too_large' ? 413 : 422, { error: `image_${e.reason}` });
       throw e;
     }
-    if (await deps.db.prepare('SELECT 1 AS x FROM enquiries WHERE submission_id = ?').bind(submission).first()) return reply(409, { error: 'enquiry_already_sent' });
-    const mine = await deps.db.prepare('SELECT count(*) AS n FROM uploads WHERE submission_id = ?').bind(submission).first<{ n: number }>();
-    if ((mine?.n ?? 0) >= POLICY.perSubmission) return reply(422, { error: 'too_many_images' });
-    const day = await deps.db.prepare('SELECT count(*) AS n FROM uploads WHERE created_at > ?').bind(now - 24 * 3600_000).first<{ n: number }>();
-    if ((day?.n ?? 0) >= POLICY.perDay) return reply(429, { error: 'try_later' });
     rowId = crypto.randomUUID();
     const key = `u/${crypto.randomUUID()}`;
-    await deps.db.prepare('INSERT INTO uploads (id, submission_id, object_key, content_type, bytes, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(rowId, submission, key, image.type, image.bytes.length, now).run();
+    // Quota, daily cap and "enquiry already sent" are enforced inside the INSERT, so concurrent uploads cannot overshoot them.
+    await deps.db.prepare(`INSERT INTO uploads (id, submission_id, object_key, content_type, bytes, created_at)
+      SELECT ?1, ?2, ?3, ?4, ?5, ?6 WHERE (SELECT count(*) FROM uploads WHERE submission_id = ?2 AND deleted_at IS NULL) < ?7
+        AND (SELECT count(*) FROM uploads WHERE created_at > ?8 AND deleted_at IS NULL) < ?9
+        AND NOT EXISTS (SELECT 1 FROM enquiries WHERE submission_id = ?2)`)
+      .bind(rowId, submission, key, image.type, image.bytes.length, now, POLICY.perSubmission, now - 24 * 3600_000, POLICY.perDay).run();
+    if (!await deps.db.prepare('SELECT 1 AS x FROM uploads WHERE id = ?').bind(rowId).first()) {
+      rowId = null; // nothing was stored; say why
+      if (await deps.db.prepare('SELECT 1 AS x FROM enquiries WHERE submission_id = ?').bind(submission).first()) return reply(409, { error: 'enquiry_already_sent' });
+      const mine = await deps.db.prepare('SELECT count(*) AS n FROM uploads WHERE submission_id = ? AND deleted_at IS NULL').bind(submission).first<{ n: number }>();
+      return (mine?.n ?? 0) >= POLICY.perSubmission ? reply(422, { error: 'too_many_images' }) : reply(429, { error: 'try_later' });
+    }
     await deps.bucket.put(key, image.bytes, { httpMetadata: { contentType: image.type } });
     return reply(201, { attachmentId: rowId, type: image.type, width: image.width, height: image.height });
   } catch {
-    // Storage failure: drop the tracking row so the customer can retry; never leak provider errors.
-    if (rowId) await deps.db.prepare('DELETE FROM uploads WHERE id = ? AND enquiry_id IS NULL').bind(rowId).run().catch(() => undefined);
+    // A put may have landed even though it threw: retire row and object together; the purge finishes it if this is lost too.
+    if (rowId) await retire(deps, rowId, now).catch(() => undefined);
     return reply(503, { error: 'upload_unconfirmed', retry: true });
   }
 }
@@ -94,11 +107,8 @@ export async function handleUploadDelete(request: Request, id: string, deps: Upl
   const submission = submissionOf(request);
   if (!submission || !uuid.test(id)) return reply(400, { error: 'invalid_input' });
   try {
-    const row = await deps.db.prepare('SELECT object_key AS key FROM uploads WHERE id = ? AND submission_id = ? AND enquiry_id IS NULL').bind(id.toLowerCase(), submission).first<{ key: string }>();
-    if (row) {
-      await deps.bucket.delete(row.key);
-      await deps.db.prepare('DELETE FROM uploads WHERE id = ?').bind(id.toLowerCase()).run();
-    }
+    const own = await deps.db.prepare('SELECT 1 AS x FROM uploads WHERE id = ? AND submission_id = ?').bind(id.toLowerCase(), submission).first();
+    if (own) await retire(deps, id.toLowerCase(), (deps.now ?? Date.now)());
     return reply(204); // idempotent; nothing reveals whether the id existed
   } catch { return reply(503, { error: 'delete_unconfirmed', retry: true }); }
 }
@@ -106,14 +116,14 @@ export async function handleUploadDelete(request: Request, id: string, deps: Upl
 /** True only when every id is an unattached upload of this submission (used before saving an enquiry). */
 export async function ownsUploads(db: UploadDatabase, submissionId: string, ids: string[]): Promise<boolean> {
   if (ids.length === 0) return true;
-  const rows = await db.prepare(`SELECT count(*) AS n FROM uploads WHERE submission_id = ? AND enquiry_id IS NULL AND id IN (${ids.map(() => '?').join(',')})`)
+  const rows = await db.prepare(`SELECT count(*) AS n FROM uploads WHERE submission_id = ? AND enquiry_id IS NULL AND deleted_at IS NULL AND id IN (${ids.map(() => '?').join(',')})`)
     .bind(submissionId, ...ids).first<{ n: number }>();
   return rows?.n === ids.length;
 }
 
 /** Scheduled cleanup: delete unattached uploads past the window (object first, then row). */
 export async function purgeOrphans(db: UploadDatabase, bucket: Bucket, now: number, limit = 100): Promise<number> {
-  const { results } = await db.prepare('SELECT id, object_key AS key FROM uploads WHERE enquiry_id IS NULL AND created_at < ? LIMIT ?')
+  const { results } = await db.prepare('SELECT id, object_key AS key FROM uploads WHERE enquiry_id IS NULL AND (created_at < ? OR deleted_at IS NOT NULL) LIMIT ?')
     .bind(now - POLICY.orphanMs, limit).all<{ id: string; key: string }>();
   let purged = 0;
   for (const r of results) {
