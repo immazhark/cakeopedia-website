@@ -1,7 +1,7 @@
 import { authorize, type AccessConfig } from './auth.ts';
-import { CURRENT, isStatus, out, uuid, type AdminDb, type Status } from './admin-common.ts';
+import { CURRENT, changed, isStatus, out, uuid, type AdminDb, type Status } from './admin-common.ts';
 import { routeMenu } from './menu.ts';
-import { confirmBlocker, orderSummary, routeOrders } from './orders.ts';
+import { CONFIRM_OK, confirmBlocker, orderSummary, routeOrders } from './orders.ts';
 
 // Private owner API entry. Authorises once per request, then routes. Responses are never cacheable;
 // list pagination is keyset-based and bounded.
@@ -63,15 +63,17 @@ export async function handleInbox(request: Request, db: AdminDb, cfg: AccessConf
       if (!isStatus(b.status) || !isStatus(b.expected) || (note !== null && (typeof note !== 'string' || note.length > 1000))) return out(400, { error: 'invalid_input' });
       if (b.expected !== row.status) return out(409, { error: 'status_changed', current: row.status }); // optimistic concurrency
       if (b.status === row.status) return out(400, { error: 'no_change' });
-      if (b.status === 'confirmed') {
-        const blocker = await confirmBlocker(db, id); // owner-verified deposit is a precondition, never inferred
-        if (blocker) return out(409, { error: blocker });
-      }
-      // Compare-and-set in one statement: the event is written only if the status is still what the owner saw.
+      // Compare-and-set in one statement: the event is written only if the status is still what the owner saw and,
+      // for confirmation, the quote and owner-recorded deposit still hold at that instant (never inferred from a payment).
       const eid = crypto.randomUUID();
-      await db.prepare(`INSERT INTO enquiry_events (id, enquiry_id, status, created_at, actor, note)
-        SELECT ?, e.id, ?, ?, ?, ? FROM enquiries e WHERE e.id = ? AND ${CURRENT} = ?`).bind(eid, b.status, now(), op.email, note, id, b.expected).run();
-      if (!await db.prepare('SELECT 1 AS x FROM enquiry_events WHERE id = ?').bind(eid).first()) return out(409, { error: 'status_changed' });
+      const ins = await db.prepare(`INSERT INTO enquiry_events (id, enquiry_id, status, created_at, actor, note)
+        SELECT ?1, e.id, ?2, ?3, ?4, ?5 FROM enquiries e WHERE e.id = ?6 AND ${CURRENT} = ?7 AND (?2 <> 'confirmed' OR (${CONFIRM_OK('e.id')}))`)
+        .bind(eid, b.status, now(), op.email, note, id, b.expected).run();
+      if (!changed(ins)) {
+        const now2 = await db.prepare(`SELECT ${CURRENT} AS s FROM enquiries e WHERE e.id = ?`).bind(id).first<{ s: Status }>();
+        if (now2?.s !== b.expected) return out(409, { error: 'status_changed', current: now2?.s });
+        return out(409, { error: await confirmBlocker(db, id) ?? 'status_changed' });
+      }
       return out(200, { status: b.status });
     }
     return new Response(null, { status: 405, headers: { 'Cache-Control': 'no-store' } });

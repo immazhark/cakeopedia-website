@@ -1,5 +1,5 @@
 import { validate, fingerprint, InvalidInput } from './contract.ts';
-import { CURRENT, isCents, isDate, isTime, optText, out, uuid, type AdminDb } from './admin-common.ts';
+import { CURRENT, changed, isCents, isDate, isTime, optText, out, uuid, type AdminDb } from './admin-common.ts';
 
 // Quotes, payments, busy dates, calendar and manual (Instagram) enquiries. Money is integer cents; a payment is only
 // ever a record the owner made after checking Zelle herself. Nothing here infers that money arrived.
@@ -28,17 +28,31 @@ export async function confirmBlocker(db: AdminDb, enquiryId: string): Promise<'n
 async function isConfirmed(db: AdminDb, id: string) {
   return (await db.prepare(`SELECT ${CURRENT} AS s FROM enquiries e WHERE e.id = ?`).bind(id).first<{ s: string }>())?.s === 'confirmed';
 }
-async function body(request: Request): Promise<Record<string, unknown> | null> {
-  try { const b = await request.json(); return b && typeof b === 'object' && !Array.isArray(b) ? (b as Record<string, unknown>) : null; } catch { return null; }
+const MAX_BODY = 32_768; // largest legitimate body is two 2,000-character notes
+/** The parsed JSON object, null when malformed, or 'too_large' (checked on the bytes actually read, not a header). */
+async function body(request: Request): Promise<Record<string, unknown> | null | 'too_large'> {
+  try {
+    const raw = await request.text();
+    if (raw.length > MAX_BODY) return 'too_large';
+    const b = JSON.parse(raw); return b && typeof b === 'object' && !Array.isArray(b) ? (b as Record<string, unknown>) : null;
+  } catch { return null; }
 }
+// Inside one statement: cents currently recorded (not voided), and deposit cents recorded, for enquiry ?N.
+const PAID = (n: string) => `COALESCE((SELECT SUM(amount_cents) FROM payments WHERE enquiry_id = ${n} AND voided_at IS NULL), 0)`;
+const DEPOSIT_PAID = (n: string) => `COALESCE((SELECT SUM(amount_cents) FROM payments WHERE enquiry_id = ${n} AND voided_at IS NULL AND kind = 'deposit'), 0)`;
+const QUOTE_DEPOSIT = (n: string) => `(SELECT deposit_cents FROM quotes WHERE enquiry_id = ${n} ORDER BY version DESC LIMIT 1)`;
+export const CONFIRM_OK = (n: string) => `${QUOTE_DEPOSIT(n)} IS NOT NULL AND ${QUOTE_DEPOSIT(n)} <= ${DEPOSIT_PAID(n)}`;
 const bad = () => out(400, { error: 'invalid_input' });
+const isConstraint = (e: unknown) => /UNIQUE|constraint/i.test(String((e as Error)?.message ?? e));
 
 /** Returns a Response for order-related routes, or null when the path is not one of them. */
 export async function routeOrders(request: Request, db: AdminDb, actor: string, now: () => number, url: URL): Promise<Response | null> {
   const p = url.pathname, m = request.method;
   // ---- busy dates
   if (p === '/admin/api/busy' && m === 'GET') {
-    const { results } = await db.prepare('SELECT date, note FROM busy_dates WHERE date >= ? ORDER BY date LIMIT 400').bind(url.searchParams.get('from') ?? '2000-01-01').all();
+    const from = url.searchParams.get('from') ?? '2000-01-01';
+    if (!isDate(from)) return bad();
+    const { results } = await db.prepare('SELECT date, note FROM busy_dates WHERE date >= ? ORDER BY date LIMIT 400').bind(from).all();
     return out(200, { items: results });
   }
   const busy = p.match(/^\/admin\/api\/busy\/(\d{4}-\d{2}-\d{2})$/);
@@ -46,7 +60,7 @@ export async function routeOrders(request: Request, db: AdminDb, actor: string, 
     const date = busy[1]!;
     if (!isDate(date)) return bad();
     if (m === 'PUT') {
-      const b = await body(request); const note = optText(b?.note, 200);
+      const b = await body(request); if (b === 'too_large') return out(413, { error: 'too_large' }); const note = optText(b?.note, 200);
       if (note === undefined) return bad();
       await db.prepare('INSERT INTO busy_dates (date, note, created_at, actor) VALUES (?, ?, ?, ?) ON CONFLICT(date) DO UPDATE SET note = excluded.note').bind(date, note, now(), actor).run();
       return out(200, { date, note });
@@ -67,7 +81,7 @@ export async function routeOrders(request: Request, db: AdminDb, actor: string, 
   }
   // ---- manual enquiry (for example an Instagram order): same validation as the public form
   if (p === '/admin/api/enquiries' && m === 'POST') {
-    const b = await body(request); if (!b) return bad();
+    const b = await body(request); if (b === 'too_large') return out(413, { error: 'too_large' }); if (!b) return bad();
     try {
       const rid = b.requestId === undefined ? crypto.randomUUID() : b.requestId;
       if (typeof rid !== 'string' || !uuid.test(rid)) return bad();
@@ -81,9 +95,9 @@ export async function routeOrders(request: Request, db: AdminDb, actor: string, 
           .bind(id, enquiry.submissionId, hash, 'CK-' + crypto.randomUUID(), t, JSON.stringify(enquiry)),
           db.prepare('INSERT INTO enquiry_events (id, enquiry_id, status, created_at, actor, note) VALUES (?, ?, ?, ?, ?, ?)').bind(crypto.randomUUID(), id, 'new', t, actor, 'Added manually by the owner')]);
       } catch { // a concurrent twin with the same requestId won the UNIQUE(submission_id) race
-        const twin = await db.prepare('SELECT id FROM enquiries WHERE submission_id = ?').bind(rid).first<{ id: string }>();
+        const twin = await db.prepare('SELECT id, payload_hash AS hash FROM enquiries WHERE submission_id = ?').bind(rid).first<{ id: string; hash: string }>();
         if (!twin) throw new Error('storage');
-        return out(200, { id: twin.id });
+        return twin.hash === hash ? out(200, { id: twin.id }) : out(409, { error: 'request_reused' });
       }
       return out(201, { id });
     } catch (e) { if (e instanceof InvalidInput) return bad(); throw e; }
@@ -95,7 +109,7 @@ export async function routeOrders(request: Request, db: AdminDb, actor: string, 
   if (!uuid.test(id) || (paymentId && !uuid.test(paymentId))) return out(404, { error: 'not_found' });
   if (!await db.prepare('SELECT 1 AS x FROM enquiries WHERE id = ?').bind(id).first()) return out(404, { error: 'not_found' });
   if (m !== 'POST') return new Response(null, { status: 405 });
-  const b = await body(request); if (!b) return bad();
+  const b = await body(request); if (b === 'too_large') return out(413, { error: 'too_large' }); if (!b) return bad();
   if (kind === 'quote') {
     const designNotes = optText(b.designNotes, 2000), prepNotes = optText(b.prepNotes, 2000);
     const time = b.time ?? null;
@@ -104,18 +118,32 @@ export async function routeOrders(request: Request, db: AdminDb, actor: string, 
       || typeof b.expectedVersion !== 'number' || !Number.isInteger(b.expectedVersion) || b.expectedVersion < 0) return bad();
     const rid = b.requestId === undefined ? crypto.randomUUID() : b.requestId;
     if (typeof rid !== 'string' || !uuid.test(rid)) return bad();
-    const same = await db.prepare('SELECT enquiry_id AS e, version, total_cents AS t, deposit_cents AS d, fulfil_date AS date FROM quotes WHERE id = ?').bind(rid).first<{ e: string; version: number; t: number; d: number; date: string }>();
-    if (same) return same.e === id && same.t === b.totalCents && same.d === b.depositCents && same.date === b.date ? out(200, { version: same.version }) : out(409, { error: 'request_reused' });
+    const SAME = `SELECT enquiry_id AS e, version, total_cents AS t, deposit_cents AS d, fulfilment AS f, fulfil_date AS date, fulfil_time AS time,
+      design_notes AS dn, prep_notes AS pn FROM quotes WHERE id = ?`;
+    type Same = { e: string; version: number; t: number; d: number; f: string; date: string; time: string | null; dn: string | null; pn: string | null };
+    const replay = async () => { const x = await db.prepare(SAME).bind(rid).first<Same>();
+      return x && (x.e === id && x.t === b.totalCents && x.d === b.depositCents && x.f === b.fulfilment && x.date === b.date && x.time === time && x.dn === designNotes && x.pn === prepNotes
+        ? out(200, { version: x.version }) : out(409, { error: 'request_reused' })); };
+    const done = await replay(); if (done) return done;
     const latest = await db.prepare('SELECT max(version) AS v FROM quotes WHERE enquiry_id = ?').bind(id).first<{ v: number | null }>();
     const current = latest?.v ?? 0;
     if (b.expectedVersion !== current) return out(409, { error: 'quote_changed', currentVersion: current });
-    const s0 = await orderSummary(db, id);
-    if (b.totalCents < s0.paidCents) return out(409, { error: 'below_paid', paidCents: s0.paidCents });
-    if (await isConfirmed(db, id) && s0.depositPaidCents < b.depositCents) return out(409, { error: 'would_unconfirm' });
+    // Every invariant is checked inside the INSERT itself, so a payment, void or newer quote landing in between cannot be missed.
+    let written = false;
     try {
-      await db.prepare('INSERT INTO quotes (id, enquiry_id, version, total_cents, deposit_cents, fulfilment, fulfil_date, fulfil_time, design_notes, prep_notes, created_at, actor) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-        .bind(rid, id, current + 1, b.totalCents, b.depositCents, b.fulfilment, b.date, time as string | null, designNotes, prepNotes, now(), actor).run();
-    } catch { return out(409, { error: 'quote_changed', currentVersion: current + 1 }); } // UNIQUE(enquiry_id, version) lost a race
+      written = changed(await db.prepare(`INSERT INTO quotes (id, enquiry_id, version, total_cents, deposit_cents, fulfilment, fulfil_date, fulfil_time, design_notes, prep_notes, created_at, actor)
+        SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12 WHERE COALESCE((SELECT max(version) FROM quotes WHERE enquiry_id = ?2), 0) = ?13
+          AND ?4 >= ${PAID('?2')}
+          AND (${'(SELECT ' + CURRENT + ' FROM enquiries e WHERE e.id = ?2)'} <> 'confirmed' OR ?5 <= ${DEPOSIT_PAID('?2')})`)
+        .bind(rid, id, current + 1, b.totalCents, b.depositCents, b.fulfilment, b.date, time as string | null, designNotes, prepNotes, now(), actor, current).run());
+    } catch (e) { if (!isConstraint(e)) throw e; }
+    if (!written) { // diagnose from fresh state; a concurrent identical request is a replay, not a conflict
+      const again = await replay(); if (again) return again;
+      const v = (await db.prepare('SELECT max(version) AS v FROM quotes WHERE enquiry_id = ?').bind(id).first<{ v: number | null }>())?.v ?? 0;
+      if (v !== current) return out(409, { error: 'quote_changed', currentVersion: v });
+      const s1 = await orderSummary(db, id);
+      return b.totalCents < s1.paidCents ? out(409, { error: 'below_paid', paidCents: s1.paidCents }) : out(409, { error: 'would_unconfirm' });
+    }
     return out(201, { version: current + 1 });
   }
   if (!paymentId) { // record a payment
@@ -123,9 +151,9 @@ export async function routeOrders(request: Request, db: AdminDb, actor: string, 
     if ((b.kind !== 'deposit' && b.kind !== 'balance') || !isCents(b.amountCents, 1) || !isDate(b.receivedOn) || note === undefined) return bad();
     const payment = b.requestId === undefined ? crypto.randomUUID() : b.requestId;
     if (typeof payment !== 'string' || !uuid.test(payment)) return bad();
-    const SAME = 'SELECT enquiry_id AS e, kind, amount_cents AS a, received_on AS d FROM payments WHERE id = ?';
-    const replay = async () => { const x = await db.prepare(SAME).bind(payment).first<{ e: string; kind: string; a: number; d: string }>();
-      return x && (x.e === id && x.kind === b.kind && x.a === b.amountCents && x.d === b.receivedOn ? out(200, { id: payment }) : out(409, { error: 'request_reused' })); };
+    const SAME = 'SELECT enquiry_id AS e, kind, amount_cents AS a, received_on AS d, note AS n FROM payments WHERE id = ?';
+    const replay = async () => { const x = await db.prepare(SAME).bind(payment).first<{ e: string; kind: string; a: number; d: string; n: string | null }>();
+      return x && (x.e === id && x.kind === b.kind && x.a === b.amountCents && x.d === b.receivedOn && x.n === note ? out(200, { id: payment }) : out(409, { error: 'request_reused' })); };
     const done = await replay(); if (done) return done;
     const s0 = await orderSummary(db, id);
     if (!s0.quote) return out(409, { error: 'no_quote' });
@@ -143,10 +171,13 @@ export async function routeOrders(request: Request, db: AdminDb, actor: string, 
   const row = await db.prepare('SELECT voided_at AS v FROM payments WHERE id = ? AND enquiry_id = ?').bind(paymentId, id).first<{ v: number | null }>();
   if (!row) return out(404, { error: 'not_found' });
   if (row.v !== null) return out(409, { error: 'already_voided' });
-  if (await isConfirmed(db, id)) { // voiding must not leave a confirmed order below its agreed deposit
-    const s0 = await orderSummary(db, id), p = s0.payments.find((x) => x.id === paymentId);
-    if (s0.quote && p?.kind === 'deposit' && s0.depositPaidCents - p.amountCents < s0.quote.depositCents) return out(409, { error: 'would_unconfirm' });
+  // One statement: the void applies only if a confirmed order would still hold its agreed deposit afterwards.
+  const voided = changed(await db.prepare(`UPDATE payments SET voided_at = ?1, void_reason = ?2 WHERE id = ?3 AND enquiry_id = ?4 AND voided_at IS NULL
+    AND NOT (kind = 'deposit' AND (SELECT ${CURRENT} FROM enquiries e WHERE e.id = ?4) = 'confirmed'
+      AND ${DEPOSIT_PAID('?4')} - amount_cents < COALESCE(${QUOTE_DEPOSIT('?4')}, 0))`).bind(now(), reason, paymentId, id).run());
+  if (!voided) {
+    const now2 = await db.prepare('SELECT voided_at AS v FROM payments WHERE id = ?').bind(paymentId).first<{ v: number | null }>();
+    return out(409, { error: now2?.v ? 'already_voided' : 'would_unconfirm' });
   }
-  await db.prepare('UPDATE payments SET voided_at = ?, void_reason = ? WHERE id = ? AND voided_at IS NULL').bind(now(), reason, paymentId).run();
   return out(200, { voided: true });
 }

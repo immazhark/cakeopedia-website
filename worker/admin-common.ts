@@ -12,6 +12,8 @@ export const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 /** Current status = latest event, else the legacy column ('booked' reads as 'confirmed'). `e` is the enquiries alias. */
 export const CURRENT = `COALESCE((SELECT ev.status FROM enquiry_events ev WHERE ev.enquiry_id = e.id ORDER BY ev.created_at DESC, ev.rowid DESC LIMIT 1),
   CASE e.status WHEN 'booked' THEN 'confirmed' ELSE e.status END)`;
+/** Rows changed by a write; both D1 and the Miniflare emulator report this in meta.changes. */
+export const changed = (r: unknown) => ((r as { meta?: { changes?: number } } | null)?.meta?.changes ?? 0) > 0;
 export const out = (status: number, body?: object) => new Response(body ? JSON.stringify(body) : null, { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 export const isCents = (v: unknown, min = 0): v is number => typeof v === 'number' && Number.isInteger(v) && v >= min && v <= 10_000_000;
 export function isDate(v: unknown): v is string {

@@ -26,7 +26,12 @@ after(async () => { await mf?.dispose(); });
 const call = (path: string, method = 'GET', body?: object, jwt: string | null = token) => handleInbox(new Request(`${ORIGIN}${path}`, {
   method, ...(body ? { body: JSON.stringify(body) } : {}),
   headers: { ...(jwt ? { 'Cf-Access-Jwt-Assertion': jwt } : {}), ...(method !== 'GET' ? { Origin: ORIGIN, 'X-Cakeopedia-Admin': '1', 'Content-Type': 'application/json' } : {}) },
-}), db as unknown as InboxDb, cfg, () => 7000);
+}), spy as unknown as InboxDb, cfg, () => 7000);
+// Fault injection: run a competing operation once, immediately before the first statement matching `match`.
+let race: { match: RegExp; run: () => Promise<unknown> } | null = null;
+const wrap = (st: any, sql: string): any => new Proxy(st, { get: (t, k) => k === 'bind' ? (...a: unknown[]) => wrap(t.bind(...a), sql) : k === 'sql' ? sql : k === 'run' ? async () => { await fire(sql); return t.run(); } : k === 'first' ? async () => { await fire(sql); return t.first(); } : Reflect.get(t, k) });
+async function fire(sql: string) { const r = race; if (r && r.match.test(sql)) { race = null; await r.run(); } }
+const spy = { prepare: (sql: string) => wrap(db.prepare(sql), sql), batch: (s: any[]) => (async () => { for (const x of s) await fire(x.sql); return db.batch(s); })() };
 const json = async <T = Record<string, unknown>>(r: Response) => (await r.json()) as T;
 async function seed(): Promise<string> {
   const id = crypto.randomUUID();
@@ -167,4 +172,77 @@ test('owner menu: drafts stay private, edits are compare-and-set, replays succee
   assert.equal(hist.versions[1]!.title, 'Synthetic');
   assert.equal((await call('/admin/api/menu/synthetic-menu/history', 'GET', undefined, null)).status, 401);
   assert.equal((await call('/admin/api/menu', 'GET', undefined, null)).status, 401);
+});
+
+// ---- financial invariants hold atomically against a competing operation landing between check and write
+const url = (id: string, tail: string) => `/admin/api/enquiries/${id}/${tail}`;
+const pay = (id: string, amountCents: number, extra: Record<string, unknown> = {}) => call(url(id, 'payments'), 'POST', { requestId: crypto.randomUUID(), kind: 'deposit', amountCents, receivedOn: '2026-11-20', ...extra });
+const status = async (id: string) => (await json<{ status: string }>(await call(`/admin/api/enquiries/${id}`))).status;
+
+test('race: a deposit voided between the confirmation check and write cannot leave a confirmed order', async () => {
+  const id = await seed();
+  await call(url(id, 'quote'), 'POST', quote({ totalCents: 20000, depositCents: 5000 }));
+  const { id: pid } = await json<{ id: string }>(await pay(id, 5000));
+  race = { match: /INSERT INTO enquiry_events/, run: () => call(url(id, `payments/${pid}/void`), 'POST', { reason: 'typo' }) };
+  const r = await call(url(id, 'status'), 'POST', { status: 'confirmed', expected: 'new' });
+  race = null;
+  assert.equal(r.status, 409);
+  assert.notEqual(await status(id), 'confirmed');
+});
+test('race: two concurrent voids cannot both drop a confirmed order below its deposit', async () => {
+  const id = await seed();
+  await call(url(id, 'quote'), 'POST', quote({ totalCents: 20000, depositCents: 3000 }));
+  const a = await json<{ id: string }>(await pay(id, 3000)), b = await json<{ id: string }>(await pay(id, 3000));
+  assert.equal((await call(url(id, 'status'), 'POST', { status: 'confirmed', expected: 'new' })).status, 200);
+  race = { match: /UPDATE payments SET voided_at/, run: () => call(url(id, `payments/${b.id}/void`), 'POST', { reason: 'x' }) };
+  const r = await call(url(id, `payments/${a.id}/void`), 'POST', { reason: 'y' });
+  race = null;
+  assert.equal(r.status, 409);
+  const s = (await json<{ order: { depositPaidCents: number } }>(await call(`/admin/api/enquiries/${id}`))).order;
+  assert.ok(s.depositPaidCents >= 3000);
+});
+test('race: a quote revision cannot raise the deposit past what a concurrent void left paid', async () => {
+  const id = await seed();
+  await call(url(id, 'quote'), 'POST', quote({ totalCents: 20000, depositCents: 3000 }));
+  await pay(id, 3000); const b = await json<{ id: string }>(await pay(id, 2000));
+  assert.equal((await call(url(id, 'status'), 'POST', { status: 'confirmed', expected: 'new' })).status, 200);
+  race = { match: /INSERT INTO quotes/, run: () => call(url(id, `payments/${b.id}/void`), 'POST', { reason: 'x' }) };
+  const r = await call(url(id, 'quote'), 'POST', quote({ totalCents: 20000, depositCents: 5000, expectedVersion: 1 }));
+  race = null;
+  assert.equal(r.status, 409);
+  const s = (await json<{ order: { quote: { depositCents: number }; depositPaidCents: number } }>(await call(`/admin/api/enquiries/${id}`))).order;
+  assert.ok(s.depositPaidCents >= s.quote.depositCents);
+});
+test('race: a payment landing after the total is lowered cannot exceed the new total', async () => {
+  const id = await seed();
+  await call(url(id, 'quote'), 'POST', quote({ totalCents: 20000, depositCents: 5000 }));
+  await pay(id, 9000);
+  race = { match: /INSERT INTO quotes/, run: () => pay(id, 5000, { kind: 'balance' }) };
+  const r = await call(url(id, 'quote'), 'POST', quote({ totalCents: 12000, depositCents: 5000, expectedVersion: 1 }));
+  race = null;
+  assert.equal(r.status, 409);
+});
+test('replays compare the whole payload: changed time, notes or fulfilment is request_reused', async () => {
+  const id = await seed(), requestId = crypto.randomUUID();
+  assert.equal((await call(url(id, 'quote'), 'POST', quote({ requestId, designNotes: 'a' }))).status, 201);
+  assert.equal((await call(url(id, 'quote'), 'POST', quote({ requestId, designNotes: 'a' }))).status, 200);
+  for (const over of [{ time: '15:00' }, { designNotes: 'b' }, { prepNotes: 'p' }, { fulfilment: 'delivery' }, { time: null }])
+    assert.deepEqual(await json(await call(url(id, 'quote'), 'POST', quote({ requestId, designNotes: 'a', ...over }))), { error: 'request_reused' });
+  const pr = crypto.randomUUID(), body = { requestId: pr, kind: 'deposit', amountCents: 100, receivedOn: '2026-11-20', note: 'one' };
+  assert.equal((await call(url(id, 'payments'), 'POST', body)).status, 201);
+  assert.equal((await call(url(id, 'payments'), 'POST', body)).status, 200);
+  assert.deepEqual(await json(await call(url(id, 'payments'), 'POST', { ...body, note: 'two' })), { error: 'request_reused' });
+});
+test('manual enquiry: a concurrent twin with a different payload is request_reused, not silently accepted', async () => {
+  const requestId = crypto.randomUUID(), man = (name: string) => ({ requestId, name, contact: { kind: 'instagram', value: '@a.b' }, dateUndecided: false, eventDate: '2027-05-01', notes: 'DM' });
+  const twin = () => call('/admin/api/enquiries', 'POST', man('Twin Person'));
+  race = { match: /INSERT INTO enquiries/, run: twin };
+  const r = await call('/admin/api/enquiries', 'POST', man('Other Person'));
+  race = null;
+  assert.equal(r.status, 409);
+});
+test('request bodies are bounded and list parameters validated', async () => {
+  const id = await seed();
+  assert.equal((await call(url(id, 'quote'), 'POST', quote({ designNotes: 'x'.repeat(70_000) }))).status, 413);
+  assert.equal((await call('/admin/api/busy?from=garbage')).status, 400);
 });
