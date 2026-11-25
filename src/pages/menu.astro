@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import { customCake, flavours, celebrationCake, addons, cupcakes, brownies, ingredientStatements, ingredientScope } from '../data/business';
+import { SIZES, BASE_CENTS, RASMALAI_SURCHARGE_CENTS } from '../data/pricing';
 import { formatMenuPrice } from '../data/menu-presentation';
 const money = (c: number, k: 'fixed' | 'starting') => formatMenuPrice(c, k);
 ---
@@ -15,6 +16,10 @@ const money = (c: number, k: 'fixed' | 'starting') => formatMenuPrice(c, k);
       <h2 id="custom">Custom cakes</h2>
       <p class="price-line"><strong>{money(customCake.startingCents, 'starting')}</strong> <span>for a {customCake.base.diameterIn}-inch, {customCake.base.layers}-layer cake, about {customCake.base.servings} servings</span></p>
       <p>{customCake.note} See the <a href="/size-guide/">size and serving guide</a> for larger cakes.</p>
+      <h3>Starting prices by size</h3>
+      <table class="sizes"><thead><tr><th scope="col">Size</th><th scope="col">Starting price</th><th scope="col">Rasmalai Cake</th></tr></thead>
+        <tbody>{SIZES.map((d) => <tr><th scope="row">{d} inches</th><td>{money(BASE_CENTS[d], 'starting')}</td><td>{money(BASE_CENTS[d] + RASMALAI_SURCHARGE_CENTS[d], 'starting')}</td></tr>)}</tbody></table>
+      <p class="small">Two- and three-tier cakes, including Rasmalai, are quoted personally.</p>
       <h3>Twelve flavours</h3>
       <ul class="flavours">
         {flavours.map((f) => <li><strong>{f.name}</strong><span>{f.description}</span></li>)}
@@ -31,13 +36,13 @@ const money = (c: number, k: 'fixed' | 'starting') => formatMenuPrice(c, k);
       <p>A simpler, more accessible cake for smaller celebrations. Choose from: {celebrationCake.customisation.map((c) => c.toLowerCase()).join(', ')}.</p>
       <h3>Flavours</h3>
       <ul class="plain">{celebrationCake.flavours.map((f) => <li>{f}</li>)}</ul>
-      <p class="small">Servings, any flavour differences and which options are included are confirmed with your quotation.</p>
+      <p class="small">Serves about {celebrationCake.servings.min}–{celebrationCake.servings.max}. No fondant work. Final details are confirmed with your quotation.</p>
     </section>
 
     <section aria-labelledby="cupcakes">
       <h2 id="cupcakes">Cupcakes</h2>
       {cupcakes.options.map((o) => (<><h3>{o.base}</h3><p>Fillings: {o.fillings.join(', ')}.</p></>))}
-      <p class="small">Cupcake pricing and minimum quantities are quoted with your enquiry.</p>
+      <p class="small">No extra charge for toppings or fillings. Cupcake pricing and minimum quantities are quoted with your enquiry.</p>
     </section>
 
     <section aria-labelledby="brownies">
@@ -46,7 +51,8 @@ const money = (c: number, k: 'fixed' | 'starting') => formatMenuPrice(c, k);
       <p>Toppings: {brownies.toppings.join(', ')}. Available as {brownies.formats.map((f) => f.toLowerCase()).join(' or ')}.</p>
       <h3>{brownies.slab.name}</h3>
       <p>{brownies.slab.description}</p>
-      <p class="small">Brownie pricing is quoted with your enquiry.</p>
+      <p class="price-line"><strong>{money(brownies.priceCents, 'fixed')}</strong> <span>box of nine · <strong>{money(brownies.slabPriceCents, 'fixed')}</strong> {brownies.slab.name}, serves about {brownies.slabServings.min}–{brownies.slabServings.max}</span></p>
+      <p>Add a topping to a box or slab for <strong>{money(brownies.toppingUpgradeCents, 'fixed')}</strong>: a single charge per box or slab, not per brownie or per topping. Unusual quantities or topping combinations are reviewed by the baker.</p>
     </section>
 
     <section aria-labelledby="ingredients">
@@ -66,6 +72,8 @@ const money = (c: number, k: 'fixed' | 'starting') => formatMenuPrice(c, k);
   .flavours li { display: grid; gap: .2rem; padding-block: .9rem; border-top: 1px solid var(--border); }
   .flavours li span { font-size: var(--step--1); }
   .plain li { padding-block: .5rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 1rem; }
+  .sizes { border-collapse: collapse; width: 100%; max-width: 32rem; margin-bottom: var(--space-2); }
+  .sizes th, .sizes td { text-align: left; padding: .5rem .75rem .5rem 0; border-top: 1px solid var(--border); }
   .small { font-size: var(--step--1); }
   @media (min-width: 48rem) { .flavours { display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--space-4); } }
 </style>

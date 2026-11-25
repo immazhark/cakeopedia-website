@@ -1,6 +1,7 @@
 // Single source of truth for owner-supplied business facts (catalogue, add-ons, care, pending items).
 // Prices are integer USD cents; `null` means "not supplied" and must never render as $0 or an estimate.
 // Source: owner menus dated Jun–Aug 2024, treated as catalogue candidates until current availability is approved.
+import { celebrationFlavours, celebrationShapes, celebrationServings, browniePrice, brownieToppings, BROWNIE_TOPPING_CENTS, brownieSlabServings } from './pricing.ts';
 export type Money = number | null;
 export interface Flavour { id: string; name: string; description: string }
 
@@ -27,14 +28,13 @@ export const flavours: readonly Flavour[] = [
 ];
 
 export const celebrationCake = {
-  id: 'celebration-cake', name: 'Celebration Cakes', priceCents: 7500, diameterIn: 6, layers: 2, shapes: ['Round', 'Heart'],
-  customisation: ['Choice of colour', 'Pearl sprinkles', 'Personalised message or coin topper'],
-  flavours: ['Chocolate truffle or chocolate buttercream', 'Classic vanilla', 'Vanilla with berries', 'Vanilla with caramel', 'Vanilla with Lotus Biscoff'],
-  servings: null as number | null, // not supplied; the four-layer estimate does not apply
+  id: 'celebration-cake', name: 'Celebration Cakes', priceCents: 7500, diameterIn: 6, layers: 2, shapes: celebrationShapes,
+  customisation: ['Choice of colour', 'Pearl sprinkles', 'Personalised message or coin topper', 'Choice of round or heart shape'],
+  flavours: celebrationFlavours, servings: celebrationServings, // no fondant work; the custom-cake minimum does not apply
 } as const;
 
 export const cupcakes = {
-  id: 'cupcakes', name: 'Cupcakes', priceCents: null as Money, minimumQuantity: null as number | null,
+  id: 'cupcakes', name: 'Cupcakes', priceCents: null as Money, minimumQuantity: null as number | null, // no topping or filling surcharges
   options: [
     { base: 'Vanilla cupcakes with Swiss meringue buttercream', fillings: ['Butterscotch', 'Blueberry', 'Strawberry', 'Lemon curd', 'Caramel', 'Lotus Biscoff', 'Rasmalai'] },
     { base: 'Chocolate cupcakes with chocolate ganache', fillings: ['Nutella', 'Lotus Biscoff'] },
@@ -44,9 +44,10 @@ export const cupcakes = {
 } as const;
 
 export const brownies = {
-  id: 'brownies', name: 'Brownies', priceCents: null as Money,
+  id: 'brownies', name: 'Brownies', priceCents: browniePrice.boxCents, // box of nine; the topping upgrade is once per box or slab
+  slabPriceCents: browniePrice.slabCents, toppingUpgradeCents: BROWNIE_TOPPING_CENTS, slabServings: brownieSlabServings,
   description: 'Rich, fudgy brownies made with Belgian chocolate and Dutch-process cocoa.',
-  toppings: ['Chocolate ganache', 'Lotus Biscoff', 'Nutella'],
+  toppings: brownieToppings,
   formats: ['Box of nine brownies', 'Brownie slab with a personalised message'],
   slab: { name: 'Fudge Delight Brownie Slab', description: 'A fudgy brownie slab made with Dutch-process cocoa, topped with chocolate buttercream or ganache, with a personalised message. Nutella, Biscoff or ganache toppings are available.' },
 } as const;
@@ -72,14 +73,21 @@ export const careSteps: readonly { id: string; title: string; text: string }[] =
   { id: 'leftovers', title: 'Leftovers', text: 'For products suitable for freezing, double-wrap leftovers in plastic wrap, place them in a suitable container and freeze for up to four weeks, subject to product-specific storage instructions.' },
 ];
 
-// Facts that exist but must not be published as settled: one place for the owner-decision register.
+// Owner-confirmed 26 Nov 2026 (core requirements freeze). Email is approved but not provisioned: do not publish it until it is.
+export const businessEmail = 'contact@cakeopedia.com';
+export const tagline = 'Custom baked goods';
+export const paymentTerms = [
+  '50% advance payment confirms an order.',
+  'The remaining 50% is due at least 48 hours before pickup or delivery.',
+  'Payment is by Zelle.',
+  'Two weeks’ notice is recommended; short-notice orders are subject to availability.',
+] as const;
+
+// Still open, and not core business facts: one place for the remaining decision register.
 export const pending = [
   'Current availability of each menu item (menus are dated Jun–Aug 2024)',
-  'Cupcake and brownie prices; cupcake minimum quantity',
-  'Whether caramel and chocolate ganache are separate cupcake fillings',
-  'Celebration Cake servings, flavour surcharges, and which customisations the $75 includes',
+  'Cupcake price and minimum quantity; whether caramel and chocolate ganache are separate cupcake fillings',
   'Delivery area detail (ZIP codes), delivery charges, pickup days, weekend availability',
-  'Deposit, balance and rescheduling terms; final cancellation wording and legal review',
-  'Baker display name and business email',
+  'Final customer-facing policy wording and legal review; business email provisioning',
   'Product-specific refrigeration, shelf life and allergen matrix; Texas cottage food requirements',
 ] as const;

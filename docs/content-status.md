@@ -7,7 +7,7 @@ See [owner-informed brief](owner-brief.md) for a public-safe synthesis.
 | Item | State | Effect |
 |---|---|---|
 | Austin business / Hyderabad origin | Owner story received; concise draft prepared | Use Hyderabad origin and Austin continuation; final wording review pending. |
-| Brand spelling, logo, tagline | Cakeopedia Austin confirmed; recognisable logo refinement retaining orange | Exact logo/shade/tagline pending; no invented final identity. |
+| Brand spelling, logo, tagline | Cakeopedia Austin confirmed; recognisable logo refinement retaining orange | Tagline "Custom baked goods" final; production logo approval pending; no invented final identity. |
 | Genuine photographs/videos | Originals and rights review pending | No screenshot crops or generated cakes as production evidence. |
 | Current menu/flavours/prices/servings | Pricing presentation and regular-offerings policy supplied; actual menu pending | Quote examples are not a universal price list. |
 | Lead time, availability, service area/pickup/delivery | Approximate guidance supplied | Two weeks, North Austin, pickup/paid delivery; precise wording/fees pending. |

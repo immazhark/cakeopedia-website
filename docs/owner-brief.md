@@ -16,7 +16,7 @@ Keep family medical details, private capacity notes and payment identifiers out 
 - Lead with vintage and floral cakes. Curate Austin work for the public portfolio.
   Hyderabad belongs in the origin story, not the primary current-work gallery.
 - Communicate quality ingredients, taste, custom work and from-scratch baking.
-  There is no final tagline. Ingredients and finished-product certification are distinct.
+  Final tagline: "Custom baked goods". Ingredients and finished-product certification are distinct.
 - The owner wants new local customers, more suitable orders, menu/price clarity and
   easier enquiries. Updates will be shared between the owner and development support.
 - Story/name/process may feature; do not assume face/portrait/kitchen permission.
@@ -73,7 +73,7 @@ Intended workflow: enquiry → discussion/quote → agreed design, fulfilment an
 deposit instructions → owner verifies deposit → confirmed order. Website receipt and
 payment instructions must not automatically confirm an order. Zelle is the existing
 payment method, not an assumed checkout API. Never publish payment identifiers in Git.
-Deposit amount, deadlines, balance and cancellation/reschedule terms are still unanswered.
+Payment terms confirmed 26 Nov 2026; see [shared decisions](shared-context-and-decisions.md).
 
 Owner-provided operating guidance: approximately two weeks' notice, North Austin,
 pickup discussed during ordering and delivery at additional cost, replies usually the
@@ -88,7 +88,7 @@ website's email-first route provisional; do not invent an email or assume Instag
 
 1. Current menu: flavours, sizes/servings, standard prices, custom starting prices and add-ons.
 2. Preferred website contact route and public contact details; preferred public baker name.
-3. Deposit percentage/amount, payment deadline, balance, cancellation and rescheduling terms.
+3. Final cancellation and rescheduling wording and legal review.
 4. Delivery boundaries/charges and pickup instructions suitable for public display.
 5. Original logo and permission-cleared Austin photos/videos, led by vintage/floral work.
 

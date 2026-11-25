@@ -30,7 +30,7 @@ The sponsor wants excellent engineering and creative quality while keeping recur
 - Public brand name: Cakeopedia Austin. An earlier typed name contains a typo; the explicit Austin answer is authoritative.
 - Primary domain: cakeopedia.com. Purchased by the sponsor through Spaceship.
 - Refine the existing Instagram logo while preserving recognition; orange is the owner's requested colour continuity. Exact shade, artwork and typography remain design work.
-- No final tagline has been selected. Suggested themes: custom baked goods, from-scratch baking, quality ingredients and taste.
+- Tagline: "Custom baked goods" (final, 26 Nov 2026). The superseded "Halal baked goods" tagline is withdrawn from brand assets.
 - Owner values the taste that brings customers back.
 - Prioritise Austin vintage and floral creations in the portfolio.
 - The Hyderabad-to-Austin journey may feature in the story.
@@ -57,7 +57,7 @@ Operating guidance:
 - Replies are usually the same or next day; publish only agreed wording.
 - Capacity is limited. Do not publish internal weekly capacity or promise an automatically reserved slot.
 - Zelle is the existing payment method. No automatic payment verification or checkout API is assumed.
-- Deposit amount, deadlines, balance and cancellation/rescheduling terms remain unanswered.
+- Terms confirmed 26 Nov 2026: 50% advance by Zelle confirms an order; remaining 50% due at least 48 h before pickup/delivery (America/Chicago); two weeks’ notice recommended; Cakeopedia cancels = full refund, customer cancels = no refund (legal review pending); no changes after confirmation; rescheduling at least 7 days ahead, owner approval. Accepted rush orders inside the window need owner-approved arrangements. Deposit/balance come from the owner-approved quotation.
 - Keep the home address and payment identifiers out of Git, public CMS and public pages.
 
 ## 5. Customer journey and approved form
@@ -198,7 +198,7 @@ Original seven model reviews and all 18 video recommendations are not fully repr
 
 1. Current menu: sizes/layers/servings, flavours/fillings, standard/custom starting prices and add-ons/inclusions.
 2. Public baker name; preferred website reply channel/contact; new-enquiry alert destination.
-3. Deposit, balance, cancellation/rescheduling and fulfilment terms.
+3. Fulfilment terms (delivery area and charges); final policy wording and legal review.
 4. Public service/delivery boundaries, fees and pickup wording; keep precise home pickup details private.
 5. Original logo, permission-cleared Austin photos/videos and approved customer feedback; no automatic right to republish third-party images publicly.
 6. Final design/concept and public copy review.
@@ -218,3 +218,12 @@ Do not re-ask brand name, orange continuity, Austin portfolio focus, feature-lis
 
 For each implementation handoff: record actual branch/HEAD, changed paths, tests run, limits/holds and next precise action. One primary writer per task; preserve other contributors' work. Do not reinstall tool stacks or regenerate the entire programme on every session.
 
+
+## Core business requirements freeze — 26 November 2026
+Closed; do not re-ask. Single source of truth in code: `src/data/pricing.ts` (rules) and `src/data/business.ts` (catalogue).
+- Single-tier starting prices 6/7/8/9/10 in: $135/$145/$170/$210/$250. Rasmalai surcharge $15/$20/$30/$35/$35 (starts $150/$165/$200/$245/$285). Two- and three-tier Rasmalai: personalised quote, never extrapolated.
+- Brownies: box of nine $35 (+$10 topping = $45); Fudge Delight slab $40 (+$10 = $50), serves about 9–12. The $10 is per box or slab, not per brownie or topping. Toppings: Nutella, Lotus Biscoff, chocolate ganache. Unusual quantities or combinations need owner review. No cupcake topping or filling charges.
+- Celebration Cake: $75, 6 in, 2 layers, 8–10 servings, round or heart, six dedicated flavours, no fondant, no custom-cake minimum.
+- Business email contact@cakeopedia.com approved; provisioning is an infrastructure task, so it is not published yet.
+- Enquiry-first remains: no checkout or automated payment. Commercial launch gate unchanged.
+Still open (not core): cupcake price/minimum, delivery area and charges, allergen/storage matrix, cottage-food compliance, policy legal review, logo production, media reconciliation.

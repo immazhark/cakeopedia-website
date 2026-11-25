@@ -95,3 +95,9 @@ intake; (3) private inbox; (4) a real-browser pass at 390px with keyboard and re
 - New pages: /menu/, /size-guide/ (guest-count finder, enquiry prefill via validated `servings` and `size` params), /cake-care/. Nav has six links (two rows on phones). Pages describe previous work and ingredients only; no Offer structured data, no availability or certification claims.
 - Commercial launch gate (Pending Owner Authorization and Compliance Approval): production Worker stays closed in worker/index.ts via liveHandler; the form is closed unless PUBLIC_ENQUIRY_FORM=on. No new gate was added; the existing server-side closure is the control. Private owner circumstances are deliberately not recorded anywhere.
 - Gap: the owner menu editor still uses the older MenuItem model (per-size prices, no null prices). Migrating it to business.ts, and owner-editable serving data, is the next catalogue task. Cloudflare provisioning is blocked until `wrangler login`.
+
+## 26 Nov 2026 — core business freeze (branch feat/local-application-foundation, base 26881c9, uncommitted)
+Changed: src/data/pricing.ts (new), src/data/business.ts, src/pages/menu.astro, tests/pricing.test.ts (new), tests/business-data.test.ts, docs (shared decisions, owner brief, content status).
+Checks: `npm run verify` passed (astro check 0 errors, tsc worker, node tests, build 60 pages, build/production-output tests). Local only; no provider changes.
+Not done: admin quote form does not yet prefill/enforce the 50% deposit (server accepts any deposit <= total); no wiring of paymentPlan into notifications; logo asset files not located/edited; email not published.
+Next: prefill deposit in admin quote UI from splitPayment, show balance due date from paymentPlan, then remaining holds above.

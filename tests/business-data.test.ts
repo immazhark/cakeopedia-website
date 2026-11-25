@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { customCake, celebrationCake, flavours, addons, cupcakes, brownies, careSteps } from '../src/data/business.ts';
 import { configs, recommend } from '../src/data/serving.ts';
 
-test('prices: $135 custom starting, separate $75 celebration, unknowns stay null', () => {
+test('prices: $135 custom starting, separate $75 celebration, cupcakes stay unpriced', () => {
   assert.equal(customCake.startingCents, 13500);
   assert.equal(celebrationCake.priceCents, 7500);
   assert.equal(cupcakes.priceCents, null);
-  assert.equal(brownies.priceCents, null);
-  assert.equal(celebrationCake.servings, null);
+  assert.equal(brownies.priceCents, 3500);
+  assert.deepEqual(celebrationCake.servings, { min: 8, max: 10 });
   assert.deepEqual(addons.map((a) => a.priceCents), [1500, 2000, 2000]);
   assert.ok(addons.every((a) => !a.appliesTo.includes('celebration')));
 });
