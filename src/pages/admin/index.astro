@@ -10,11 +10,13 @@ import Base from '../../layouts/Base.astro';
     <div class="tabs" role="group" aria-label="Section">
       <button class="chip" type="button" data-tab="inbox" aria-pressed="true">Enquiries</button>
       <button class="chip" type="button" data-tab="calendar" aria-pressed="false">Calendar</button>
+      <button class="chip" type="button" data-tab="menu" aria-pressed="false">Menu</button>
     </div>
     <p id="notice" class="err" role="alert" hidden></p>
     <section id="inbox" aria-label="Enquiries"></section>
     <section id="detail" aria-label="Enquiry" hidden></section>
     <section id="calendar" aria-label="Calendar" hidden></section>
+    <section id="menu" aria-label="Menu" hidden></section>
   </div>
   <noscript><p class="wrap">This area needs JavaScript.</p></noscript>
   <script>
@@ -40,13 +42,13 @@ import Base from '../../layouts/Base.astro';
     const btn = (text: string, onclick: () => void, cls = 'btn') => { const b = h('button', { type: 'button', class: cls }, text) as HTMLButtonElement; b.addEventListener('click', onclick); return b; };
 
     // ---- tabs
-    const views: Record<string, string> = { inbox: 'inbox', calendar: 'calendar' };
-    function show(tab: 'inbox' | 'calendar' | 'detail') {
-      for (const k of ['inbox', 'detail', 'calendar']) $(k).hidden = k !== tab;
+    const views: Record<string, string> = { inbox: 'inbox', calendar: 'calendar', menu: 'menu' };
+    function show(tab: 'inbox' | 'calendar' | 'detail' | 'menu') {
+      for (const k of ['inbox', 'detail', 'calendar', 'menu']) $(k).hidden = k !== tab;
       document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tab === (tab === 'detail' ? 'inbox' : tab))));
       notice('');
     }
-    document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.addEventListener('click', () => { const t = views[b.dataset.tab!] as 'inbox' | 'calendar'; show(t); if (t === 'calendar') loadCalendar(); else loadInbox(true); }));
+    document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.addEventListener('click', () => { const t = views[b.dataset.tab!] as 'inbox' | 'calendar' | 'menu'; show(t); if (t === 'calendar') loadCalendar(); else if (t === 'menu') loadMenu(); else loadInbox(true); }));
 
     // ---- inbox
     let filter = ''; let items: Json[] = []; let next: Json | null = null;
@@ -158,6 +160,74 @@ import Base from '../../layouts/Base.astro';
         list.append(li);
       }
       root.append(list);
+    }
+
+    // ---- menu (private drafts; only published + available items can ever reach the public site)
+    let menuItems: Json[] = [];
+    const slug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+    async function loadMenu() {
+      const r = await api('/admin/api/menu'); if (!r.ok) return; menuItems = r.data.items; renderMenu();
+    }
+    function renderMenu() {
+      const root = $('menu'); root.replaceChildren();
+      root.append(h('p', { class: 'hint' }, 'Drafts stay private. An item appears on the public site only after you publish it and mark it available, and the website is next updated.'), btn('Add a menu item', () => editMenu(null), 'btn'));
+      const list = h('ul', { class: 'admin-list' });
+      for (const it of menuItems) list.append(h('li', {}, btn(`${it.title} · ${it.status}${it.availability === 'unavailable' ? ' · unavailable' : ''}`, () => editMenu(it), 'row')));
+      if (!menuItems.length) list.append(h('li', { class: 'hint' }, 'No menu items yet.'));
+      root.append(list);
+    }
+    function editMenu(it: Json | null) {
+      const root = $('menu'); root.replaceChildren();
+      const title = input('text', { maxlength: '100', value: it?.title ?? '' }), category = input('text', { maxlength: '100', value: it?.category ?? '' });
+      const kind = select([['custom', 'Custom cake (price is a starting price)'], ['standard', 'Standard item (fixed price)']]); kind.value = it?.kind ?? 'custom';
+      const status = select([['draft', 'Draft (private)'], ['published', 'Published'], ['archived', 'Archived']]); status.value = it?.status ?? 'draft';
+      const avail = select([['available', 'Available'], ['unavailable', 'Not available right now']]); avail.value = it?.availability ?? 'available';
+      const area = (max: string) => h('textarea', { rows: '3', maxlength: max }) as HTMLTextAreaElement;
+      const flav = area('2000'), fill = area('2000'), note = area('1000');
+      flav.value = (it?.flavours ?? []).join('\n'); fill.value = (it?.fillings ?? []).join('\n'); note.value = it?.ingredientNote ?? '';
+      const sizeBox = h('div'), addonBox = h('div');
+      const rows = new Map<Element, HTMLInputElement[]>();
+      const sizeRow = (s?: Json) => {
+        const r = h('div', { class: 'form size-row' });
+        const f = [input('text', { maxlength: '100', value: s?.label ?? '' }), input('text', { inputmode: 'numeric', value: s ? String(s.layers) : '2' }), input('text', { inputmode: 'numeric', value: s ? String(s.servings.min) : '' }), input('text', { inputmode: 'numeric', value: s ? String(s.servings.max) : '' }), input('text', { inputmode: 'decimal', value: s ? (s.priceCents / 100).toFixed(2) : '' })];
+        r.append(field('Size name (for example 6 inch)', f[0]!), field('Layers', f[1]!), field('Serves from', f[2]!), field('Serves up to', f[3]!), field('Price ($)', f[4]!), btn('Remove this size', () => { rows.delete(r); r.remove(); }, 'chip'));
+        rows.set(r, f); return r;
+      };
+      const addonRow = (a?: Json) => {
+        const r = h('div', { class: 'form' });
+        const f = [input('text', { maxlength: '100', value: a?.label ?? '' }), input('text', { inputmode: 'decimal', value: a ? (a.priceCents / 100).toFixed(2) : '' })];
+        r.append(field('Extra', f[0]!), field('Price ($)', f[1]!), btn('Remove this extra', () => { rows.delete(r); r.remove(); }, 'chip'));
+        rows.set(r, f); return r;
+      };
+      for (const s of it?.sizes ?? []) sizeBox.append(sizeRow(s));
+      for (const a of it?.addons ?? []) addonBox.append(addonRow(a));
+      const split = (t: string) => t.split('\n').map((x) => x.trim()).filter(Boolean);
+      root.append(h('h3', {}, it ? 'Edit menu item' : 'New menu item'), h('div', { class: 'form' },
+        field('Name', title), field('Group (for example Birthday, Mini)', category), field('Type', kind), field('Status', status), field('Availability', avail),
+        h('h4', {}, 'Sizes and prices'), sizeBox, btn('Add a size', () => sizeBox.append(sizeRow()), 'chip'),
+        field('Flavours (one per line)', flav), field('Fillings (one per line)', fill),
+        h('h4', {}, 'Extras'), addonBox, btn('Add an extra', () => addonBox.append(addonRow()), 'chip'),
+        field('Ingredient note (optional)', note, 'Only what you are sure is true.'),
+        btn('Save', async () => {
+          const sizes: Json[] = [], addons: Json[] = [];
+          for (const r of Array.from(sizeBox.children)) {
+            const [n, l, a, b, p] = rows.get(r)!, pc = cents(p!.value);
+            if (!n!.value.trim() || !/^\d+$/.test(l!.value) || !/^\d+$/.test(a!.value) || !/^\d+$/.test(b!.value) || pc === null) return notice('Please check the sizes: each needs a name, whole numbers for layers and servings, and a price.');
+            sizes.push({ label: n!.value, layers: +l!.value, servings: { min: +a!.value, max: +b!.value }, priceCents: pc });
+          }
+          for (const r of Array.from(addonBox.children)) {
+            const [n, p] = rows.get(r)!, pc = cents(p!.value);
+            if (!n!.value.trim() || pc === null) return notice('Each extra needs a name and a price.');
+            addons.push({ label: n!.value, priceCents: pc });
+          }
+          const id = it?.id ?? slug(title.value);
+          if (!id) return notice('Please give the item a name.');
+          const r = await api(`/admin/api/menu/${id}`, 'PUT', { expectedRevision: it?.revision ?? null, item: { id, title: title.value, category: category.value, status: status.value, availability: avail.value, kind: kind.value, sizes, flavours: split(flav.value), fillings: split(fill.value), addons, ingredientNote: note.value.trim() || null } });
+          if (r.ok) { notice(''); loadMenu(); }
+          else if (r.status === 409) { notice('This item was changed somewhere else. The latest version has been loaded.'); loadMenu(); }
+          else if (r.status) notice('Please check the details. A published item needs a name, a group and at least one size.');
+        }), btn('Cancel', () => renderMenu(), 'chip')));
+      ($('menu').querySelector('input') as HTMLElement).focus();
     }
     loadInbox(true);
   </script>
