@@ -1,9 +1,10 @@
 ---
 import Base from '../../layouts/Base.astro';
 import MenuGuide from '../../components/MenuGuide.astro';
-import { parseMenu, publicMenu } from '../../data/menu';
+import { publicMenu } from '../../data/menu';
+import { parseApprovedMenu } from '../../data/menu-editor';
 import approved from '../../data/menu-approved.json';
-const items = publicMenu(parseMenu(approved));
+const items = publicMenu(parseApprovedMenu(approved));
 ---
 <Base title="Menu guide preview · Cakeopedia Austin" description="Internal review of the menu, pricing and portion guide." private={true}>
   <div class="wrap page-head">
