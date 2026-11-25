@@ -10,26 +10,34 @@ export interface AccessConfig {
   now?: () => number;             // seconds, for tests
   origin: string;                 // this app's own origin, for CSRF
 }
-const b64 = (s: string) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '=')), (c) => c.charCodeAt(0));
-const json = (s: string): unknown => JSON.parse(new TextDecoder().decode(b64(s)));
+const b64 = (s: string) => {
+  const decoded = atob(s.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '='));
+  if (btoa(decoded).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') !== s) throw Error('Invalid token encoding');
+  return Uint8Array.from(decoded, c => c.charCodeAt(0));
+};
+const json = (s: string): unknown => JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(b64(s)));
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
 export async function verifyAccessJwt(token: string | null, cfg: AccessConfig): Promise<string | null> {
   try {
-    const parts = token?.split('.');
+    // Bound attacker-controlled parsing before any key lookup or cryptography.
+    if (!token || token.length > 16_384 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token)) return null;
+    const parts = token.split('.');
     if (!parts || parts.length !== 3) return null;
     const [h, p, s] = parts as [string, string, string];
     const header = json(h), payload = json(p);
-    if (!isObj(header) || !isObj(payload) || header.alg !== 'RS256' || typeof header.kid !== 'string') return null; // never accept none/HS*
-    const jwk = (await cfg.getKeys()).find((k) => k.kid === header.kid && k.kty === 'RSA');
-    if (!jwk) return null;
+    if (!isObj(header) || !isObj(payload) || header.alg !== 'RS256' || typeof header.kid !== 'string' || !/^[A-Za-z0-9._-]{1,128}$/.test(header.kid) || Object.hasOwn(header, 'crit') || Object.hasOwn(header, 'b64')) return null; // never accept none/HS*
+    const signature = b64(s);
+    const matching = (await cfg.getKeys()).filter(k => k.kid === header.kid);
+    const jwk = matching[0];
+    if (matching.length !== 1 || !jwk || jwk.kty !== 'RSA') return null;
     const key = await crypto.subtle.importKey('jwk', { ...jwk, alg: 'RS256' }, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
-    if (!await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64(s), new TextEncoder().encode(`${h}.${p}`))) return null;
+    if (!await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, signature, new TextEncoder().encode(`${h}.${p}`))) return null;
     const now = (cfg.now ?? (() => Math.floor(Date.now() / 1000)))();
     const aud = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-    if (payload.iss !== cfg.issuer || !aud.includes(cfg.audience)) return null;
-    if (typeof payload.exp !== 'number' || payload.exp <= now) return null;
-    if (typeof payload.nbf === 'number' && payload.nbf > now + 30) return null;
+    if (!Number.isSafeInteger(now) || now < 0 || payload.iss !== cfg.issuer || !aud.every(a => typeof a === 'string' && a.length > 0) || !aud.includes(cfg.audience)) return null;
+    if (typeof payload.exp !== 'number' || !Number.isSafeInteger(payload.exp) || payload.exp <= now) return null;
+    if (Object.hasOwn(payload, 'nbf') && (typeof payload.nbf !== 'number' || !Number.isSafeInteger(payload.nbf) || payload.nbf < 0 || payload.nbf > now + 30)) return null;
     const email = typeof payload.email === 'string' ? payload.email.toLowerCase() : '';
     return cfg.operators.has(email) ? email : null;
   } catch { return null; }
