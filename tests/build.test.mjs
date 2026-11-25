@@ -64,3 +64,11 @@ test('owner page is noindex, has no public nav, and its headers are not cacheabl
   assert.doesNotMatch(html, /href="\/creations\/"/);
   assert.match(await read('_headers'), /\/admin\/\*\n  X-Robots-Tag: noindex, nofollow\n  Cache-Control: no-store/);
 });
+
+test('menu concept is non-indexable and contains no fabricated prices or products', async () => {
+  const html = await read('concepts/menu-guide/index.html');
+  assert.match(html, /name="robots" content="noindex, nofollow"/);
+  assert.match(html, /Menu in preparation/);
+  assert.doesNotMatch(html, /\$\d|<form/);
+  assert.doesNotMatch(await read('index.html'), /href="\/concepts\/menu-guide/);
+});
