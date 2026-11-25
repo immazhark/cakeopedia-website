@@ -19,8 +19,8 @@ test('draft and archived items never appear in public menu', () => {
 test('fixed and starting price models preserve integer cents and serving ranges', () => {
   const entries = parseMenu([item(), { ...item(), id: 'standard', kind: 'standard' }]);
   assert.deepEqual(publicMenu(entries).map(x => x.priceKind), ['starting', 'fixed']);
-  assert.deepEqual(entries[0].sizes[0].servings, { min: 4, max: 6 });
-  assert.equal(entries[0].sizes[0].priceCents, 100);
+  assert.deepEqual(entries[0]!.sizes[0]!.servings, { min: 4, max: 6 });
+  assert.equal(entries[0]!.sizes[0]!.priceCents, 100);
 });
 
 test('rejects fractional or negative prices, reversed servings, and duplicate IDs', () => {
