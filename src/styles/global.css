@@ -133,3 +133,22 @@ a:hover { color: var(--cta-hover); text-decoration-thickness: 2px; }
 .pic-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .pic-list li { display: grid; gap: .4rem; justify-items: start; }
 .pic-list img { width: 72px; height: 72px; object-fit: cover; border-radius: var(--radius-s); }
+
+/* owner area */
+.admin { padding-bottom: var(--space-6); }
+.admin .tabs { display: flex; gap: .6rem; margin-bottom: var(--space-3); }
+.admin h3 { margin: var(--space-4) 0 var(--space-2); font-size: var(--step-1); }
+.admin-list { list-style: none; margin: var(--space-2) 0; padding: 0; display: grid; gap: .6rem; }
+.admin-list > li { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.row { display: flex; flex-wrap: wrap; gap: .4rem .75rem; align-items: baseline; width: 100%; text-align: left; min-height: 3rem; padding: .7rem 1rem; background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-s); font: inherit; color: var(--heading); cursor: pointer; }
+.row:hover { border-color: var(--border-strong); }
+.badge { background: var(--sage-tint); color: var(--ink-deep); padding: .1rem .6rem; border-radius: 999px; font-size: var(--step--1); font-weight: 600; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: .3rem 1rem; }
+.facts dt { font-weight: 600; color: var(--heading); } .facts dd { margin: 0; overflow-wrap: anywhere; }
+.add { margin: var(--space-2) 0; } .add summary { cursor: pointer; font-weight: 600; min-height: 2.75rem; display: flex; align-items: center; }
+.add .field { margin-bottom: var(--space-2); }
+.row-form { display: grid; gap: var(--space-2); max-width: 40rem; }
+.cal-nav { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); max-width: 30rem; }
+.admin textarea, .admin input:not([type='checkbox']), .admin select { width: 100%; min-height: 3rem; padding: .7rem .9rem; font: inherit; color: var(--heading); background: var(--bg-raised); border: 1.5px solid var(--border-strong); border-radius: var(--radius-s); }
+.admin .field { display: grid; gap: .35rem; } .admin .field label { font-weight: 600; color: var(--heading); }
+button.chip[aria-pressed='true'] { background: var(--brand-butter); border-color: var(--brand-butter); color: var(--accent-ink); font-weight: 700; }

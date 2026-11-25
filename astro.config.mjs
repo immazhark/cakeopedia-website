@@ -12,6 +12,9 @@ const headers = [
   '  Referrer-Policy: strict-origin-when-cross-origin',
   '  Permissions-Policy: camera=(), microphone=(), geolocation=()',
   ...(production ? [] : ['  X-Robots-Tag: noindex, nofollow']),
+  '/admin/*',
+  '  X-Robots-Tag: noindex, nofollow',
+  '  Cache-Control: no-store',
   '/media/*',
   '  Cache-Control: public, max-age=31536000, immutable',
 ].join('\n') + '\n';
@@ -27,4 +30,4 @@ const envOutput = {
 };
 
 // The dev proxy only applies to `astro dev`: the local form talks to the local Worker (npm run dev:api) same-origin.
-export default defineConfig({ output: 'static', devToolbar: { enabled: false }, integrations: [envOutput], vite: { server: { proxy: { '/api': 'http://127.0.0.1:8787' } } } });
+export default defineConfig({ output: 'static', devToolbar: { enabled: false }, integrations: [envOutput], vite: { server: { proxy: { '/api': 'http://127.0.0.1:8787', '/admin/api': 'http://127.0.0.1:8787' } } } });

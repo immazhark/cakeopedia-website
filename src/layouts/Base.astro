@@ -2,10 +2,10 @@
 import '@fontsource-variable/fraunces';
 import '@fontsource-variable/figtree';
 import '../styles/global.css';
-interface Props { title: string; description: string; current?: string; image?: string }
-const { title, description, current, image } = Astro.props;
-const indexable = import.meta.env.PUBLIC_SITE_ENV === 'production';
-const nav = [['/creations/', 'Creations'], ['/story/', 'Story'], ['/enquiry/', 'Enquire']];
+interface Props { title: string; description: string; current?: string; image?: string; private?: boolean }
+const { title, description, current, image, private: isPrivate = false } = Astro.props;
+const indexable = import.meta.env.PUBLIC_SITE_ENV === 'production' && !isPrivate;
+const nav = isPrivate ? [] : [['/creations/', 'Creations'], ['/story/', 'Story'], ['/enquiry/', 'Enquire']];
 ---
 <!doctype html>
 <html lang="en">

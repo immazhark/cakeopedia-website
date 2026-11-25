@@ -5,6 +5,8 @@ import { Miniflare } from 'miniflare';
 import sharp from 'sharp';
 import { handleEnquiry } from '../worker/enquiries.ts';
 import { EnquiryStore } from '../worker/store.ts';
+import { handleInbox, type InboxDb } from '../worker/inbox.ts';
+import type { AccessConfig } from '../worker/auth.ts';
 import { handleUpload, handleUploadDelete, ownsUploads, purgeOrphans, POLICY, type Bucket, type UploadDeps } from '../worker/uploads.ts';
 
 const ORIGIN = 'https://preview.example.invalid';
@@ -13,7 +15,7 @@ let db: Awaited<ReturnType<Miniflare['getD1Database']>>;
 before(async () => {
   mf = new Miniflare({ modules: true, script: 'export default { fetch() { return new Response("t"); } }', compatibilityDate: '2026-07-30', d1Databases: ['DB'] });
   db = await mf.getD1Database('DB');
-  for (const file of ['0001_enquiries.sql', '0002_outbox_leases.sql', '0003_uploads.sql']) {
+  for (const file of ['0001_enquiries.sql', '0002_outbox_leases.sql', '0003_uploads.sql', '0004_enquiry_events.sql', '0005_orders.sql']) {
     const sql = (await readFile(new URL(`../migrations/${file}`, import.meta.url), 'utf8')).replace(/^--.*$/gm, '');
     await db.batch(sql.split(';').map((s) => s.trim()).filter(Boolean).map((s) => db.prepare(s)));
   }
@@ -113,4 +115,27 @@ test('orphan purge removes only stale unattached uploads and their objects', asy
   assert.ok(purged >= 1);
   assert.equal(await rows(sid), 1);
   assert.equal(bucket.objects.size, 1);
+});
+
+test('owner can read an attached picture only when authorised; unattached and unknown ids are hidden', async () => {
+  const bucket = new MemoryBucket(), sid = crypto.randomUUID();
+  const { attachmentId } = (await (await handleUpload(up(await png(), sid), deps(bucket))).json()) as { attachmentId: string };
+  const keys = await crypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify']);
+  const jwk = { ...(await crypto.subtle.exportKey('jwk', keys.publicKey)), kid: 'k' };
+  const cfg: AccessConfig = { issuer: 'https://i.invalid', audience: 'a', operators: new Set(['o@example.invalid']), getKeys: async () => [jwk], now: () => 1_800_000_000, origin: ORIGIN };
+  const b64u = (b: ArrayBuffer | string) => Buffer.from(typeof b === 'string' ? b : new Uint8Array(b)).toString('base64url');
+  const data = `${b64u(JSON.stringify({ alg: 'RS256', kid: 'k' }))}.${b64u(JSON.stringify({ iss: 'https://i.invalid', aud: ['a'], exp: 1_800_000_600, email: 'o@example.invalid' }))}`;
+  const token = `${data}.${b64u(await crypto.subtle.sign('RSASSA-PKCS1-v1_5', keys.privateKey, new TextEncoder().encode(data)))}`;
+  const reader = { get: async (key: string) => { const o = bucket.objects.get(key); return o ? { body: new Response(o.bytes as BodyInit).body! } : null; } };
+  const read = (id: string, jwt: string | null) => handleInbox(new Request(`${ORIGIN}/admin/api/uploads/${id}`, { headers: jwt ? { 'Cf-Access-Jwt-Assertion': jwt } : {} }), db as unknown as InboxDb, cfg, Date.now, reader);
+  assert.equal((await read(attachmentId, null)).status, 401);
+  assert.equal((await read(attachmentId, token)).status, 404); // not yet attached to an enquiry
+  const d = { store: new EnquiryStore(db), origin: ORIGIN, creationIds: new Set<string>(), allowRequest: async () => true, verifyBot: async () => true, ownsUploads: (s: string, ids: string[]) => ownsUploads(deps(bucket).db, s, ids) };
+  await handleEnquiry(new Request(`${ORIGIN}/api/enquiries`, { method: 'POST', headers: { Origin: ORIGIN, 'Content-Type': 'application/json' }, body: JSON.stringify({ submissionId: sid, name: 'S', contact: { kind: 'email', value: 'a@example.invalid' }, dateUndecided: true, privacyAck: true, attachmentIds: [attachmentId] }) }), d);
+  const ok = await read(attachmentId, token);
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers.get('Content-Type'), 'image/png');
+  assert.match(ok.headers.get('Cache-Control') ?? '', /no-store/);
+  assert.equal(ok.headers.get('X-Content-Type-Options'), 'nosniff');
+  assert.equal((await read(crypto.randomUUID(), token)).status, 404);
 });

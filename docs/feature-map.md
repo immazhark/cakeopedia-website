@@ -19,6 +19,10 @@ verified, blocked, deferred. Nothing here is staging or production verified.
 | F15 | Decorating videos | Partially implemented | 3 silent clips; playback not machine-verified. |
 | F17 | Shareable creation pages | Implemented locally | 19 pages; sitemap, canonical, schema pending. |
 | F18 | Customer feedback | Blocked (no permissioned reviews) | |
-| F19 | Private enquiry list | Partially implemented | Worker API only (worker/auth.ts, inbox.ts): Cloudflare Access JWT verified server-side, CSRF guard, keyset pagination, append-only status history (new, replied, quoted, confirmed, closed; legacy booked maps to confirmed), optimistic concurrency; 12 tests. No inbox UI, not wired to a deployed Access app, not provider-verified. |
-| F20-F24 | Alerts, busy dates, quotes, deposits, calendar | Not started | Outbox recovery logic exists; no sender. |
+| F19 | Private enquiry list | Implemented locally | /admin screen (phone-first) over the authenticated API: filters, detail, private picture viewing, status history, manual Instagram orders. Verified in Edge at 390px with a local dev login that exercises the real token verifier. Not yet behind a real Cloudflare Access app. |
+| F20 | New-enquiry alerts | Not started | Outbox recovery logic exists; no sender or verified domain. |
+| F21 | Busy dates | Implemented locally | Per-day toggle in the calendar tab; owner note only, no public availability. |
+| F22 | Quote and order summary | Implemented locally | Versioned quotes (integer cents), agreed design and prep notes. |
+| F23 | Deposit and balance records | Implemented locally | Append-only owner-recorded payments, void with reason, confirmation blocked until the agreed deposit is recorded. No payment automation. |
+| F24 | Confirmed-order calendar | Implemented locally | Month view of confirmed orders by stored Austin date/time (DST-safe, no conversion). |
 | F14, F16, F25-F34 | Later phase | Intentionally deferred | |

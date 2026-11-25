@@ -1,0 +1,164 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Owner · Cakeopedia Austin" description="Private owner area." private>
+  <div class="wrap admin" id="admin">
+    <div class="page-head" style="padding-block:var(--space-4) var(--space-3)">
+      <p class="eyebrow">Owner area</p>
+      <h1 style="font-size:var(--step-3)">Enquiries &amp; orders</h1>
+    </div>
+    <div class="tabs" role="group" aria-label="Section">
+      <button class="chip" type="button" data-tab="inbox" aria-pressed="true">Enquiries</button>
+      <button class="chip" type="button" data-tab="calendar" aria-pressed="false">Calendar</button>
+    </div>
+    <p id="notice" class="err" role="alert" hidden></p>
+    <section id="inbox" aria-label="Enquiries"></section>
+    <section id="detail" aria-label="Enquiry" hidden></section>
+    <section id="calendar" aria-label="Calendar" hidden></section>
+  </div>
+  <noscript><p class="wrap">This area needs JavaScript.</p></noscript>
+  <script>
+    // Phone-first owner screens. All authority lives on the server: this page only calls the authenticated API.
+    type Json = Record<string, any>;
+    const $ = (id: string) => document.getElementById(id)!;
+    const money = (c: number) => '$' + (c / 100).toFixed(2);
+    function cents(s: string): number | null { const m = /^\s*\$?(\d{1,6})(?:\.(\d{1,2}))?\s*$/.exec(s); return m ? Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0') || 0) : null; }
+    const h = (tag: string, attrs: Record<string, string> = {}, ...kids: (Node | string)[]) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); e.append(...kids); return e; };
+    const when = (t: number) => new Date(t).toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' });
+    const notice = (m: string) => { const n = $('notice'); n.hidden = !m; n.textContent = m; };
+    async function api(path: string, method = 'GET', body?: object): Promise<{ ok: boolean; status: number; data: Json }> {
+      try {
+        const r = await fetch(path, { method, headers: { 'X-Cakeopedia-Admin': '1', ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+        const data = r.status === 204 ? {} : await r.json().catch(() => ({}));
+        if (r.status === 401) notice('Your sign-in has expired. Please reload the page and sign in again.');
+        return { ok: r.ok, status: r.status, data };
+      } catch { notice('No connection. Nothing was changed; please try again.'); return { ok: false, status: 0, data: {} }; }
+    }
+    const field = (label: string, input: HTMLElement, hint?: string) => { const id = 'f' + Math.random().toString(36).slice(2, 8); input.id = id; return h('div', { class: 'field' }, h('label', { for: id }, label), input, ...(hint ? [h('p', { class: 'hint' }, hint)] : [])); };
+    const input = (type = 'text', attrs: Record<string, string> = {}) => h('input', { type, ...attrs }) as HTMLInputElement;
+    const select = (opts: [string, string][]) => { const s = h('select') as HTMLSelectElement; for (const [v, t] of opts) s.append(h('option', { value: v }, t)); return s; };
+    const btn = (text: string, onclick: () => void, cls = 'btn') => { const b = h('button', { type: 'button', class: cls }, text) as HTMLButtonElement; b.addEventListener('click', onclick); return b; };
+
+    // ---- tabs
+    const views: Record<string, string> = { inbox: 'inbox', calendar: 'calendar' };
+    function show(tab: 'inbox' | 'calendar' | 'detail') {
+      for (const k of ['inbox', 'detail', 'calendar']) $(k).hidden = k !== tab;
+      document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tab === (tab === 'detail' ? 'inbox' : tab))));
+      notice('');
+    }
+    document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.addEventListener('click', () => { const t = views[b.dataset.tab!] as 'inbox' | 'calendar'; show(t); if (t === 'calendar') loadCalendar(); else loadInbox(true); }));
+
+    // ---- inbox
+    let filter = ''; let items: Json[] = []; let next: Json | null = null;
+    async function loadInbox(reset: boolean) {
+      if (reset) { items = []; next = null; }
+      const q = new URLSearchParams({ limit: '20' }); if (filter) q.set('status', filter);
+      if (next) { q.set('beforeAt', String(next.beforeAt)); q.set('beforeId', next.beforeId); }
+      const r = await api('/admin/api/enquiries?' + q); if (!r.ok) return;
+      items.push(...r.data.items); next = r.data.next; renderInbox();
+    }
+    function renderInbox() {
+      const root = $('inbox'); root.replaceChildren();
+      const chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filter by status' });
+      for (const s of ['', 'new', 'replied', 'quoted', 'confirmed', 'closed']) { const c = btn(s || 'All', () => { filter = s; loadInbox(true); }, 'chip'); c.setAttribute('aria-pressed', String(filter === s)); chips.append(c); }
+      root.append(chips, addForm());
+      const list = h('ul', { class: 'admin-list' });
+      for (const it of items) {
+        const b = btn('', () => openDetail(it.id), 'row');
+        b.append(h('strong', {}, it.name ?? 'Unnamed'), h('span', {}, ` · ${it.occasion ?? 'Occasion not set'}${it.eventDate ? ' · ' + it.eventDate : ''}`), h('span', { class: 'badge' }, it.status), ...(it.pictures ? [h('span', { class: 'hint' }, `${it.pictures} picture${it.pictures > 1 ? 's' : ''}`)] : []));
+        list.append(h('li', {}, b));
+      }
+      if (!items.length) list.append(h('li', { class: 'hint' }, 'No enquiries here yet.'));
+      root.append(list); if (next) root.append(btn('Load more', () => loadInbox(false), 'btn btn--ghost'));
+    }
+    function addForm() {
+      const d = h('details', { class: 'add' }, h('summary', {}, 'Add an Instagram order'));
+      const name = input('text', { maxlength: '100' }), handle = input('text', { maxlength: '31', autocapitalize: 'none' }), date = input('date'), notes = h('textarea', { rows: '3', maxlength: '2000' }) as HTMLTextAreaElement;
+      d.append(field('Customer name', name), field('Instagram handle', handle), field('Date needed (leave blank if undecided)', date), field('What they asked for', notes),
+        btn('Add enquiry', async () => {
+          const r = await api('/admin/api/enquiries', 'POST', { name: name.value, contact: { kind: 'instagram', value: handle.value }, dateUndecided: !date.value, eventDate: date.value || null, notes: notes.value || null });
+          if (!r.ok) return notice('Please check the name and Instagram handle.'); notice(''); openDetail(r.data.id);
+        }));
+      return d;
+    }
+
+    // ---- detail
+    async function openDetail(id: string) {
+      const r = await api('/admin/api/enquiries/' + id); if (!r.ok) return; show('detail');
+      const e = r.data, p = e.payload as Json, o = e.order as Json, root = $('detail'); root.replaceChildren();
+      const dl = h('dl', { class: 'facts' });
+      const fact = (k: string, v: unknown) => { if (v === null || v === undefined || v === '' || (Array.isArray(v) && !v.length)) return; dl.append(h('dt', {}, k), h('dd', {}, String(v))); };
+      fact('Contact', `${p.contact.kind}: ${p.contact.value}`); fact('Occasion', p.occasion); fact('Date', p.eventDate ?? 'Not decided'); fact('People', p.servings); fact('Size', p.size); fact('Flavour', p.flavour);
+      fact('Add-ons', (p.addons ?? []).join(', ')); fact('Pickup or delivery', p.fulfilment); fact('Budget', p.budgetCents != null ? money(p.budgetCents) : null); fact('Comments', p.notes); fact('Gallery reference', (p.creationIds ?? []).join(', '));
+      fact('Reference', e.reference);
+      root.append(btn('← All enquiries', () => { show('inbox'); loadInbox(true); }, 'btn btn--ghost'), h('h2', { style: 'font-size:var(--step-2);margin-top:var(--space-3)' }, p.name, ' ', h('span', { class: 'badge' }, e.status)), dl);
+      if (e.pictures.length) { const g = h('div', { class: 'pic-list' }); e.pictures.forEach((pic: Json, i: number) => g.append(h('a', { href: `/admin/api/uploads/${pic.id}`, target: '_blank', rel: 'noopener' }, h('img', { src: `/admin/api/uploads/${pic.id}`, alt: `Inspiration picture ${i + 1}`, width: '120', height: '120', loading: 'lazy' })))); root.append(h('h3', {}, 'Inspiration pictures'), g); }
+
+      // status
+      const st = select(['new', 'replied', 'quoted', 'confirmed', 'closed'].filter((s) => s !== e.status).map((s) => [s, s])), note = input('text', { maxlength: '1000' });
+      const errs: Record<string, string> = { no_quote: 'Add a quote first.', deposit_not_recorded: 'Record the agreed deposit payment before confirming.', status_changed: 'This enquiry changed elsewhere. Reloaded.' };
+      root.append(h('h3', {}, 'Status'), h('div', { class: 'row-form' }, field('Change to', st), field('Note (optional)', note), btn('Update status', async () => {
+        const r2 = await api(`/admin/api/enquiries/${id}/status`, 'POST', { status: st.value, expected: e.status, note: note.value || null });
+        if (!r2.ok) { notice(errs[r2.data.error] ?? 'Could not update.'); if (r2.status === 409 && r2.data.error === 'status_changed') openDetail(id); return; } openDetail(id);
+      })), h('ul', { class: 'hint' }, ...e.events.map((v: Json) => h('li', {}, `${when(v.at)} · ${v.status}${v.note ? ' · ' + v.note : ''}`))));
+
+      // quote
+      const q = o.quote as Json | null;
+      const total = input('text', { inputmode: 'decimal', value: q ? (q.totalCents / 100).toFixed(2) : '' }), dep = input('text', { inputmode: 'decimal', value: q ? (q.depositCents / 100).toFixed(2) : '' });
+      const ful = select([['pickup', 'Pickup'], ['delivery', 'Delivery']]); if (q) ful.value = q.fulfilment;
+      const date = input('date', { value: q?.date ?? '' }), time = input('time', { value: q?.time ?? '' });
+      const dn = h('textarea', { rows: '3', maxlength: '2000' }) as HTMLTextAreaElement, pn = h('textarea', { rows: '3', maxlength: '2000' }) as HTMLTextAreaElement; dn.value = q?.designNotes ?? ''; pn.value = q?.prepNotes ?? '';
+      root.append(h('h3', {}, q ? `Quote (version ${q.version})` : 'Quote'), h('div', { class: 'form' },
+        field('Agreed total ($)', total), field('Deposit ($)', dep), field('Pickup or delivery', ful), field('Date', date), field('Time (optional)', time), field('Agreed design', dn), field('Preparation notes', pn),
+        btn(q ? 'Save new quote version' : 'Save quote', async () => {
+          const t = cents(total.value), d = cents(dep.value); if (t === null || d === null || d > t || !date.value) return notice('Enter the total, a deposit that is not more than the total, and a date.');
+          const r3 = await api(`/admin/api/enquiries/${id}/quote`, 'POST', { totalCents: t, depositCents: d, fulfilment: ful.value, date: date.value, time: time.value || null, designNotes: dn.value || null, prepNotes: pn.value || null, expectedVersion: q?.version ?? 0 });
+          if (!r3.ok) { notice(r3.status === 409 ? 'This quote changed elsewhere. Reloaded.' : 'Please check the quote details.'); if (r3.status === 409) openDetail(id); return; } openDetail(id);
+        })));
+
+      // payments (records only; the owner checks Zelle herself)
+      const pay = h('ul', { class: 'admin-list' });
+      for (const x of o.payments as Json[]) pay.append(h('li', {}, `${x.kind} ${money(x.amountCents)} received ${x.receivedOn}${x.note ? ' · ' + x.note : ''}`, ...(x.voidedAt ? [h('span', { class: 'badge' }, 'voided: ' + x.voidReason)] : [voidControl(id, x)])));
+      const pk = select([['deposit', 'Deposit'], ['balance', 'Balance']]), pa = input('text', { inputmode: 'decimal' }), pd = input('date'), pnote = input('text', { maxlength: '500' });
+      root.append(h('h3', {}, 'Payments'), h('p', { class: 'hint' }, 'Record a payment only after you have seen it arrive in Zelle. Nothing here checks payments automatically.'),
+        h('p', {}, q ? `Paid ${money(o.paidCents)} of ${money(q.totalCents)} · balance ${money(o.balanceCents)}` : 'Add a quote to see the balance.'), pay,
+        h('div', { class: 'form' }, field('Type', pk), field('Amount ($)', pa), field('Date received', pd), field('Note (optional)', pnote), btn('Record payment', async () => {
+          const a = cents(pa.value); if (a === null || a < 1 || !pd.value) return notice('Enter an amount and the date it arrived.');
+          const r5 = await api(`/admin/api/enquiries/${id}/payments`, 'POST', { kind: pk.value, amountCents: a, receivedOn: pd.value, note: pnote.value || null }); if (r5.ok) openDetail(id); else notice('Please check the payment details.');
+        })));
+      ($('detail').querySelector('button') as HTMLElement).focus();
+    }
+
+    function voidControl(id: string, x: Json) {
+      const wrap = h('span', { class: 'row-form' });
+      wrap.append(btn('Void', () => {
+        const reason = input('text', { maxlength: '500', 'aria-label': 'Why is this record wrong?', placeholder: 'Why is this record wrong?' });
+        wrap.replaceChildren(reason, btn('Confirm void', async () => { if (!reason.value.trim()) return notice('Please say why.'); const r = await api(`/admin/api/enquiries/${id}/payments/${x.id}/void`, 'POST', { reason: reason.value }); if (r.ok) openDetail(id); }, 'chip'));
+        reason.focus();
+      }, 'chip'));
+      return wrap;
+    }
+
+    // ---- calendar
+    let cursor = new Date(); cursor.setDate(1);
+    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    async function loadCalendar() {
+      const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1), last = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+      const r = await api(`/admin/api/calendar?from=${iso(first)}&to=${iso(last)}`); if (!r.ok) return;
+      const orders: Json[] = r.data.orders, busy = new Map<string, string>((r.data.busy as Json[]).map((b) => [b.date, b.note ?? '']));
+      const root = $('calendar'); root.replaceChildren();
+      root.append(h('div', { class: 'cal-nav' }, btn('‹', () => { cursor.setMonth(cursor.getMonth() - 1); loadCalendar(); }, 'chip'), h('strong', { 'aria-live': 'polite' }, first.toLocaleString('en-US', { month: 'long', year: 'numeric' })), btn('›', () => { cursor.setMonth(cursor.getMonth() + 1); loadCalendar(); }, 'chip')),
+        h('p', { class: 'hint' }, 'Tap a day to mark it busy or free. Confirmed orders show under their date. Busy dates are a note for you; the public site does not show availability.'));
+      const list = h('ul', { class: 'admin-list' });
+      for (let day = 1; day <= last.getDate(); day++) {
+        const d = iso(new Date(cursor.getFullYear(), cursor.getMonth(), day)), isBusy = busy.has(d), todays = orders.filter((o) => o.date === d);
+        const b = btn(`${new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}${isBusy ? ' · Busy' : ''}`, async () => { const r2 = isBusy ? await api('/admin/api/busy/' + d, 'DELETE') : await api('/admin/api/busy/' + d, 'PUT', {}); if (r2.ok) loadCalendar(); }, 'chip');
+        b.setAttribute('aria-pressed', String(isBusy));
+        const li = h('li', {}, b); for (const o of todays) li.append(btn(`${o.time ?? ''} ${o.name} (${o.fulfilment})`, () => openDetail(o.id), 'row'));
+        list.append(li);
+      }
+      root.append(list);
+    }
+    loadInbox(true);
+  </script>
+</Base>

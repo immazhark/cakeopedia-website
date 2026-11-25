@@ -6,14 +6,24 @@ import { confirmBlocker, orderSummary, routeOrders } from './orders.ts';
 // list pagination is keyset-based and bounded.
 export type InboxDb = AdminDb;
 export { STATUSES } from './admin-common.ts';
+export interface PrivateBucket { get(key: string): Promise<{ body: ReadableStream } | null> }
 
-export async function handleInbox(request: Request, db: AdminDb, cfg: AccessConfig, now: () => number = Date.now): Promise<Response> {
+export async function handleInbox(request: Request, db: AdminDb, cfg: AccessConfig, now: () => number = Date.now, bucket?: PrivateBucket): Promise<Response> {
   const op = await authorize(request, cfg);
   if (!op.ok) return op.response;
   const url = new URL(request.url);
   try {
     const order = await routeOrders(request, db, op.email, now, url);
     if (order) return order;
+    const pic = url.pathname.match(/^\/admin\/api\/uploads\/([^/]+)$/);
+    if (pic) { // authorised read of a customer's private inspiration picture (attached ones only)
+      if (request.method !== 'GET') return new Response(null, { status: 405 });
+      if (!bucket || !uuid.test(pic[1]!)) return out(404, { error: 'not_found' });
+      const meta = await db.prepare('SELECT object_key AS key, content_type AS type FROM uploads WHERE id = ? AND enquiry_id IS NOT NULL').bind(pic[1]!.toLowerCase()).first<{ key: string; type: string }>();
+      const object = meta && await bucket.get(meta.key);
+      if (!meta || !object) return out(404, { error: 'not_found' });
+      return new Response(object.body, { headers: { 'Content-Type': meta.type, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox", 'Content-Disposition': 'inline; filename="inspiration"' } });
+    }
     const path = url.pathname.replace(/^\/admin\/api\/enquiries/, '');
     if (path === '' && request.method === 'GET') {
       const status = url.searchParams.get('status');

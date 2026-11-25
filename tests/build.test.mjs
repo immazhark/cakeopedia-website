@@ -57,3 +57,10 @@ test('collections are crawlable links with correct semantics, and the preview em
   assert.match(await read('creations/index.html'), /href="\/collections\/floral\/"/);
   assert.match(await read('_headers'), /X-Robots-Tag: noindex/);
 });
+
+test('owner page is noindex, has no public nav, and its headers are not cacheable', async () => {
+  const html = await read('admin/index.html');
+  assert.match(html, /name="robots" content="noindex, nofollow"/);
+  assert.doesNotMatch(html, /href="\/creations\/"/);
+  assert.match(await read('_headers'), /\/admin\/\*\n  X-Robots-Tag: noindex, nofollow\n  Cache-Control: no-store/);
+});
