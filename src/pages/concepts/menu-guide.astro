@@ -1,0 +1,18 @@
+---
+import Base from '../../layouts/Base.astro';
+import MenuGuide from '../../components/MenuGuide.astro';
+import { parseMenu, publicMenu } from '../../data/menu';
+import approved from '../../data/menu-approved.json';
+const items = publicMenu(parseMenu(approved));
+---
+<Base title="Menu guide preview · Cakeopedia Austin" description="Internal review of the menu, pricing and portion guide." private={true}>
+  <div class="wrap page-head">
+    <p class="eyebrow">Development concept · not for publication</p>
+    <h1>Menu &amp; serving guide</h1>
+    <p class="lede" style="margin-top:var(--space-2)">A considered guide to choosing your cake, from the flavours inside to the portions shared.</p>
+  </div>
+  <section class="wrap" aria-label="Menu guide">
+    <MenuGuide items={items} />
+  </section>
+  <div style="height:var(--space-6)"></div>
+</Base>
