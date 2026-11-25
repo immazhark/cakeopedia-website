@@ -1,5 +1,21 @@
-﻿# Current handoff
+# Current handoff — 25 November 2026
 
+Active primary development writer: ChatGPT, authorised by the sponsor. This is development coordination, not a transfer of GitHub account ownership or release authority.
+
+## Current integration and recovery
+- Existing PR #1 (feat/local-application-foundation → main) was fast-forwarded without force from be2e6dd to the published Collection commit 08bf63c. Main remains 9cfab13. No merge, deploy or live intake.
+- Prior ChatGPT Work reported local hardening commit cb7f02d; GitHub cannot resolve it. Recover from its original workspace before overlapping its payment/status/upload/SEO/media changes. Its reported 84 tests, 7 built-output checks and 2 production-output checks do not verify the remote commit.
+- Independent branch feat/menu-domain-foundation starts at 08bf63c. Menu domain and tests committed as 36b21c0 and 60521d0. No duplicate integration PR; reconcile this branch after recovering the hardening commit.
+
+## Menu foundation (F02/F03/F13)
+- src/data/menu.ts: validated editorial records, fixed vs starting pricing, integer cents, sizes/layers/serving ranges, flavours/fillings/add-ons, revision timestamps, publication and availability filtering. No real menu or fixture data in production source.
+- tests/menu.test.ts: five isolated tests executed with Node 22.16.0 --experimental-strip-types; all passed. Standalone strict TypeScript 5.8.3 check passed. Remote blob hashes matched local tested files.
+- This is a partial domain foundation only; no public menu route, CMS, persistence, owner editing, approved serving data or end-to-end proof. Full repository build/test requires the pinned Node 24 environment and dependencies; this chat's container cannot resolve GitHub directly.
+- Next: recover cb7f02d; verify PR head CI, integrate without loss, add approved-content ingestion and preview, then a mobile menu/serving guide with no synthetic publication. Continue independent work while recovery is blocked.
+
+No provider changes, costs, DNS changes, deployments, private media publication or real customer actions. Existing owner input and release holds remain.
+
+## Historical Claude Code checkpoint (not current ownership or verification)
 Date: 25 November 2026. Task: master build directive; active writer Claude Code.
 Branch: feat/cakeopedia-collection-slice (from origin/feat/local-application-foundation, which already contains main). PR #1 still open and unmerged; read the actual HEAD from Git.
 
