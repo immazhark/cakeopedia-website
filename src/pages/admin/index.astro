@@ -92,7 +92,7 @@ import Base from '../../layouts/Base.astro';
     // ---- detail
     async function openDetail(id: string) {
       const r = await api('/admin/api/enquiries/' + id); if (!r.ok) return; show('detail');
-      const e = r.data, p = e.payload as Json, o = e.order as Json, root = $('detail'); root.replaceChildren();
+      const e = r.data, p = e.payload as Json, o = e.order as Json, root = $('detail'), fi = focusIndex(root); root.replaceChildren();
       const dl = h('dl', { class: 'facts' });
       const fact = (k: string, v: unknown) => { if (v === null || v === undefined || v === '' || (Array.isArray(v) && !v.length)) return; dl.append(h('dt', {}, k), h('dd', {}, String(v))); };
       fact('Contact', `${p.contact.kind}: ${p.contact.value}`); fact('Occasion', p.occasion); fact('Date', p.eventDate ?? 'Not decided'); fact('People', p.servings); fact('Size', p.size); fact('Flavour', p.flavour);
@@ -133,7 +133,7 @@ import Base from '../../layouts/Base.astro';
           const a = cents(pa.value); if (a === null || a < 1 || !pd.value) return notice('Enter an amount and the date it arrived.');
           const r5 = await api(`/admin/api/enquiries/${id}/payments`, 'POST', { requestId: prid, kind: pk.value, amountCents: a, receivedOn: pd.value, note: pnote.value || null }); if (r5.ok) openDetail(id); else if (r5.status) notice(r5.data.error === 'exceeds_balance' ? `That is more than the balance (${money(r5.data.balanceCents)}).` : r5.data.error === 'no_quote' ? 'Save a quote first.' : 'Please check the payment details.');
         })));
-      ($('detail').querySelector('button') as HTMLElement).focus();
+      refocus(root, Math.max(fi, 0)); // same control after an update; the Back button when first opened
     }
 
     function voidControl(id: string, x: Json) {

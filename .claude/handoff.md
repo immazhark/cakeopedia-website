@@ -23,4 +23,4 @@ Branch feat/local-application-foundation (PR #1 open, main untouched). Canonical
    site defects found. Native video/date controls take several Tab stops inside one element, so the check counts only the first stop.
    Not covered: screen reader, owner /admin by keyboard, Safari/Firefox.
 2. Breadcrumb/image schema and customer-question (AEO) content once menu facts exist.
-3. Owner UI: Menu heading + keyboard focus after Save/Cancel DONE (checked in browser-check). Inbox filter + Calendar toggle keep keyboard focus (checked). Remaining: menu edit history, Turnstile widget on the enquiry form.
+3. Owner UI: Menu heading + keyboard focus after Save/Cancel DONE (checked in browser-check). Inbox filter, Calendar toggle, enquiry detail keep keyboard focus (checked). Remaining: menu edit history, Turnstile widget on the enquiry form.

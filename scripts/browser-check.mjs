@@ -30,7 +30,8 @@ try {
     const kctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
     const kp = await kctx.newPage();
     const kerrs = []; kp.on('pageerror', (e) => kerrs.push(String(e)));
-    const focusInfo = () => kp.evaluate(() => {
+    const focusInfo = () => kp.evaluate(async () => {
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); // let the 1-frame reduced-motion transition settle
       const e = document.activeElement; if (!e || e === document.body) return null;
       const again = window.__last === e; window.__last = e; // native video/date controls take several Tab stops inside one element
       const s = getComputedStyle(e), r = e.getBoundingClientRect();
@@ -40,7 +41,7 @@ try {
       await kp.goto(BASE + path, { waitUntil: 'networkidle' });
       await kp.keyboard.press('Tab');
       const first = await focusInfo();
-      check(!!first && /skip/.test(String(first.cls)) && first.onscreen && first.ring, `${path} first Tab lands on a visible skip link`);
+      check(!!first && /skip/.test(String(first.cls)) && first.onscreen && first.ring, `${path} first Tab lands on a visible skip link ${JSON.stringify(first)}`);
       await kp.keyboard.press('Enter');
       check(await kp.evaluate(() => location.hash === '#main'), `${path} skip link jumps to #main`);
       // Walk the whole tab order: every stop shows a focus ring and is on screen; focus must leave the page (no trap).
@@ -112,6 +113,14 @@ try {
   await page.getByRole('button', { name: 'Enquiries', exact: true }).click();
   await page.getByRole('button', { name: 'new', exact: true }).focus(); await page.keyboard.press('Enter'); await page.waitForTimeout(600);
   check(await kept('inbox'), 'focus stays in Enquiries after using a status filter by keyboard');
+  const row = page.locator('#inbox ul button.row').first();
+  if (await row.count()) {
+    await row.focus(); await page.keyboard.press('Enter'); await page.locator('#detail').getByRole('heading', { level: 2 }).waitFor();
+    check(await kept('detail'), 'focus moves into the enquiry detail when opened by keyboard');
+    await page.getByRole('button', { name: 'Update status' }).focus(); await page.keyboard.press('Enter'); await page.waitForTimeout(800);
+    check(await kept('detail'), 'focus stays in the enquiry detail after Update status by keyboard');
+    await page.getByRole('button', { name: /All enquiries/ }).click();
+  } else console.log('SKIP enquiry detail keyboard check: no enquiries in local data');
   await page.getByRole('button', { name: 'Calendar', exact: true }).click();
   const day = page.locator('#calendar ul button.chip').first(); await day.waitFor();
   await day.focus(); await page.keyboard.press('Enter'); await page.waitForTimeout(600);
