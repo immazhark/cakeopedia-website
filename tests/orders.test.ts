@@ -145,3 +145,22 @@ test('payments cannot exceed the quote and a confirmed order cannot be silently 
   assert.equal((await call(qurl, 'POST', quote({ expectedVersion: 1, totalCents: 12000, depositCents: 3000 }))).status, 201);
   assert.equal((await call(`${pay}/${dep.id}/void`, 'POST', { reason: 'typo' })).status, 409); // still confirmed, still needs the deposit
 });
+
+test('owner menu: drafts stay private, edits are compare-and-set, replays succeed, export is approved-only', async () => {
+  const item = (over: Record<string, unknown> = {}) => ({ id: 'synthetic-menu', title: 'Synthetic', category: 'Test', status: 'draft', availability: 'available', kind: 'custom', sizes: [], flavours: [], fillings: [], addons: [], ingredientNote: null, ...over });
+  const put = (id: string, expectedRevision: number | null, it: object) => call(`/admin/api/menu/${id}`, 'PUT', { expectedRevision, item: it });
+  assert.equal((await put('synthetic-menu', null, item())).status, 201);
+  assert.equal((await put('synthetic-menu', null, item())).status, 409); // cannot re-create
+  assert.equal((await put('other-id', null, item())).status, 400); // body id must match the path
+  assert.equal((await put('synthetic-menu', 1, item({ revision: 9 }))).status, 400); // clients cannot set server fields
+  assert.equal((await put('synthetic-menu', 1, item({ status: 'published' }))).status, 400); // publishing needs a size
+  const pub = item({ status: 'published', sizes: [{ label: 'Six inch', layers: 2, servings: { min: 6, max: 8 }, priceCents: 5500 }] });
+  const [a, b] = await Promise.all([put('synthetic-menu', 1, pub), put('synthetic-menu', 1, { ...pub, title: 'Other' })]); // two phones, same revision
+  assert.deepEqual([a.status, b.status].sort(), [200, 409]);
+  const again = await put('synthetic-menu', 1, a.status === 200 ? pub : { ...pub, title: 'Other' }); // the winner's response was lost
+  assert.deepEqual([again.status, (await json(again) as { replay?: boolean }).replay], [200, true]);
+  assert.equal((await put('hidden-draft', null, item({ id: 'hidden-draft' }))).status, 201);
+  const exported = await json<{ items: { id: string }[] }>(await call('/admin/api/menu/export'));
+  assert.deepEqual(exported.items.map((i) => i.id), ['synthetic-menu']); // draft excluded
+  assert.equal((await call('/admin/api/menu', 'GET', undefined, null)).status, 401);
+});

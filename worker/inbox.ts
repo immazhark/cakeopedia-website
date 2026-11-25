@@ -1,5 +1,6 @@
 import { authorize, type AccessConfig } from './auth.ts';
 import { CURRENT, isStatus, out, uuid, type AdminDb, type Status } from './admin-common.ts';
+import { routeMenu } from './menu.ts';
 import { confirmBlocker, orderSummary, routeOrders } from './orders.ts';
 
 // Private owner API entry. Authorises once per request, then routes. Responses are never cacheable;
@@ -15,6 +16,8 @@ export async function handleInbox(request: Request, db: AdminDb, cfg: AccessConf
   try {
     const order = await routeOrders(request, db, op.email, now, url);
     if (order) return order;
+    const menu = await routeMenu(request, db, now, url);
+    if (menu) return menu;
     const pic = url.pathname.match(/^\/admin\/api\/uploads\/([^/]+)$/);
     if (pic) { // authorised read of a customer's private inspiration picture (attached ones only)
       if (request.method !== 'GET') return new Response(null, { status: 405 });
