@@ -7,13 +7,16 @@ export interface NotificationEvent {
   attempts: number;
   first_attempt_at: number;
   lease_token: string;
+  lease_until: number;
 }
 export type Delivery =
   | { kind: 'accepted'; providerId: string }
   | { kind: 'retry'; reason: 'quota' | 'temporary'; retryAfterMs?: number }
   | { kind: 'permanent' }
-  | { kind: 'unknown' };
-export type SendEvent = Pick<NotificationEvent, 'id' | 'enquiry_id' | 'recipient_role'>;
+  | { kind: 'unknown' }
+  | { kind: 'skipped'; reason: 'non_email_contact' }
+  | { kind: 'reconcile'; reason: 'snapshot_unavailable' | 'insufficient_send_window' };
+export type SendEvent = NotificationEvent;
 export type Sender = (event: Readonly<SendEvent>, idempotencyKey: string) => Promise<Delivery>;
 // Below the provider's 24h dedup window; leave room for clock/transport uncertainty.
 export const safeRetryWindowMs = 23 * 60 * 60 * 1000;
@@ -29,7 +32,7 @@ export class Outbox {
           first_attempt_at = COALESCE(first_attempt_at, ?)
       WHERE id = ? AND next_attempt_at <= ?
         AND (state = 'pending' OR (state = 'leased' AND lease_until <= ?))
-      RETURNING id, enquiry_id, recipient_role, attempts, first_attempt_at, lease_token`)
+      RETURNING id, enquiry_id, recipient_role, attempts, first_attempt_at, lease_token, lease_until`)
       .bind(crypto.randomUUID(), now + leaseMs, now, id, now, now).first<NotificationEvent>();
   }
   private async finish(event: NotificationEvent, state: string, now: number, code: string | null, providerId: string | null = null): Promise<boolean> {
@@ -39,7 +42,7 @@ export class Outbox {
       .bind(state, now, code, providerId, event.id, event.lease_token, now).first<{ id: string }>();
     return row !== null;
   }
-  async dispatch(id: string, send: Sender, clock: () => number = Date.now): Promise<'idle' | 'accepted' | 'pending' | 'failed' | 'reconcile' | 'lease_lost'> {
+  async dispatch(id: string, send: Sender, clock: () => number = Date.now): Promise<'idle' | 'accepted' | 'pending' | 'failed' | 'reconcile' | 'lease_lost' | 'skipped'> {
     const event = await this.claim(id, clock());
     if (!event) return 'idle';
     const start = clock();
@@ -48,14 +51,21 @@ export class Outbox {
     }
     let result: Delivery;
     try {
-      // A real adapter must freeze message content per event, enforce a short transport
-      // timeout and reuse this key. It is intentionally NOT wired to a network provider.
-      result = await send(Object.freeze({ id: event.id, enquiry_id: event.enquiry_id, recipient_role: event.recipient_role }), `cakeopedia/${event.id}`);
+      // Internal sender receives the lease for snapshot fencing. Never expose it to the provider.
+      result = await send(Object.freeze({ ...event }), `cakeopedia/${event.id}`);
     } catch { result = { kind: 'unknown' }; }
     const now = clock();
     if (result.kind === 'accepted') {
       // 'sent' means provider accepted, never inbox delivery. No raw provider error logs.
       return await this.finish(event, 'sent', now, null, result.providerId) ? 'accepted' : 'lease_lost';
+    }
+    if (result.kind === 'skipped') {
+      // Legacy schema has no skipped state. Distinct terminal code and report preserve meaning;
+      // no provider acceptance or failure is asserted for this deliberate non-send.
+      return await this.finish(event, 'failed', now, 'not_applicable_non_email') ? 'skipped' : 'lease_lost';
+    }
+    if (result.kind === 'reconcile') {
+      return await this.finish(event, 'reconcile', now, result.reason) ? 'reconcile' : 'lease_lost';
     }
     if (result.kind === 'permanent') {
       // A later rejection cannot disprove acceptance of an earlier attempt (including an expired lease).
