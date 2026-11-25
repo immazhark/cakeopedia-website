@@ -68,9 +68,9 @@ test('stale dispatcher cannot overwrite a newer lease result', async () => {
   let started!: ()=>void; const entered=new Promise<void>(r=>{started=r;});
   const first=outbox.dispatch(id,async()=>{started();return new Promise<Delivery>(r=>{release=r;});},()=>now);
   await entered; now=61001;
-  assert.equal(await outbox.dispatch(id,async()=>({kind:'permanent'}),()=>now),'failed');
+  assert.equal(await outbox.dispatch(id,async()=>({kind:'permanent'}),()=>now),'reconcile');
   release({kind:'accepted',providerId:'stale'});
-  assert.equal(await first,'lease_lost'); assert.equal((await row(id))!.state,'failed');
+  assert.equal(await first,'lease_lost'); assert.equal((await row(id))!.state,'reconcile');
   assert.equal((await row(id))!.provider_id,null);
 });
 test('retries are bounded and quota delay cannot cross the safe deduplication window', async () => {
