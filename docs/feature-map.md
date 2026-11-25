@@ -18,7 +18,7 @@ verified, blocked, deferred. Nothing here is staging or production verified.
 | F11 | Gallery filters | Implemented locally | Crawlable /collections/ pages, no JS needed. |
 | F12 | Gallery or external inspiration with up to 3 images | Implemented locally | Gallery reference plus private uploads: byte-level format sniffing, dimension/pixel bounds, metadata stripping, 3-image and daily caps, remove, orphan purge, atomic linking (54 tests; live Edge run at 390px with local R2/D1). Private owner viewing implemented locally (F19); provider R2 limits, retention and upload concurrency hardening unverified. |
 | F15 | Decorating videos | Partially implemented | 3 silent clips; playback not machine-verified. |
-| F17 | Shareable creation pages | Implemented locally | 19 pages; sitemap, canonical, schema pending. |
+| F17 | Shareable creation pages | Implemented locally | 19 pages; sitemap, canonical, Bakery JSON-LD and 404 exist (production build only). |
 | F18 | Customer feedback | Blocked (no permissioned reviews) | |
 | F19 | Private enquiry list | Implemented locally | /admin screen (phone-first) over the authenticated API: filters, detail, private picture viewing, status history, manual Instagram orders. Verified in Edge at 390px with a local dev login that exercises the real token verifier. Not yet behind a real Cloudflare Access app. |
 | F20 | New-enquiry alerts | Partially implemented | Bounded transport, immutable snapshot preparation, uncertainty reconciliation and due-event scheduling with isolated SQLite tests. Lease-aware sender composition implemented; integration tests committed, closed-by-default maintenance runtime composed; approved configuration, cron and cloud verification pending; no live delivery. |

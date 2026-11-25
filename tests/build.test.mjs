@@ -56,6 +56,7 @@ test('collections are crawlable links with correct semantics, and the preview em
   }
   assert.match(await read('creations/index.html'), /href="\/collections\/floral\/"/);
   assert.match(await read('_headers'), /X-Robots-Tag: noindex/);
+  assert.match(await read('_headers'), /Content-Security-Policy: frame-ancestors 'none'\r?\n  X-Frame-Options: DENY/);
 });
 
 test('owner page is noindex, has no public nav, and its headers are not cacheable', async () => {

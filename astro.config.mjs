@@ -11,6 +11,8 @@ const headers = [
   '  X-Content-Type-Options: nosniff',
   '  Referrer-Policy: strict-origin-when-cross-origin',
   '  Permissions-Policy: camera=(), microphone=(), geolocation=()',
+  "  Content-Security-Policy: frame-ancestors 'none'", // the meta CSP cannot set frame-ancestors
+  '  X-Frame-Options: DENY',
   ...(production ? [] : ['  X-Robots-Tag: noindex, nofollow']),
   '/admin/*',
   '  X-Robots-Tag: noindex, nofollow',
