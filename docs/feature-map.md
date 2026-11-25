@@ -19,5 +19,6 @@ verified, blocked, deferred. Nothing here is staging or production verified.
 | F15 | Decorating videos | Partially implemented | 3 silent clips; playback not machine-verified. |
 | F17 | Shareable creation pages | Implemented locally | 19 pages; sitemap, canonical, schema pending. |
 | F18 | Customer feedback | Blocked (no permissioned reviews) | |
-| F19-F24 | Inbox, alerts, busy dates, quotes, deposits, calendar | Not started | Outbox recovery logic exists; no auth, UI or sender. |
+| F19 | Private enquiry list | Partially implemented | Worker API only (worker/auth.ts, inbox.ts): Cloudflare Access JWT verified server-side, CSRF guard, keyset pagination, append-only status history (new, replied, quoted, confirmed, closed; legacy booked maps to confirmed), optimistic concurrency; 12 tests. No inbox UI, not wired to a deployed Access app, not provider-verified. |
+| F20-F24 | Alerts, busy dates, quotes, deposits, calendar | Not started | Outbox recovery logic exists; no sender. |
 | F14, F16, F25-F34 | Later phase | Intentionally deferred | |
