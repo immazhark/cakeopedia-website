@@ -25,6 +25,9 @@ export async function confirmBlocker(db: AdminDb, enquiryId: string): Promise<'n
   return s.depositPaidCents >= s.quote.depositCents ? null : 'deposit_not_recorded';
 }
 
+async function isConfirmed(db: AdminDb, id: string) {
+  return (await db.prepare(`SELECT ${CURRENT} AS s FROM enquiries e WHERE e.id = ?`).bind(id).first<{ s: string }>())?.s === 'confirmed';
+}
 async function body(request: Request): Promise<Record<string, unknown> | null> {
   try { const b = await request.json(); return b && typeof b === 'object' && !Array.isArray(b) ? (b as Record<string, unknown>) : null; } catch { return null; }
 }
@@ -66,11 +69,22 @@ export async function routeOrders(request: Request, db: AdminDb, actor: string, 
   if (p === '/admin/api/enquiries' && m === 'POST') {
     const b = await body(request); if (!b) return bad();
     try {
-      const { enquiry } = validate({ ...b, submissionId: crypto.randomUUID(), privacyAck: true, botToken: '', attachmentIds: [] }, new Set());
+      const rid = b.requestId === undefined ? crypto.randomUUID() : b.requestId;
+      if (typeof rid !== 'string' || !uuid.test(rid)) return bad();
+      const { requestId: _drop, ...fields } = b;
+      const { enquiry } = validate({ ...fields, submissionId: rid, privacyAck: true, botToken: '', attachmentIds: [] }, new Set());
       const id = crypto.randomUUID(), t = now(), hash = await fingerprint(enquiry);
-      await db.prepare('INSERT INTO enquiries (id, submission_id, payload_hash, public_reference, created_at, payload_json) VALUES (?, ?, ?, ?, ?, ?)')
-        .bind(id, enquiry.submissionId, hash, 'CK-' + crypto.randomUUID(), t, JSON.stringify(enquiry)).run();
-      await db.prepare('INSERT INTO enquiry_events (id, enquiry_id, status, created_at, actor, note) VALUES (?, ?, ?, ?, ?, ?)').bind(crypto.randomUUID(), id, 'new', t, actor, 'Added manually by the owner').run();
+      const prior = await db.prepare('SELECT id, payload_hash AS hash FROM enquiries WHERE submission_id = ?').bind(rid).first<{ id: string; hash: string }>();
+      if (prior) return prior.hash === hash ? out(200, { id: prior.id }) : out(409, { error: 'request_reused' });
+      try { // one atomic batch: an enquiry never exists without its first status event
+        await db.batch([db.prepare('INSERT INTO enquiries (id, submission_id, payload_hash, public_reference, created_at, payload_json) VALUES (?, ?, ?, ?, ?, ?)')
+          .bind(id, enquiry.submissionId, hash, 'CK-' + crypto.randomUUID(), t, JSON.stringify(enquiry)),
+          db.prepare('INSERT INTO enquiry_events (id, enquiry_id, status, created_at, actor, note) VALUES (?, ?, ?, ?, ?, ?)').bind(crypto.randomUUID(), id, 'new', t, actor, 'Added manually by the owner')]);
+      } catch { // a concurrent twin with the same requestId won the UNIQUE(submission_id) race
+        const twin = await db.prepare('SELECT id FROM enquiries WHERE submission_id = ?').bind(rid).first<{ id: string }>();
+        if (!twin) throw new Error('storage');
+        return out(200, { id: twin.id });
+      }
       return out(201, { id });
     } catch (e) { if (e instanceof InvalidInput) return bad(); throw e; }
   }
@@ -88,28 +102,51 @@ export async function routeOrders(request: Request, db: AdminDb, actor: string, 
     if (!isCents(b.totalCents) || !isCents(b.depositCents) || b.depositCents > b.totalCents || (b.fulfilment !== 'pickup' && b.fulfilment !== 'delivery')
       || !isDate(b.date) || (time !== null && !isTime(time)) || designNotes === undefined || prepNotes === undefined
       || typeof b.expectedVersion !== 'number' || !Number.isInteger(b.expectedVersion) || b.expectedVersion < 0) return bad();
+    const rid = b.requestId === undefined ? crypto.randomUUID() : b.requestId;
+    if (typeof rid !== 'string' || !uuid.test(rid)) return bad();
+    const same = await db.prepare('SELECT enquiry_id AS e, version, total_cents AS t, deposit_cents AS d, fulfil_date AS date FROM quotes WHERE id = ?').bind(rid).first<{ e: string; version: number; t: number; d: number; date: string }>();
+    if (same) return same.e === id && same.t === b.totalCents && same.d === b.depositCents && same.date === b.date ? out(200, { version: same.version }) : out(409, { error: 'request_reused' });
     const latest = await db.prepare('SELECT max(version) AS v FROM quotes WHERE enquiry_id = ?').bind(id).first<{ v: number | null }>();
     const current = latest?.v ?? 0;
     if (b.expectedVersion !== current) return out(409, { error: 'quote_changed', currentVersion: current });
+    const s0 = await orderSummary(db, id);
+    if (b.totalCents < s0.paidCents) return out(409, { error: 'below_paid', paidCents: s0.paidCents });
+    if (await isConfirmed(db, id) && s0.depositPaidCents < b.depositCents) return out(409, { error: 'would_unconfirm' });
     try {
       await db.prepare('INSERT INTO quotes (id, enquiry_id, version, total_cents, deposit_cents, fulfilment, fulfil_date, fulfil_time, design_notes, prep_notes, created_at, actor) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-        .bind(crypto.randomUUID(), id, current + 1, b.totalCents, b.depositCents, b.fulfilment, b.date, time as string | null, designNotes, prepNotes, now(), actor).run();
+        .bind(rid, id, current + 1, b.totalCents, b.depositCents, b.fulfilment, b.date, time as string | null, designNotes, prepNotes, now(), actor).run();
     } catch { return out(409, { error: 'quote_changed', currentVersion: current + 1 }); } // UNIQUE(enquiry_id, version) lost a race
     return out(201, { version: current + 1 });
   }
   if (!paymentId) { // record a payment
     const note = optText(b.note, 500);
     if ((b.kind !== 'deposit' && b.kind !== 'balance') || !isCents(b.amountCents, 1) || !isDate(b.receivedOn) || note === undefined) return bad();
-    const payment = crypto.randomUUID();
-    await db.prepare('INSERT INTO payments (id, enquiry_id, kind, amount_cents, received_on, note, recorded_at, actor) VALUES (?,?,?,?,?,?,?,?)')
-      .bind(payment, id, b.kind, b.amountCents, b.receivedOn, note, now(), actor).run();
-    return out(201, { id: payment });
+    const payment = b.requestId === undefined ? crypto.randomUUID() : b.requestId;
+    if (typeof payment !== 'string' || !uuid.test(payment)) return bad();
+    const SAME = 'SELECT enquiry_id AS e, kind, amount_cents AS a, received_on AS d FROM payments WHERE id = ?';
+    const replay = async () => { const x = await db.prepare(SAME).bind(payment).first<{ e: string; kind: string; a: number; d: string }>();
+      return x && (x.e === id && x.kind === b.kind && x.a === b.amountCents && x.d === b.receivedOn ? out(200, { id: payment }) : out(409, { error: 'request_reused' })); };
+    const done = await replay(); if (done) return done;
+    const s0 = await orderSummary(db, id);
+    if (!s0.quote) return out(409, { error: 'no_quote' });
+    // The ceiling is enforced inside the INSERT, so two concurrent payments cannot jointly overshoot the quote.
+    const ins = await db.prepare(`INSERT INTO payments (id, enquiry_id, kind, amount_cents, received_on, note, recorded_at, actor)
+      SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8 WHERE (SELECT COALESCE(SUM(amount_cents), 0) FROM payments WHERE enquiry_id = ?2 AND voided_at IS NULL) + ?4
+        <= (SELECT total_cents FROM quotes WHERE enquiry_id = ?2 ORDER BY version DESC LIMIT 1)`)
+      .bind(payment, id, b.kind, b.amountCents, b.receivedOn, note, now(), actor).run().then(() => null, async (e) => (await replay()) ?? Promise.reject(e));
+    if (ins) return ins;
+    const stored = await replay();
+    return stored?.status === 200 ? out(201, { id: payment }) : stored ?? out(409, { error: 'exceeds_balance', balanceCents: s0.balanceCents });
   }
   const reason = optText(b.reason, 500); // void a mistaken payment record
   if (!reason) return bad();
   const row = await db.prepare('SELECT voided_at AS v FROM payments WHERE id = ? AND enquiry_id = ?').bind(paymentId, id).first<{ v: number | null }>();
   if (!row) return out(404, { error: 'not_found' });
   if (row.v !== null) return out(409, { error: 'already_voided' });
+  if (await isConfirmed(db, id)) { // voiding must not leave a confirmed order below its agreed deposit
+    const s0 = await orderSummary(db, id), p = s0.payments.find((x) => x.id === paymentId);
+    if (s0.quote && p?.kind === 'deposit' && s0.depositPaidCents - p.amountCents < s0.quote.depositCents) return out(409, { error: 'would_unconfirm' });
+  }
   await db.prepare('UPDATE payments SET voided_at = ?, void_reason = ? WHERE id = ? AND voided_at IS NULL').bind(now(), reason, paymentId).run();
   return out(200, { voided: true });
 }

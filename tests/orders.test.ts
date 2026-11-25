@@ -110,3 +110,38 @@ test('every order route requires authentication and CSRF protection', async () =
   const noCsrf = await handleInbox(new Request(`${ORIGIN}/admin/api/busy/2027-01-01`, { method: 'PUT', headers: { 'Cf-Access-Jwt-Assertion': token }, body: '{}' }), db as unknown as InboxDb, cfg);
   assert.equal(noCsrf.status, 403);
 });
+
+test('lost responses and double taps replay the same result instead of duplicating money records', async () => {
+  const id = await seed(), pay = `/admin/api/enquiries/${id}/payments`;
+  await call(`/admin/api/enquiries/${id}/quote`, 'POST', quote({ totalCents: 20000, depositCents: 5000 }));
+  const requestId = crypto.randomUUID(), body = { requestId, kind: 'deposit', amountCents: 5000, receivedOn: '2026-11-20' };
+  const [a, b] = await Promise.all([call(pay, 'POST', body), call(pay, 'POST', body)]); // two taps at once
+  const [ja, jb] = [await json<{ id: string }>(a), await json<{ id: string }>(b)];
+  assert.deepEqual([[a.status, b.status].sort(), ja.id], [[200, 201], jb.id]);
+  assert.equal((await db.prepare('SELECT count(*) AS n FROM payments WHERE enquiry_id = ?').bind(id).first<{ n: number }>())!.n, 1);
+  assert.equal((await call(pay, 'POST', { ...body, amountCents: 6000 })).status, 409); // same key, different content
+  // quote replay after a lost response: same requestId returns the stored version rather than a confusing conflict
+  const q = quote({ requestId: crypto.randomUUID(), totalCents: 30000, depositCents: 5000, expectedVersion: 1 });
+  assert.deepEqual([(await call(`/admin/api/enquiries/${id}/quote`, 'POST', q)).status, (await json(await call(`/admin/api/enquiries/${id}/quote`, 'POST', q)))], [201, { version: 2 }]);
+  // manual enquiry replay creates exactly one enquiry
+  const m = { requestId: crypto.randomUUID(), name: 'Tap Twice', contact: { kind: 'instagram', value: '@tap.twice' }, dateUndecided: true };
+  const first = await json<{ id: string }>(await call('/admin/api/enquiries', 'POST', m)), second = await json<{ id: string }>(await call('/admin/api/enquiries', 'POST', m));
+  assert.equal(first.id, second.id);
+  assert.equal((await db.prepare("SELECT count(*) AS n FROM enquiries WHERE json_extract(payload_json,'$.name') = 'Tap Twice'").first<{ n: number }>())!.n, 1);
+});
+
+test('payments cannot exceed the quote and a confirmed order cannot be silently undermined', async () => {
+  const id = await seed(), pay = `/admin/api/enquiries/${id}/payments`, qurl = `/admin/api/enquiries/${id}/quote`;
+  const p = (amountCents: number, kind = 'deposit') => call(pay, 'POST', { requestId: crypto.randomUUID(), kind, amountCents, receivedOn: '2026-11-20' });
+  assert.deepEqual(await json(await p(100)), { error: 'no_quote' });
+  await call(qurl, 'POST', quote({ totalCents: 10000, depositCents: 3000 }));
+  const over = await p(10001);
+  assert.deepEqual([over.status, (await json(over))], [409, { error: 'exceeds_balance', balanceCents: 10000 }]);
+  const dep = await json<{ id: string }>(await p(3000));
+  assert.equal((await call(`/admin/api/enquiries/${id}/status`, 'POST', { status: 'confirmed', expected: 'new' })).status, 200);
+  assert.deepEqual(await json(await call(`${pay}/${dep.id}/void`, 'POST', { reason: 'typo' })), { error: 'would_unconfirm' }); // void would drop below deposit
+  assert.deepEqual(await json(await call(qurl, 'POST', quote({ expectedVersion: 1, totalCents: 10000, depositCents: 4000 }))), { error: 'would_unconfirm' });
+  assert.deepEqual(await json(await call(qurl, 'POST', quote({ expectedVersion: 1, totalCents: 2000, depositCents: 1000 }))), { error: 'below_paid', paidCents: 3000 });
+  assert.equal((await call(qurl, 'POST', quote({ expectedVersion: 1, totalCents: 12000, depositCents: 3000 }))).status, 201);
+  assert.equal((await call(`${pay}/${dep.id}/void`, 'POST', { reason: 'typo' })).status, 409); // still confirmed, still needs the deposit
+});

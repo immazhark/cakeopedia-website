@@ -4,7 +4,7 @@ export interface Stmt {
   all<T>(): Promise<{ results: T[] }>;
   run(): Promise<unknown>;
 }
-export interface AdminDb { prepare(sql: string): Stmt }
+export interface AdminDb { prepare(sql: string): Stmt; batch(statements: Stmt[]): Promise<unknown[]> }
 export const STATUSES = ['new', 'replied', 'quoted', 'confirmed', 'closed'] as const;
 export type Status = (typeof STATUSES)[number];
 export const isStatus = (v: unknown): v is Status => typeof v === 'string' && (STATUSES as readonly string[]).includes(v);

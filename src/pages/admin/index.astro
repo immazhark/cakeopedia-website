@@ -32,7 +32,7 @@ import Base from '../../layouts/Base.astro';
         const data = r.status === 204 ? {} : await r.json().catch(() => ({}));
         if (r.status === 401) notice('Your sign-in has expired. Please reload the page and sign in again.');
         return { ok: r.ok, status: r.status, data };
-      } catch { notice('No connection. Nothing was changed; please try again.'); return { ok: false, status: 0, data: {} }; }
+      } catch { notice(method === 'GET' ? 'No connection. Please try again.' : 'No connection. We could not confirm whether that was saved. Tap the same button again; it is safe and will not save it twice.'); return { ok: false, status: 0, data: {} }; }
     }
     const field = (label: string, input: HTMLElement, hint?: string) => { const id = 'f' + Math.random().toString(36).slice(2, 8); input.id = id; return h('div', { class: 'field' }, h('label', { for: id }, label), input, ...(hint ? [h('p', { class: 'hint' }, hint)] : [])); };
     const input = (type = 'text', attrs: Record<string, string> = {}) => h('input', { type, ...attrs }) as HTMLInputElement;
@@ -73,10 +73,10 @@ import Base from '../../layouts/Base.astro';
     }
     function addForm() {
       const d = h('details', { class: 'add' }, h('summary', {}, 'Add an Instagram order'));
-      const name = input('text', { maxlength: '100' }), handle = input('text', { maxlength: '31', autocapitalize: 'none' }), date = input('date'), notes = h('textarea', { rows: '3', maxlength: '2000' }) as HTMLTextAreaElement;
+      const name = input('text', { maxlength: '100' }), handle = input('text', { maxlength: '31', autocapitalize: 'none' }), date = input('date'), notes = h('textarea', { rows: '3', maxlength: '2000' }) as HTMLTextAreaElement, rid = crypto.randomUUID();
       d.append(field('Customer name', name), field('Instagram handle', handle), field('Date needed (leave blank if undecided)', date), field('What they asked for', notes),
         btn('Add enquiry', async () => {
-          const r = await api('/admin/api/enquiries', 'POST', { name: name.value, contact: { kind: 'instagram', value: handle.value }, dateUndecided: !date.value, eventDate: date.value || null, notes: notes.value || null });
+          const r = await api('/admin/api/enquiries', 'POST', { requestId: rid, name: name.value, contact: { kind: 'instagram', value: handle.value }, dateUndecided: !date.value, eventDate: date.value || null, notes: notes.value || null });
           if (!r.ok) return notice('Please check the name and Instagram handle.'); notice(''); openDetail(r.data.id);
         }));
       return d;
@@ -107,24 +107,24 @@ import Base from '../../layouts/Base.astro';
       const total = input('text', { inputmode: 'decimal', value: q ? (q.totalCents / 100).toFixed(2) : '' }), dep = input('text', { inputmode: 'decimal', value: q ? (q.depositCents / 100).toFixed(2) : '' });
       const ful = select([['pickup', 'Pickup'], ['delivery', 'Delivery']]); if (q) ful.value = q.fulfilment;
       const date = input('date', { value: q?.date ?? '' }), time = input('time', { value: q?.time ?? '' });
-      const dn = h('textarea', { rows: '3', maxlength: '2000' }) as HTMLTextAreaElement, pn = h('textarea', { rows: '3', maxlength: '2000' }) as HTMLTextAreaElement; dn.value = q?.designNotes ?? ''; pn.value = q?.prepNotes ?? '';
+      const qrid = crypto.randomUUID(), dn = h('textarea', { rows: '3', maxlength: '2000' }) as HTMLTextAreaElement, pn = h('textarea', { rows: '3', maxlength: '2000' }) as HTMLTextAreaElement; dn.value = q?.designNotes ?? ''; pn.value = q?.prepNotes ?? '';
       root.append(h('h3', {}, q ? `Quote (version ${q.version})` : 'Quote'), h('div', { class: 'form' },
         field('Agreed total ($)', total), field('Deposit ($)', dep), field('Pickup or delivery', ful), field('Date', date), field('Time (optional)', time), field('Agreed design', dn), field('Preparation notes', pn),
         btn(q ? 'Save new quote version' : 'Save quote', async () => {
           const t = cents(total.value), d = cents(dep.value); if (t === null || d === null || d > t || !date.value) return notice('Enter the total, a deposit that is not more than the total, and a date.');
-          const r3 = await api(`/admin/api/enquiries/${id}/quote`, 'POST', { totalCents: t, depositCents: d, fulfilment: ful.value, date: date.value, time: time.value || null, designNotes: dn.value || null, prepNotes: pn.value || null, expectedVersion: q?.version ?? 0 });
-          if (!r3.ok) { notice(r3.status === 409 ? 'This quote changed elsewhere. Reloaded.' : 'Please check the quote details.'); if (r3.status === 409) openDetail(id); return; } openDetail(id);
+          const r3 = await api(`/admin/api/enquiries/${id}/quote`, 'POST', { requestId: qrid, totalCents: t, depositCents: d, fulfilment: ful.value, date: date.value, time: time.value || null, designNotes: dn.value || null, prepNotes: pn.value || null, expectedVersion: q?.version ?? 0 });
+          if (!r3.ok) { notice(r3.status === 0 ? '' : r3.data.error === 'would_unconfirm' ? 'This order is confirmed and the deposit recorded is less than this deposit.' : r3.data.error === 'below_paid' ? 'The total cannot be less than what is already paid.' : r3.status === 409 ? 'This quote changed elsewhere. Reloaded.' : 'Please check the quote details.'); if (r3.status === 409) openDetail(id); return; } openDetail(id);
         })));
 
       // payments (records only; the owner checks Zelle herself)
       const pay = h('ul', { class: 'admin-list' });
       for (const x of o.payments as Json[]) pay.append(h('li', {}, `${x.kind} ${money(x.amountCents)} received ${x.receivedOn}${x.note ? ' · ' + x.note : ''}`, ...(x.voidedAt ? [h('span', { class: 'badge' }, 'voided: ' + x.voidReason)] : [voidControl(id, x)])));
-      const pk = select([['deposit', 'Deposit'], ['balance', 'Balance']]), pa = input('text', { inputmode: 'decimal' }), pd = input('date'), pnote = input('text', { maxlength: '500' });
+      const pk = select([['deposit', 'Deposit'], ['balance', 'Balance']]), pa = input('text', { inputmode: 'decimal' }), pd = input('date'), pnote = input('text', { maxlength: '500' }), prid = crypto.randomUUID();
       root.append(h('h3', {}, 'Payments'), h('p', { class: 'hint' }, 'Record a payment only after you have seen it arrive in Zelle. Nothing here checks payments automatically.'),
         h('p', {}, q ? `Paid ${money(o.paidCents)} of ${money(q.totalCents)} · balance ${money(o.balanceCents)}` : 'Add a quote to see the balance.'), pay,
         h('div', { class: 'form' }, field('Type', pk), field('Amount ($)', pa), field('Date received', pd), field('Note (optional)', pnote), btn('Record payment', async () => {
           const a = cents(pa.value); if (a === null || a < 1 || !pd.value) return notice('Enter an amount and the date it arrived.');
-          const r5 = await api(`/admin/api/enquiries/${id}/payments`, 'POST', { kind: pk.value, amountCents: a, receivedOn: pd.value, note: pnote.value || null }); if (r5.ok) openDetail(id); else notice('Please check the payment details.');
+          const r5 = await api(`/admin/api/enquiries/${id}/payments`, 'POST', { requestId: prid, kind: pk.value, amountCents: a, receivedOn: pd.value, note: pnote.value || null }); if (r5.ok) openDetail(id); else if (r5.status) notice(r5.data.error === 'exceeds_balance' ? `That is more than the balance (${money(r5.data.balanceCents)}).` : r5.data.error === 'no_quote' ? 'Save a quote first.' : 'Please check the payment details.');
         })));
       ($('detail').querySelector('button') as HTMLElement).focus();
     }
