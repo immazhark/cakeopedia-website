@@ -36,6 +36,12 @@ Active primary development writer: ChatGPT, authorised by the sponsor. This is d
 - Menu presentation: 015e936/3239c42 three focused Node 22 tests passed, strict TypeScript source check passed and both tested file hashes matched GitHub. c5b6914 empty approved dataset, a3f08f6 editorial menu/servings component, 3734b15 review-only concept; production build removes concepts via existing config. Built-output test added. No invented products or prices. Render and full CI verification pending.
 - Next: verify latest CI, inspect review layout in a browser once available, wire approved menu source/CMS, continue production auth/abuse and notification scheduler release gates. Unpublished hardening cb7f02d remains unavailable. No duplicate implementation of its overlapping payment/upload changes.
 
+## Access and bot-verification hardening — latest checkpoint
+- Combined repository CI run 45545431187 passed at 4c7bd14 (includes sender and menu concept).
+- a971e73 / 0ca7bfb: Turnstile Siteverify adapter, fixed HTTPS endpoint, required hostname/action, bounded request/response and deadline, generic unavailable errors and explicit challenge rejection. No provider account, secret or widget provisioned; existing production entry remains closed. Reference: https://developers.cloudflare.com/turnstile/get-started/server-side-validation/.
+- 69a1c40 / df48bbb: JWT size and canonical encoding limits, fatal UTF-8, signed temporal/audience checks, reject unsupported critical headers and ambiguous key IDs. Existing issuer/audience/operator/CSRF checks remain. Four auth and five bot-verifier regression tests committed before implementation; new full CI pending at time of this entry. No claim of a completed RED/GREEN run until verified.
+- Next: verify latest CI and correct any failures, implement bounded issuer-pinned JWKS retrieval/cache, distributed abuse policy and scheduled maintenance safeguards. Real Access/Turnstile staging integration, approved accounts/config, privacy and release remain gated. cb7f02d still unresolved at GitHub; do not overwrite its potential unpublished work.
+
 No provider changes, costs, DNS changes, deployments, private media publication or real customer actions. Existing owner input and release holds remain.
 
 ## Historical Claude Code checkpoint (not current ownership or verification)
