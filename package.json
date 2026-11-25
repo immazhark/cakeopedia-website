@@ -16,7 +16,8 @@
     "db:local": "wrangler d1 migrations apply DB --config wrangler.local.jsonc --local",
     "verify": "npm run check && npm test && npm run build && node --test tests/build.test.mjs tests/production-output.test.mjs",
     "media": "node scripts/build-media.mjs",
-    "check:media": "node scripts/check-media.mjs"
+    "check:media": "node scripts/check-media.mjs",
+    "check:browser": "node scripts/browser-check.mjs"
   },
   "dependencies": {
     "astro": "7.4.13"
@@ -27,6 +28,7 @@
     "@fontsource-variable/fraunces": "5.3.0",
     "@types/node": "24.19.2",
     "miniflare": "4.20260730.0",
+    "playwright-core": "^1.65.1",
     "sharp": "0.35.5",
     "typescript": "6.0.3",
     "wrangler": "4.167.0"
