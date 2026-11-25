@@ -92,6 +92,8 @@ try {
   await page.screenshot({ path: `${out}/menu-form-390.png`, fullPage: true });
   check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'menu form has no horizontal overflow at 390');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('heading', { name: 'Menu', exact: true }).waitFor({ timeout: 5000 }).then(() => check(true, 'menu list has a Menu heading'), () => check(false, 'menu list has a Menu heading'));
+  check(await page.evaluate(() => document.getElementById('menu').contains(document.activeElement)), 'focus stays inside the Menu tab after Save (not dropped to the page top)');
   await page.getByRole('button', { name: new RegExp(name + ' · published') }).waitFor({ timeout: 5000 }).then(() => check(true, 'published item listed after save'), () => check(false, 'published item listed after save'));
   // Stale edit: change the same item behind the page's back, then try to save from the old copy.
   await page.getByRole('button', { name: new RegExp(name) }).click();

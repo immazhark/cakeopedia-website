@@ -169,12 +169,14 @@ import Base from '../../layouts/Base.astro';
       const r = await api('/admin/api/menu'); if (!r.ok) return; menuItems = r.data.items; renderMenu();
     }
     function renderMenu() {
-      const root = $('menu'); root.replaceChildren();
-      root.append(h('p', { class: 'hint' }, 'Drafts stay private. An item appears on the public site only after you publish it and mark it available, and the website is next updated.'), btn('Add a menu item', () => editMenu(null), 'btn'));
+      const root = $('menu'), hadFocus = root.contains(document.activeElement); root.replaceChildren();
+      const heading = h('h2', { tabindex: '-1', style: 'font-size:var(--step-2)' }, 'Menu');
+      root.append(heading, h('p', { class: 'hint' }, 'Drafts stay private. An item appears on the public site only after you publish it and mark it available, and the website is next updated.'), btn('Add a menu item', () => editMenu(null), 'btn'));
       const list = h('ul', { class: 'admin-list' });
       for (const it of menuItems) list.append(h('li', {}, btn(`${it.title} · ${it.status}${it.availability === 'unavailable' ? ' · unavailable' : ''}`, () => editMenu(it), 'row')));
       if (!menuItems.length) list.append(h('li', { class: 'hint' }, 'No menu items yet.'));
       root.append(list);
+      if (hadFocus) heading.focus(); // keyboard users keep their place after Save or Cancel
     }
     function editMenu(it: Json | null) {
       const root = $('menu'); root.replaceChildren();
