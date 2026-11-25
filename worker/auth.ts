@@ -1,11 +1,12 @@
 // Owner authentication: verifies a Cloudflare Access JWT on EVERY private request (signature, issuer, audience,
 // expiry, operator allowlist). Access is the identity provider; the Worker never trusts a header it did not verify.
 // CSRF: Access uses ambient cookies, so every mutation also needs a same-origin Origin and a custom header.
+export type Jwk = JsonWebKey & { kid?: string };
 export interface AccessConfig {
   issuer: string;                 // https://<team>.cloudflareaccess.com
   audience: string;               // Access application AUD tag
   operators: ReadonlySet<string>; // lower-case operator emails
-  getKeys: () => Promise<JsonWebKey[]>; // JWKS (cache with a short TTL in the caller)
+  getKeys: () => Promise<Jwk[]>; // JWKS (cache with a short TTL in the caller)
   now?: () => number;             // seconds, for tests
   origin: string;                 // this app's own origin, for CSRF
 }

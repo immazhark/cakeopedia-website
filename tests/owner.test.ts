@@ -87,10 +87,13 @@ test('inbox: unauthenticated and non-operator requests are denied on every route
 
 test('inbox: keyset pagination is bounded, ordered and complete', async () => {
   await seed(7);
-  const seen: string[] = []; let next: { beforeAt: number; beforeId: string } | null = null, pages = 0;
+  const seen: string[] = [];
+  let pages = 0;
+  type Key = { beforeAt: number; beforeId: string };
+  let next: Key | null = null;
   do {
     const q: string = `/admin/api/enquiries?limit=3${next ? `&beforeAt=${next.beforeAt}&beforeId=${next.beforeId}` : ''}`;
-    const body = (await (await call(q)).json()) as { items: { id: string; createdAt: number }[]; next: typeof next };
+    const body = (await (await call(q)).json()) as { items: { id: string; createdAt: number }[]; next: Key | null };
     assert.ok(body.items.length <= 3);
     seen.push(...body.items.map((i) => i.id)); next = body.next; pages++;
   } while (next && pages < 20);
