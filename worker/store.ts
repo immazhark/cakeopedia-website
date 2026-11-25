@@ -27,6 +27,9 @@ export class EnquiryStore {
     for (const creationId of enquiry.creationIds) {
       statements.push(this.db.prepare('INSERT INTO enquiry_references (enquiry_id, creation_id) VALUES (?, ?)').bind(id, creationId));
     }
+    for (const fileId of enquiry.attachmentIds) {
+      statements.push(this.db.prepare('UPDATE uploads SET enquiry_id = ? WHERE id = ? AND submission_id = ? AND enquiry_id IS NULL').bind(id, fileId, enquiry.submissionId));
+    }
     for (const role of ['owner', 'customer']) {
       statements.push(this.db.prepare('INSERT INTO notification_outbox (id, enquiry_id, recipient_role, next_attempt_at) VALUES (?, ?, ?, ?)')
         .bind(`${id}:${role}`, id, role, now));

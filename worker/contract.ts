@@ -13,10 +13,11 @@ export interface Enquiry {
   fulfilment: 'pickup' | 'delivery' | 'not-sure';
   budgetCents: number | null;
   creationIds: string[];
+  attachmentIds: string[];
 }
 export class InvalidInput extends Error {}
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const fields = new Set(['submissionId', 'name', 'contact', 'eventDate', 'dateUndecided', 'occasion', 'servings', 'notes', 'creationIds', 'botToken', 'size', 'flavour', 'addons', 'fulfilment', 'budgetCents', 'privacyAck']);
+const fields = new Set(['submissionId', 'name', 'contact', 'eventDate', 'dateUndecided', 'occasion', 'servings', 'notes', 'creationIds', 'botToken', 'size', 'flavour', 'addons', 'fulfilment', 'budgetCents', 'privacyAck', 'attachmentIds']);
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new InvalidInput();
   return value as Record<string, unknown>;
@@ -64,6 +65,8 @@ export function validate(value: unknown, allowedCreations: ReadonlySet<string>):
   const addonList = data.addons ?? [];
   if (!Array.isArray(addonList) || addonList.length > 8) throw new InvalidInput();
   const addons = addonList.map(a => text(a, 60, true)!);
+  const files = data.attachmentIds ?? [];
+  if (!Array.isArray(files) || files.length > 3 || files.some(id => typeof id !== 'string' || !uuid.test(id))) throw new InvalidInput();
   const refs = data.creationIds ?? [];
   if (!Array.isArray(refs) || refs.length > 5 || refs.some(id => typeof id !== 'string' || !allowedCreations.has(id))) throw new InvalidInput();
   const enquiry: Enquiry = {
@@ -72,6 +75,7 @@ export function validate(value: unknown, allowedCreations: ReadonlySet<string>):
     occasion: text(data.occasion, 100), servings, notes: text(data.notes, 2000), size: text(data.size, 100), flavour: text(data.flavour, 100),
     addons: [...new Set(addons)].sort(), fulfilment, budgetCents: budget,
     creationIds: [...new Set(refs as string[])].sort(),
+    attachmentIds: [...new Set((files as string[]).map(id => id.toLowerCase()))].sort(),
   };
   return { enquiry, botToken: text(data.botToken, 2048) ?? '' };
 }

@@ -7,6 +7,8 @@ export interface Dependencies {
   creationIds: ReadonlySet<string>;
   allowRequest: (request: Request) => Promise<boolean>;
   verifyBot: (token: string) => Promise<boolean>;
+  /** Required to accept attachmentIds: true only if all belong, unattached, to this submission. */
+  ownsUploads?: (submissionId: string, ids: string[]) => Promise<boolean>;
 }
 const maxBytes = 12288;
 class TooLarge extends Error {}
@@ -48,6 +50,7 @@ export async function handleEnquiry(request: Request, deps: Dependencies): Promi
       // Safe retry after a lost response: do not consume the same single-use bot token.
       return response(200, { received: true, reference: previous.reference, notificationStatus: 'pending' });
     }
+    if (enquiry.attachmentIds.length > 0 && !(await deps.ownsUploads?.(enquiry.submissionId, enquiry.attachmentIds))) throw new InvalidInput();
     if (!await deps.verifyBot(botToken)) return response(400, { error: 'verification_failed' });
     const result = await deps.store.save(enquiry, hash);
     return response(result.replay ? 200 : 201, { received: true, reference: result.receipt.reference, notificationStatus: 'pending' });

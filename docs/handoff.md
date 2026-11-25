@@ -9,6 +9,9 @@ worker/local.ts (local-only entry; index.ts stays closed) with contract extended
 add-ons, budget cents and privacy acknowledgement; env-aware robots/meta/_headers (PUBLIC_SITE_ENV=production); concept routes
 dropped from production output; npm run check:media release gate; docs/feature-map.md.
 
+Uploads: worker/image.ts (inspect/strip), worker/uploads.ts (POST/DELETE, ownership, purgeOrphans), migration 0003, local R2 binding.
+No public read path exists; purgeOrphans is not scheduled yet; HEIC is converted client-side only where the browser can decode it.
+
 Checks run: npm run verify (42 Worker/contract/slug tests, 5 built-output tests); live wrangler dev + local D1: 201 then 200 replay
 with the same reference, 403 wrong origin; Playwright-core on installed Edge: no horizontal overflow or broken images at 320, 360, 375,
 390, 414, 430, 768 and 1280 on six pages; form journey (blank errors, bad phone, success redirect, offline then safe retry) at 390px.

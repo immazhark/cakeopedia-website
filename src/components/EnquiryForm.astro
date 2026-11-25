@@ -40,6 +40,12 @@ const occasions = ['Birthday', 'Anniversary', 'Wedding or engagement', 'Baby or 
       <div class="field"><label for="budget">Budget in US dollars <span class="opt">(optional)</span></label><input id="budget" name="budget" type="number" inputmode="numeric" min="0" max="100000" step="1" aria-describedby="budget-err" /><p class="err" id="budget-err" hidden></p></div>
       <div class="field"><label for="creation">A Cakeopedia cake you like <span class="opt">(optional)</span></label>
         <select id="creation" name="creation"><option value="">None</option>{creations.map((c) => <option value={c.slug}>{c.title}</option>)}</select></div>
+      <fieldset class="pics">
+        <legend>Inspiration pictures <span class="opt">(optional)</span></legend>
+        <p class="hint" id="pics-hint">Share up to 3 pictures to help us understand your vision. They can come from anywhere. We'll discuss what's possible and create our interpretation; the final design and price will be agreed with you. Pictures stay private and are only used to answer your enquiry.</p>
+        <ul id="pic-list" class="pic-list" aria-live="polite"></ul>
+        <div class="field"><label class="btn btn--ghost" id="pic-add" for="pic-input">Add a picture</label><input id="pic-input" class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" aria-describedby="pics-hint pic-err" /><p class="err" id="pic-err" role="alert" hidden></p></div>
+      </fieldset>
       <div class="field"><label for="notes">Additional comments <span class="opt">(optional)</span></label><textarea id="notes" name="notes" rows="5" maxlength="2000" aria-describedby="notes-hint"></textarea><p class="hint" id="notes-hint">Colours, cake wording, preferred time of day and anything else we should know.</p></div>
     </fieldset>
 
@@ -70,6 +76,49 @@ const occasions = ['Birthday', 'Anniversary', 'Wedding or engagement', 'Baby or 
   const draftFields = ['occasion', 'servings', 'size', 'flavour', 'addons', 'budget', 'creation', 'notes'];
   try { const d = JSON.parse(sessionStorage.getItem(KEY) ?? '{}'); for (const f of draftFields) if (typeof d[f] === 'string' && !q) ($(f) as HTMLInputElement).value = d[f]; } catch { /* ignore corrupt draft */ }
   form.addEventListener('input', () => sessionStorage.setItem(KEY, JSON.stringify(Object.fromEntries(draftFields.map((f) => [f, ($(f) as HTMLInputElement).value])))));
+
+  // Inspiration pictures: re-encoded in the browser (strips metadata, fits the size limit), uploaded privately, removable.
+  const pics: { id: string; url: string }[] = [];
+  const picList = $('pic-list'), picInput = $<HTMLInputElement>('pic-input'), picErr = $('pic-err'), picAdd = $('pic-add');
+  const sidHeader = { 'X-Submission-Id': submissionId };
+  const picMsg = (m: string) => { picErr.hidden = !m; picErr.textContent = m; };
+  const downscale = async (file: File): Promise<Blob> => {
+    const bmp = await createImageBitmap(file); // fails for formats the browser cannot decode (for example HEIC on desktop)
+    const k = Math.min(1, 2048 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    const g = c.getContext('2d')!; g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+    return await new Promise<Blob>((ok, no) => c.toBlob((b) => (b ? ok(b) : no(new Error('encode'))), 'image/jpeg', 0.85));
+  };
+  const renderPics = () => {
+    picList.innerHTML = '';
+    pics.forEach((p, i) => {
+      const li = document.createElement('li');
+      const img = document.createElement('img'); img.src = p.url; img.alt = 'Inspiration picture ' + (i + 1); img.width = 72; img.height = 72;
+      const rm = document.createElement('button'); rm.type = 'button'; rm.className = 'chip'; rm.textContent = 'Remove picture ' + (i + 1);
+      rm.addEventListener('click', async () => {
+        rm.disabled = true;
+        try { const r = await fetch('/api/uploads/' + p.id, { method: 'DELETE', headers: sidHeader }); if (!r.ok) throw new Error(); URL.revokeObjectURL(p.url); pics.splice(pics.indexOf(p), 1); renderPics(); picMsg(''); picAdd.focus(); }
+        catch { rm.disabled = false; picMsg('We could not remove that picture. Please try again.'); }
+      });
+      li.append(img, rm); picList.append(li);
+    });
+    picAdd.hidden = pics.length >= 3; picAdd.toggleAttribute('aria-hidden', pics.length >= 3);
+  };
+  picInput.addEventListener('change', async () => {
+    const file = picInput.files?.[0]; picInput.value = ''; if (!file) return; picMsg('');
+    if (pics.length >= 3) return picMsg('You can add up to 3 pictures.');
+    picAdd.setAttribute('aria-busy', 'true'); picMsg('Adding picture…');
+    try {
+      const blob = await downscale(file).catch(() => { throw new Error('format'); });
+      const res = await fetch('/api/uploads', { method: 'POST', headers: { ...sidHeader, 'Content-Type': 'image/jpeg' }, body: blob });
+      if (res.status === 201) { const { attachmentId } = await res.json() as { attachmentId: string }; pics.push({ id: attachmentId, url: URL.createObjectURL(blob) }); renderPics(); picMsg(''); }
+      else if (res.status === 422) picMsg('That picture could not be used. Please try a different JPEG, PNG or WebP image.');
+      else if (res.status === 429) picMsg('Too many uploads just now. Please wait a minute and try again.');
+      else picMsg('The picture did not upload. Please try again.');
+    } catch (e) {
+      picMsg((e as Error).message === 'format' ? 'This picture format is not supported. Please choose a JPEG, PNG or WebP image (on iPhone, pick the photo from your library).' : 'The connection dropped. Please try adding the picture again.');
+    } finally { picAdd.removeAttribute('aria-busy'); }
+  });
 
   const errs: Record<string, string> = {};
   const setErr = (id: string, msg: string) => { errs[id] = msg; };
@@ -110,7 +159,7 @@ const occasions = ['Birthday', 'Anniversary', 'Wedding or engagement', 'Baby or 
       addons: $<HTMLInputElement>('addons').value.split(',').map((x) => x.trim()).filter(Boolean),
       fulfilment: (form.querySelector<HTMLInputElement>('input[name=fulfilment]:checked')?.value ?? 'not-sure'),
       budgetCents: dollars ? Number(dollars) * 100 : null, notes: $<HTMLTextAreaElement>('notes').value.trim() || null,
-      creationIds: $<HTMLSelectElement>('creation').value ? [$<HTMLSelectElement>('creation').value] : [], privacyAck: true, botToken: 'local-dev',
+      creationIds: $<HTMLSelectElement>('creation').value ? [$<HTMLSelectElement>('creation').value] : [], attachmentIds: pics.map((p) => p.id), privacyAck: true, botToken: 'local-dev',
     };
     btn.disabled = true; status.textContent = 'Sending…';
     try {
