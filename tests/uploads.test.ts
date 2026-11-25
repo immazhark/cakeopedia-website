@@ -15,7 +15,7 @@ let db: Awaited<ReturnType<Miniflare['getD1Database']>>;
 before(async () => {
   mf = new Miniflare({ modules: true, script: 'export default { fetch() { return new Response("t"); } }', compatibilityDate: '2026-07-30', d1Databases: ['DB'] });
   db = await mf.getD1Database('DB');
-  for (const file of ['0001_enquiries.sql', '0002_outbox_leases.sql', '0003_uploads.sql', '0004_enquiry_events.sql', '0005_orders.sql', '0012_upload_tombstones.sql']) {
+  for (const file of ['0001_enquiries.sql', '0002_outbox_leases.sql', '0003_uploads.sql', '0004_enquiry_events.sql', '0005_orders.sql', '0012_upload_tombstones.sql', '0015_upload_ready.sql']) {
     const sql = (await readFile(new URL(`../migrations/${file}`, import.meta.url), 'utf8')).replace(/^--.*$/gm, '');
     await db.batch(sql.split(';').map((s) => s.trim()).filter(Boolean).map((s) => db.prepare(s)));
   }
@@ -32,6 +32,7 @@ const png = async (extra: Record<string, number> = {}) => new Uint8Array(await s
 const deps = (bucket: Bucket, over: Partial<UploadDeps> = {}): UploadDeps => ({ db: db as unknown as UploadDeps['db'], bucket, origin: ORIGIN, allowRequest: async () => true, ...over });
 const up = (body: Uint8Array | string, sid: string, headers: Record<string, string> = {}) =>
   new Request(`${ORIGIN}/api/uploads`, { method: 'POST', headers: { Origin: ORIGIN, 'Content-Type': 'image/png', 'X-Submission-Id': sid, ...headers }, body: body as BodyInit });
+async function until(cond: () => Promise<boolean>) { for (let i = 0; i < 200; i++) { if (await cond()) return; await new Promise((r) => setTimeout(r, 10)); } throw new Error('condition not reached'); }
 const rows = async (sid: string) => (await db.prepare('SELECT count(*) AS n FROM uploads WHERE submission_id = ?').bind(sid).first<{ n: number }>())!.n;
 
 test('three images are accepted, stored cleaned under opaque keys, and a fourth is refused', async () => {
@@ -154,7 +155,7 @@ test('a delete in flight cannot race an enquiry: the picture is never attached w
   let release!: () => void; const gate = new Promise<void>((r) => { release = r; });
   const slow: Bucket = { put: bucket.put.bind(bucket), delete: async (k) => { await gate; await bucket.delete(k); } };
   const del = handleUploadDelete(new Request(`${ORIGIN}/api/uploads/${attachmentId}`, { method: 'DELETE', headers: { Origin: ORIGIN, 'X-Submission-Id': sid } }), attachmentId, deps(slow));
-  await new Promise((r) => setTimeout(r, 50)); // delete has claimed the row and is waiting on storage
+  await until(async () => !!(await db.prepare('SELECT 1 AS x FROM uploads WHERE id = ? AND deleted_at IS NOT NULL').bind(attachmentId).first())); // delete has claimed the row and is waiting on storage
   assert.equal(await ownsUploads(deps(bucket).db, sid, [attachmentId]), false); // cannot be attached any more
   release(); assert.equal((await del).status, 204);
   assert.equal(bucket.objects.size, 0);
@@ -168,6 +169,62 @@ test('a lost object delete leaves a tombstone the purge finishes, never an untra
   const r = await handleUploadDelete(new Request(`${ORIGIN}/api/uploads/${attachmentId}`, { method: 'DELETE', headers: { Origin: ORIGIN, 'X-Submission-Id': sid } }), attachmentId, deps(flaky));
   assert.equal(r.status, 503);
   assert.equal(bucket.objects.size, 1); assert.equal(await rows(sid), 1); // still tracked
-  assert.ok((await purgeOrphans(deps(bucket).db, bucket, Date.now())) >= 1); // immediately, not after 24 hours
+  assert.ok((await purgeOrphans(deps(bucket).db, bucket, Date.now() + POLICY.leaseMs)) >= 1); // after the lease, not after 24 hours
   assert.equal(bucket.objects.size, 0); assert.equal(await rows(sid), 0);
+});
+
+// ---- lifecycle: ready state, exclusive claims, verified attachment, guarded deletes
+const enquiryDeps = (bucket: Bucket, owns?: (s: string, ids: string[]) => Promise<boolean>) => ({ store: new EnquiryStore(db), origin: ORIGIN, creationIds: new Set<string>(), allowRequest: async () => true, verifyBot: async () => true, ownsUploads: owns ?? ((s: string, ids: string[]) => ownsUploads(deps(bucket).db, s, ids)) });
+const postEnquiry = (sid: string, ids: string[], d: ReturnType<typeof enquiryDeps>) => handleEnquiry(new Request(`${ORIGIN}/api/enquiries`, { method: 'POST', headers: { Origin: ORIGIN, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ submissionId: sid, name: 'Synthetic', contact: { kind: 'email', value: 'a@example.invalid' }, dateUndecided: true, privacyAck: true, attachmentIds: ids }) }), d);
+const enquiryRows = async (sid: string) => (await db.prepare('SELECT count(*) AS n FROM enquiries WHERE submission_id = ?').bind(sid).first<{ n: number }>())!.n;
+
+test('an upload is not attachable until its object is stored', async () => {
+  const bucket = new MemoryBucket(), sid = crypto.randomUUID();
+  let release!: () => void; const gate = new Promise<void>((r) => { release = r; });
+  const slow: Bucket = { put: async (k, v, o) => { await gate; return bucket.put(k, v, o); }, delete: bucket.delete.bind(bucket) };
+  const pending = handleUpload(up(await png(), sid), deps(slow));
+  await until(async () => (await rows(sid)) === 1);
+  const id = (await db.prepare('SELECT id FROM uploads WHERE submission_id = ?').bind(sid).first<{ id: string }>())!.id;
+  assert.equal(await ownsUploads(deps(bucket).db, sid, [id]), false); // reserved, object not yet stored
+  release(); assert.equal((await pending).status, 201);
+  assert.equal(await ownsUploads(deps(bucket).db, sid, [id]), true);
+});
+test('finalising an enquiry fails whole if an attachment is lost after the ownership check', async () => {
+  const bucket = new MemoryBucket(), sid = crypto.randomUUID();
+  const { attachmentId } = (await (await handleUpload(up(await png(), sid), deps(bucket))).json()) as { attachmentId: string };
+  const lossy = async (s: string, ids: string[]) => { const ok = await ownsUploads(deps(bucket).db, s, ids); await handleUploadDelete(new Request(`${ORIGIN}/api/uploads/${attachmentId}`, { method: 'DELETE', headers: { Origin: ORIGIN, 'X-Submission-Id': sid } }), attachmentId, deps(bucket)); return ok; };
+  const r = await postEnquiry(sid, [attachmentId], enquiryDeps(bucket, lossy));
+  assert.equal(r.status, 400);
+  assert.equal(await enquiryRows(sid), 0); // no enquiry that claims a picture it does not have
+});
+test('scheduled cleanup claims an orphan exclusively: it cannot be attached while its object is being deleted', async () => {
+  const bucket = new MemoryBucket(), sid = crypto.randomUUID(), t0 = 1_000_000_000_000;
+  const { attachmentId } = (await (await handleUpload(up(await png(), sid), deps(bucket, { now: () => t0 }))).json()) as { attachmentId: string };
+  let release!: () => void; const gate = new Promise<void>((r) => { release = r; });
+  const slow: Bucket = { put: bucket.put.bind(bucket), delete: async (k) => { await gate; await bucket.delete(k); } };
+  const purge = purgeOrphans(deps(bucket).db, slow, t0 + POLICY.orphanMs + 1000);
+  await until(async () => !!(await db.prepare('SELECT 1 AS x FROM uploads WHERE id = ? AND deleted_at IS NOT NULL').bind(attachmentId).first()));
+  assert.equal((await postEnquiry(sid, [attachmentId], enquiryDeps(bucket))).status, 400);
+  release(); assert.equal(await purge, 1);
+  assert.equal(await enquiryRows(sid), 0); assert.equal(bucket.objects.size, 0);
+});
+test('two cleanups never delete the same object twice', async () => {
+  const bucket = new MemoryBucket(), sid = crypto.randomUUID(), t0 = 1_000_000_000_000;
+  await handleUpload(up(await png(), sid), deps(bucket, { now: () => t0 }));
+  const calls: string[] = []; const counting: Bucket = { put: bucket.put.bind(bucket), delete: async (k) => { calls.push(k); await bucket.delete(k); } };
+  const [a, b] = await Promise.all([purgeOrphans(deps(bucket).db, counting, t0 + POLICY.orphanMs + 1), purgeOrphans(deps(bucket).db, counting, t0 + POLICY.orphanMs + 1)]);
+  assert.equal(a + b, 1); assert.equal(calls.length, 1);
+});
+test('a customer cannot delete an image that is already attached to an enquiry', async () => {
+  const bucket = new MemoryBucket(), sid = crypto.randomUUID();
+  const { attachmentId } = (await (await handleUpload(up(await png(), sid), deps(bucket))).json()) as { attachmentId: string };
+  assert.equal((await postEnquiry(sid, [attachmentId], enquiryDeps(bucket))).status, 201);
+  await handleUploadDelete(new Request(`${ORIGIN}/api/uploads/${attachmentId}`, { method: 'DELETE', headers: { Origin: ORIGIN, 'X-Submission-Id': sid } }), attachmentId, deps(bucket));
+  assert.equal(bucket.objects.size, 1); assert.equal(await rows(sid), 1);
+});
+test('the delete endpoint is rate limited like uploads', async () => {
+  const bucket = new MemoryBucket(), sid = crypto.randomUUID(), id = crypto.randomUUID();
+  const r = await handleUploadDelete(new Request(`${ORIGIN}/api/uploads/${id}`, { method: 'DELETE', headers: { Origin: ORIGIN, 'X-Submission-Id': sid } }), id, deps(bucket, { allowRequest: async () => false }));
+  assert.equal(r.status, 429);
 });

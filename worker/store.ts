@@ -1,4 +1,4 @@
-import type { Enquiry } from './contract.ts';
+import { InvalidInput, type Enquiry } from './contract.ts';
 
 // Narrow D1 boundary: prepare/bind and transactional batch only.
 export interface Statement {
@@ -28,7 +28,10 @@ export class EnquiryStore {
       statements.push(this.db.prepare('INSERT INTO enquiry_references (enquiry_id, creation_id) VALUES (?, ?)').bind(id, creationId));
     }
     for (const fileId of enquiry.attachmentIds) {
-      statements.push(this.db.prepare('UPDATE uploads SET enquiry_id = ? WHERE id = ? AND submission_id = ? AND enquiry_id IS NULL AND deleted_at IS NULL').bind(id, fileId, enquiry.submissionId));
+      statements.push(this.db.prepare('UPDATE uploads SET enquiry_id = ? WHERE id = ? AND submission_id = ? AND enquiry_id IS NULL AND deleted_at IS NULL AND ready_at IS NOT NULL').bind(id, fileId, enquiry.submissionId));
+    }
+    if (enquiry.attachmentIds.length > 0) { // a lost attachment violates NOT NULL, aborting the whole batch: no enquiry that claims a missing picture
+      statements.push(this.db.prepare('UPDATE enquiries SET payload_hash = NULL WHERE id = ? AND (SELECT count(*) FROM uploads WHERE enquiry_id = ?) <> ?').bind(id, id, enquiry.attachmentIds.length));
     }
     for (const role of ['owner', 'customer']) {
       statements.push(this.db.prepare('INSERT INTO notification_outbox (id, enquiry_id, recipient_role, next_attempt_at) VALUES (?, ?, ?, ?)')
@@ -41,7 +44,14 @@ export class EnquiryStore {
       // A concurrent request may have won. Only a matching durable receipt recovers
       // success; an unrelated storage failure must remain a failure.
       const previous = await this.find(enquiry.submissionId);
-      if (!previous) throw error;
+      if (!previous) {
+        if (enquiry.attachmentIds.length > 0) {
+          const n = await this.db.prepare(`SELECT count(*) AS n FROM uploads WHERE submission_id = ? AND enquiry_id IS NULL AND deleted_at IS NULL AND ready_at IS NOT NULL AND id IN (${enquiry.attachmentIds.map(() => '?').join(',')})`)
+            .bind(enquiry.submissionId, ...enquiry.attachmentIds).first<{ n: number }>();
+          if ((n?.n ?? 0) < enquiry.attachmentIds.length) throw new InvalidInput(); // an attachment is gone: the customer must re-add it
+        }
+        throw error;
+      }
       if (previous.hash !== hash) throw new Conflict();
       return { receipt: previous, replay: true };
     }

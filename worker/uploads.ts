@@ -18,7 +18,7 @@ export interface UploadDeps {
   allowRequest: (request: Request) => Promise<boolean>;
   now?: () => number;
 }
-export const POLICY = { perSubmission: 3, perDay: 200, orphanMs: 24 * 3600_000 } as const;
+export const POLICY = { perSubmission: 3, perDay: 200, orphanMs: 24 * 3600_000, leaseMs: 5 * 60_000 } as const; // leaseMs: how long a cleaner owns a tombstone before another may retry it
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const accepted = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
@@ -92,6 +92,9 @@ export async function handleUpload(request: Request, deps: UploadDeps): Promise<
       return (mine?.n ?? 0) >= POLICY.perSubmission ? reply(422, { error: 'too_many_images' }) : reply(429, { error: 'try_later' });
     }
     await deps.bucket.put(key, image.bytes, { httpMetadata: { contentType: image.type } });
+    // Only now is the picture attachable. If it was retired while storing, remove the object we just wrote.
+    const ready = await deps.db.prepare('UPDATE uploads SET ready_at = ? WHERE id = ? AND deleted_at IS NULL RETURNING id').bind(now, rowId).first();
+    if (!ready) { await deps.bucket.delete(key).catch(() => undefined); rowId = null; return reply(409, { error: 'upload_cancelled' }); }
     return reply(201, { attachmentId: rowId, type: image.type, width: image.width, height: image.height });
   } catch {
     // A put may have landed even though it threw: retire row and object together; the purge finishes it if this is lost too.
@@ -107,6 +110,7 @@ export async function handleUploadDelete(request: Request, id: string, deps: Upl
   const submission = submissionOf(request);
   if (!submission || !uuid.test(id)) return reply(400, { error: 'invalid_input' });
   try {
+    if (!await deps.allowRequest(request)) return reply(429, { error: 'try_later' });
     const own = await deps.db.prepare('SELECT 1 AS x FROM uploads WHERE id = ? AND submission_id = ?').bind(id.toLowerCase(), submission).first();
     if (own) await retire(deps, id.toLowerCase(), (deps.now ?? Date.now)());
     return reply(204); // idempotent; nothing reveals whether the id existed
@@ -116,18 +120,22 @@ export async function handleUploadDelete(request: Request, id: string, deps: Upl
 /** True only when every id is an unattached upload of this submission (used before saving an enquiry). */
 export async function ownsUploads(db: UploadDatabase, submissionId: string, ids: string[]): Promise<boolean> {
   if (ids.length === 0) return true;
-  const rows = await db.prepare(`SELECT count(*) AS n FROM uploads WHERE submission_id = ? AND enquiry_id IS NULL AND deleted_at IS NULL AND id IN (${ids.map(() => '?').join(',')})`)
+  const rows = await db.prepare(`SELECT count(*) AS n FROM uploads WHERE submission_id = ? AND enquiry_id IS NULL AND deleted_at IS NULL AND ready_at IS NOT NULL AND id IN (${ids.map(() => '?').join(',')})`)
     .bind(submissionId, ...ids).first<{ n: number }>();
   return rows?.n === ids.length;
 }
 
-/** Scheduled cleanup: delete unattached uploads past the window (object first, then row). */
+/**
+ * Scheduled cleanup. One statement claims rows by tombstoning them (so they can no longer be attached) and lease-stamping them (so a
+ * concurrent cleaner skips them); only the claimant deletes the object, then the row. A claim whose lease expired is retried.
+ */
 export async function purgeOrphans(db: UploadDatabase, bucket: Bucket, now: number, limit = 100): Promise<number> {
-  const { results } = await db.prepare('SELECT id, object_key AS key FROM uploads WHERE enquiry_id IS NULL AND (created_at < ? OR deleted_at IS NOT NULL) LIMIT ?')
-    .bind(now - POLICY.orphanMs, limit).all<{ id: string; key: string }>();
+  const { results } = await db.prepare(`UPDATE uploads SET deleted_at = ?1 WHERE enquiry_id IS NULL AND (deleted_at IS NULL OR deleted_at < ?3)
+    AND id IN (SELECT id FROM uploads WHERE enquiry_id IS NULL AND ((deleted_at IS NULL AND created_at < ?2) OR deleted_at < ?3) LIMIT ?4) RETURNING id, object_key AS key`)
+    .bind(now, now - POLICY.orphanMs, now - POLICY.leaseMs, limit).all<{ id: string; key: string }>();
   let purged = 0;
   for (const r of results) {
-    try { await bucket.delete(r.key); await db.prepare('DELETE FROM uploads WHERE id = ? AND enquiry_id IS NULL').bind(r.id).run(); purged++; } catch { /* retry next run */ }
+    try { await bucket.delete(r.key); await db.prepare('DELETE FROM uploads WHERE id = ? AND enquiry_id IS NULL').bind(r.id).run(); purged++; } catch { /* lease expires, next run retries */ }
   }
   return purged;
 }
