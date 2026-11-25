@@ -47,12 +47,12 @@ async function readKeys(response:Response,signal:AbortSignal):Promise<Jwk[]> {
 // for up to one minute. Failed refreshes never fall back to stale verification keys.
 export function createAccessKeySource(issuer:string,transport:typeof fetch,clock:()=>number=Date.now,
   timeoutMs=5_000):()=>Promise<Jwk[]> {
-  if(!/^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.cloudflareaccess\.com$/.test(issuer) ||
+  if(issuer.trim()!==issuer||!/^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.cloudflareaccess\.com$/.test(issuer) ||
      !Number.isInteger(timeoutMs) || timeoutMs<1 || timeoutMs>10_000) throw Error('Invalid Access key configuration');
   const endpoint=issuer+'/cdn-cgi/access/certs';
   let cache:{keys:Jwk[];loadedAt:number}|undefined;
   let failedAt:number|undefined;
-  let inFlight:Promise<Jwk[]>|undefined;
+  let generation=0,settledGeneration=0;
   const clone=(keys:Jwk[])=>keys.map(key=>({...key}));
   const now=()=>{
     const value=clock();
@@ -67,19 +67,28 @@ export function createAccessKeySource(issuer:string,transport:typeof fetch,clock
     });
     const request=async()=>readKeys(await transport(endpoint,{method:'GET',redirect:'error',signal:controller.signal,headers:{Accept:'application/json'}}),controller.signal);
     try {
-      const keys=await Promise.race([request(),deadline]);
-      cache={keys,loadedAt:now()};failedAt=undefined;
-      return keys;
-    } catch { cache=undefined;failedAt=now();throw unavailable(); }
+      return await Promise.race([request(),deadline]);
+    } catch { throw unavailable(); }
     finally {clearTimeout(timer);}
   };
   return async()=>{
     const time=now();
     if(cache && time>=cache.loadedAt && time-cache.loadedAt<ttlMs) return clone(cache.keys);
-    if(inFlight) return clone(await inFlight);
     if(failedAt!==undefined && time>=failedAt && time-failedAt<retryMs) throw unavailable();
-    inFlight=load();
-    try {return clone(await inFlight);}
-    finally {inFlight=undefined;}
+    // Never share request-scoped fetch promises across Worker invocations. Cold
+    // concurrent callers load independently; only the newest settled refresh
+    // can change the shared plain-data cache.
+    const attempt=++generation;
+    try {
+      const keys=await load();
+      if(attempt>settledGeneration){
+        settledGeneration=attempt;cache={keys,loadedAt:now()};failedAt=undefined;
+      }
+    } catch {
+      if(attempt>settledGeneration){settledGeneration=attempt;cache=undefined;failedAt=now();}
+    }
+    const finished=now();
+    if(cache && finished>=cache.loadedAt && finished-cache.loadedAt<ttlMs)return clone(cache.keys);
+    throw unavailable();
   };
 }
