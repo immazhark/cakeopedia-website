@@ -46,3 +46,6 @@ and delivery of media is not yet approved. The site runs locally with them; a de
 
 ## Not claimed
 No flavour, price, serving count or ingredient is inferred from any image. Titles and alt text describe what is visible.
+
+## Batch 2 (13 photos, 26 November 2026)
+Source: owner's `CakeopediaMedia/batch2`; provenance in the gitignored `private/`. Six published (purple butterflies with the Cakeopedia Austin letterboard, two pink-rose ribbed cakes, black and gold roses, tuxedo cake, sage geometric); 25 creations now. Held (7): legible child names on cake, topper or backdrop (5 photos) and licensed characters (Spider-Man, Cars; both also name-bearing). Owner decision needed on crop/blur or per-customer permission, same as batch 1. Austin provenance of the six still to be confirmed.

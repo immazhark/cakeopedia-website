@@ -161,6 +161,60 @@
     800,
     1280
    ]
+  },
+  "purple-butterfly-garden": {
+   "w": 2304,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "pink-roses-on-ribbed-white": {
+   "w": 2304,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "pink-roses-ribbed-cream": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "black-and-gold-roses": {
+   "w": 1536,
+   "h": 2048,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "tuxedo-pension-cake": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
+  },
+  "sage-geometric-florals": {
+   "w": 4330,
+   "h": 5773,
+   "widths": [
+    480,
+    800,
+    1280
+   ]
   }
  },
  "videos": {

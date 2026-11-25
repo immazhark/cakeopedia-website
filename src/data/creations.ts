@@ -42,6 +42,12 @@ export const creations: Creation[] = [
   { slug: 'festive-orange-and-green', title: 'Orange and green drape cake', cats: ['celebration'], alt: 'Square orange cake with a green fondant drape and colourful piped details beside a Cakeopedia Austin sign' },
   { slug: 'mini-cake-box-sign', title: 'Mini cakes with the Cakeopedia sign', cats: ['minis'], alt: 'Pink mini cakes in clear boxes beside a navy Cakeopedia sign',
     video: { slug: 'mini-cakes-packing', caption: 'Mini cakes lined up and boxed. Silent clip.' } },
+  { slug: 'purple-butterfly-garden', title: 'Purple butterflies and garden blooms', cats: ['floral'], alt: 'Purple buttercream cake covered in paper butterflies and blue and purple flowers, in front of a Cakeopedia Austin letterboard sign', focus: '50% 35%' },
+  { slug: 'pink-roses-on-ribbed-white', title: 'Piped pink roses on ribbed white', cats: ['floral'], alt: 'White cake with a vertical ribbed finish, scattered piped pink roses and a round pink plaque reading Happy Birthday' },
+  { slug: 'pink-roses-ribbed-cream', title: 'Pink rose crown on ribbed cream', cats: ['floral'], alt: 'Cream cake with a vertical ribbed finish and a pale pink base, topped with a crown of pink roses' },
+  { slug: 'black-and-gold-roses', title: 'Black cake with gold roses', cats: ['floral', 'celebration'], alt: 'Smooth black cake decorated with gold roses and leaves, on a table of green leaves and roses' },
+  { slug: 'tuxedo-pension-cake', title: 'Tuxedo cake with a bow tie', cats: ['celebration'], alt: 'Two-tier cake with a white tuxedo-front top tier with gold buttons and a black bow tie, and a black base tier with gold script lettering' },
+  { slug: 'sage-geometric-florals', title: 'Sage geometry with soft florals', cats: ['floral'], alt: 'Sage green cake with a geometric cream pattern, cream roses, greenery and dried pampas grass on the top' },
 ];
 
 export const bySlug = (s: string): Creation => {
