@@ -16,10 +16,10 @@ function windowStart(now:number):number{
 // limiter. No live routing or default production thresholds are enabled here.
 export function createRateLimiter(db:Database,secret:string,clock:()=>number=Date.now):
   (scope:Scope,trustedClientKey:string,policy:Policy)=>Promise<boolean>{
-  if(!/^[0-9a-f]{64}$/.test(secret))throw Error('Invalid rate limit secret');
+  if(secret.length!==64||!/^[0-9a-f]{64}$/.test(secret))throw Error('Invalid rate limit secret');
   const key=crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
   return async(scope,identity,policy)=>{
-    if(!scopes.has(scope)||typeof identity!=='string'||!/^[\x21-\x7e]{1,256}$/.test(identity))return false;
+    if(!scopes.has(scope)||typeof identity!=='string'||identity.length<1||identity.length>256||/[^\x21-\x7e]/.test(identity))return false;
     const {clientLimit,globalLimit}=policy;
     if(!Number.isInteger(clientLimit)||!Number.isInteger(globalLimit)||clientLimit<1||clientLimit>globalLimit||globalLimit>10000)throw Error('Invalid rate limit policy');
     try{
