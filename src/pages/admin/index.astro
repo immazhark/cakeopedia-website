@@ -234,6 +234,18 @@ import Base from '../../layouts/Base.astro';
           else if (r.status === 409) { notice('This item was changed somewhere else. The latest version has been loaded.'); loadMenu(); }
           else if (r.status) notice('Please check the details. A published item needs a name, a group and at least one size.');
         }), btn('Cancel', () => renderMenu(), 'chip')));
+      if (it) { // earlier saved versions; "Use this version" fills the form, and Save writes it as a new revision on top of the current one
+        const box = h('details', { class: 'add' }, h('summary', {}, 'Earlier versions')), list = h('ul', { class: 'admin-list' });
+        let loaded = false;
+        box.addEventListener('toggle', async () => {
+          if (!(box as HTMLDetailsElement).open || loaded) return; loaded = true;
+          const r = await api(`/admin/api/menu/${it.id}/history`); if (!r.ok) { loaded = false; return; }
+          const old = (r.data.versions as Json[]).filter((v) => v.revision !== it.revision);
+          for (const v of old) list.append(h('li', {}, btn(`${when(Date.parse(v.updatedAt))} · ${v.title} · ${v.status}${v.sizes.length ? ' · from ' + money(Math.min(...v.sizes.map((x: Json) => x.priceCents))) : ''}`, () => editMenu({ ...v, revision: it.revision }), 'row')));
+          if (!old.length) list.append(h('li', { class: 'hint' }, 'No earlier versions yet.'));
+        });
+        box.append(list); root.append(box);
+      }
       ($('menu').querySelector('input') as HTMLElement).focus();
     }
     loadInbox(true);

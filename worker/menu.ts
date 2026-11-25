@@ -16,6 +16,12 @@ export async function routeMenu(request: Request, db: AdminDb, now: () => number
     const { results } = await db.prepare('SELECT data_json AS d FROM menu_items ORDER BY id LIMIT 1000').all<{ d: string }>();
     return out(200, { items: approvedMenuExport(results.map((r) => JSON.parse(r.d))) });
   }
+  const h = p.match(/^\/admin\/api\/menu\/([^/]+)\/history$/);
+  if (h && m === 'GET') { // newest first; includes the current revision once it has been saved at least once
+    if (!idRe.test(h[1]!) || h[1]!.length > 80) return out(404, { error: 'not_found' });
+    const { results } = await db.prepare('SELECT data_json AS d FROM menu_history WHERE id = ? ORDER BY revision DESC LIMIT 50').bind(h[1]!).all<{ d: string }>();
+    return out(200, { versions: results.map((r) => JSON.parse(r.d)) });
+  }
   const r = p.match(/^\/admin\/api\/menu\/([^/]+)$/);
   if (!r) return null;
   const id = r[1]!;
@@ -48,6 +54,10 @@ export async function routeMenu(request: Request, db: AdminDb, now: () => number
     ? 'UPDATE menu_items SET revision = ?, updated_at = ?, data_json = ? WHERE id = ? AND revision = ? RETURNING revision'
     : 'INSERT INTO menu_items (revision, updated_at, data_json, id) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO NOTHING RETURNING revision';
   const args = current ? [next.revision, next.updatedAt, data, id, current.revision] : [next.revision, next.updatedAt, data, id];
-  const won = await db.prepare(sql).bind(...args).first<{ revision: number }>();
+  const [res] = await db.batch([
+    db.prepare(sql).bind(...args),
+    db.prepare('INSERT OR IGNORE INTO menu_history (id, revision, at, data_json) SELECT id, revision, updated_at, data_json FROM menu_items WHERE id = ? AND revision = ?').bind(id, next.revision),
+  ]) as { results: { revision: number }[] }[];
+  const won = res?.results[0];
   return won ? out(current ? 200 : 201, { revision: next.revision }) : out(409, { error: 'menu_changed' });
 }

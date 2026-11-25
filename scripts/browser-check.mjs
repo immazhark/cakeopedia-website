@@ -108,6 +108,11 @@ try {
   check(bump === 200, 'second device edit succeeds');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await page.getByText('changed somewhere else').waitFor({ timeout: 5000 }).then(() => check(true, 'stale save shows the conflict message'), () => check(false, 'stale save shows the conflict message'));
+  // Edit history: the item now has two saved revisions, so the older one is offered in Earlier versions.
+  await page.getByRole('button', { name: new RegExp(name) }).click();
+  await page.getByText('Earlier versions').click();
+  await page.locator('#menu details ul button.row').first().waitFor({ timeout: 5000 }).then(() => check(true, 'Earlier versions lists the previous saved revision'), () => check(false, 'Earlier versions lists the previous saved revision'));
+  await page.getByRole('button', { name: 'Cancel' }).click();
   // Owner Enquiries and Calendar by keyboard: re-rendering must not drop focus to the top of the page.
   const kept = (id) => page.evaluate((i) => document.getElementById(i).contains(document.activeElement), id);
   await page.getByRole('button', { name: 'Enquiries', exact: true }).click();

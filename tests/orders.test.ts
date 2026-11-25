@@ -162,5 +162,9 @@ test('owner menu: drafts stay private, edits are compare-and-set, replays succee
   assert.equal((await put('hidden-draft', null, item({ id: 'hidden-draft' }))).status, 201);
   const exported = await json<{ items: { id: string }[] }>(await call('/admin/api/menu/export'));
   assert.deepEqual(exported.items.map((i) => i.id), ['synthetic-menu']); // draft excluded
+  const hist = await json<{ versions: { revision: number; title: string }[] }>(await call('/admin/api/menu/synthetic-menu/history'));
+  assert.deepEqual(hist.versions.map((v) => v.revision), [2, 1]); // the lost race and the replay wrote nothing extra
+  assert.equal(hist.versions[1]!.title, 'Synthetic');
+  assert.equal((await call('/admin/api/menu/synthetic-menu/history', 'GET', undefined, null)).status, 401);
   assert.equal((await call('/admin/api/menu', 'GET', undefined, null)).status, 401);
 });
