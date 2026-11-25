@@ -63,6 +63,7 @@ a:hover { color: var(--cta-hover); text-decoration-thickness: 2px; }
 .feature { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
 .feature .col { display: grid; gap: var(--space-3); align-content: start; }
 @media (min-width: 56rem) { .feature { grid-template-columns: 1.3fr 1fr 1fr; align-items: start; } .feature .col:nth-child(3) { margin-top: 3.5rem; } }
+@media (min-width: 56rem) { .feature .col:nth-child(1) { position: sticky; top: 1.5rem; } } /* the lead image stays in view beside the two taller columns instead of leaving a gap */
 .chips { display: flex; flex-wrap: wrap; gap: .6rem; list-style: none; padding: 0; margin: 0 0 var(--space-4); }
 .chip { min-height: 2.75rem; padding: .55rem 1.1rem; border-radius: 999px; border: 1.5px solid var(--border-strong); background: transparent; color: var(--heading); font: 500 var(--step-0)/1 var(--font-body); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
 .chip:hover { background: var(--sage-tint); color: var(--heading); }
