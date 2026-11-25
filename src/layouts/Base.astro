@@ -2,9 +2,14 @@
 import '@fontsource-variable/fraunces';
 import '@fontsource-variable/figtree';
 import '../styles/global.css';
-interface Props { title: string; description: string; current?: string; image?: string; private?: boolean }
-const { title, description, current, image, private: isPrivate = false } = Astro.props;
+import { SITE, INSTAGRAM } from '../site';
+interface Props { title: string; description: string; current?: string; image?: string; private?: boolean; bakery?: boolean }
+const { title, description, current, image, private: isPrivate = false, bakery = false } = Astro.props;
 const indexable = import.meta.env.PUBLIC_SITE_ENV === 'production' && !isPrivate;
+const canonical = new URL(Astro.url.pathname, SITE).href;
+const abs = image ? new URL(image, SITE).href : undefined;
+// Only facts the owner approved: no address, hours, prices, ratings or service area.
+const bakeryLd = { '@context': 'https://schema.org', '@type': 'Bakery', '@id': `${SITE}/#bakery`, name: 'Cakeopedia Austin', url: SITE + '/', description, sameAs: [INSTAGRAM], ...(abs ? { image: abs } : {}) };
 const nav = isPrivate ? [] : [['/creations/', 'Creations'], ['/story/', 'Story'], ['/enquiry/', 'Enquire']];
 ---
 <!doctype html>
@@ -17,9 +22,15 @@ const nav = isPrivate ? [] : [['/creations/', 'Creations'], ['/story/', 'Story']
     <link rel="icon" href="data:," />
     <meta name="description" content={description} />
     <meta name="theme-color" content="#91ae8f" />
+    {indexable && <link rel="canonical" href={canonical} />}
+    <meta property="og:site_name" content="Cakeopedia Austin" />
+    <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    {image && <meta property="og:image" content={image} />}
+    {indexable && <meta property="og:url" content={canonical} />}
+    {abs && <meta property="og:image" content={abs} />}
+    <meta name="twitter:card" content={abs ? 'summary_large_image' : 'summary'} />
+    {indexable && bakery && <script type="application/ld+json" set:html={JSON.stringify(bakeryLd).replace(/</g, '\u003c')} />}
     <title>{title}</title>
     <script is:inline>document.documentElement.classList.add('js');</script>
   </head>
