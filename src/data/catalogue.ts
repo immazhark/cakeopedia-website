@@ -8,14 +8,14 @@ export interface Catalogue {
   baseCents: Record<string, number>; rasmalaiCents: Record<string, number>;
   celebrationCents: number; brownieBoxCents: number; brownieSlabCents: number; brownieToppingCents: number;
   addons: { id: string; name: string; priceCents: number; note?: string }[];
-  flavours: { id: string; name: string; description: string }[];
+  flavours: { id: string; name: string; description: string; available: boolean }[]; // available=false: paused for now, still listed
   celebrationFlavours: string[];
 }
 export const defaultCatalogue: Catalogue = {
   baseCents: Object.fromEntries(SIZES.map((d) => [String(d), BASE_CENTS[d]])), rasmalaiCents: Object.fromEntries(SIZES.map((d) => [String(d), RASMALAI_SURCHARGE_CENTS[d]])),
   celebrationCents: 7500, brownieBoxCents: browniePrice.boxCents, brownieSlabCents: browniePrice.slabCents, brownieToppingCents: BROWNIE_TOPPING_CENTS,
   addons: addons.map(({ id, name, priceCents, note }) => ({ id, name, priceCents, ...(note ? { note } : {}) })),
-  flavours: flavours.map(({ id, name, description }) => ({ id, name, description })),
+  flavours: flavours.map(({ id, name, description }) => ({ id, name, description, available: true })),
   celebrationFlavours: [...celebrationFlavours],
 };
 
@@ -43,10 +43,12 @@ export function parseCatalogue(value: unknown): Catalogue {
     baseCents: bySize(d.baseCents, 1), rasmalaiCents: bySize(d.rasmalaiCents, 0),
     celebrationCents: cents(d.celebrationCents), brownieBoxCents: cents(d.brownieBoxCents), brownieSlabCents: cents(d.brownieSlabCents), brownieToppingCents: cents(d.brownieToppingCents, 0),
     addons: rows(d.addons, 50, (x) => { const a = obj(x, x && typeof x === 'object' && Object.hasOwn(x, 'note') ? ['id', 'name', 'priceCents', 'note'] : ['id', 'name', 'priceCents']); return { id: str(a.id, 60), name: str(a.name, 100), priceCents: cents(a.priceCents), ...(Object.hasOwn(a, 'note') ? { note: str(a.note, 200) } : {}) }; }, (a) => a.id),
-    flavours: rows(d.flavours, 60, (x) => { const f = obj(x, ['id', 'name', 'description']); return { id: str(f.id, 60), name: str(f.name, 100), description: str(f.description, 400) }; }, (f) => f.id),
+    flavours: rows(d.flavours, 60, (x) => { const f = obj(x, x && typeof x === 'object' && Object.hasOwn(x, 'available') ? ['id', 'name', 'description', 'available'] : ['id', 'name', 'description']); // snapshots published before availability existed have no flag: available
+      if (f.available !== undefined && typeof f.available !== 'boolean') bad();
+      return { id: str(f.id, 60), name: str(f.name, 100), description: str(f.description, 400), available: f.available !== false }; }, (f) => f.id),
     celebrationFlavours: rows(d.celebrationFlavours, 20, (x) => str(x, 80), (f) => f),
   };
-  if (c.flavours.length === 0 || c.celebrationFlavours.length === 0) bad();
+  if (c.flavours.length === 0 || !c.flavours.some((f) => f.available) || c.celebrationFlavours.length === 0) bad(); // at least one flavour must stay available
   return c;
 }
 /** `approved` is the published snapshot (or null before the owner has published): it fully replaces the seed, never merges with it. */

@@ -66,3 +66,14 @@ test('robots: previews block everything; production allows search and AI retriev
   assert.match(prod, /User-agent: \*\nAllow: \/\nDisallow: \/api\/\nDisallow: \/admin\//);
   assert.match(prod, /Sitemap: https:\/\/x\.invalid\/sitemap\.xml$/m);
 });
+
+test('flavour availability: old snapshots default to available; a paused flavour is kept; none available or a non-boolean flag is refused', async () => {
+  const { defaultCatalogue, parseCatalogue } = await import('../src/data/catalogue.ts');
+  const strip = (c: typeof defaultCatalogue) => ({ ...c, flavours: c.flavours.map(({ id, name, description }) => ({ id, name, description })) });
+  const old = parseCatalogue(strip(defaultCatalogue)); // published before availability existed
+  assert.ok(old.flavours.every((f) => f.available === true));
+  const paused = parseCatalogue({ ...defaultCatalogue, flavours: defaultCatalogue.flavours.map((f, i) => (i === 0 ? { ...f, available: false } : f)) });
+  assert.equal(paused.flavours[0]!.available, false); assert.equal(paused.flavours.length, defaultCatalogue.flavours.length);
+  assert.throws(() => parseCatalogue({ ...defaultCatalogue, flavours: defaultCatalogue.flavours.map((f) => ({ ...f, available: false })) }));
+  assert.throws(() => parseCatalogue({ ...defaultCatalogue, flavours: defaultCatalogue.flavours.map((f, i) => (i === 0 ? { ...f, available: 'no' } : f)) }));
+});

@@ -6,12 +6,13 @@ import { resolveCatalogue } from '../data/catalogue';
 import approved from '../data/catalogue-approved.json'; // the owner's last published snapshot; null until she publishes
 const cat = resolveCatalogue(approved);
 const fromCents = Math.min(...Object.values(cat.baseCents));
+const availableFlavours = cat.flavours.filter((f) => f.available);
 const numberWords = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen'];
 const count = (n: number) => numberWords[n] ?? String(n);
 import { formatMenuPrice } from '../data/menu-presentation';
 const money = (c: number, k: 'fixed' | 'starting') => formatMenuPrice(c, k);
 ---
-<Base title="Custom cake menu and prices · Cakeopedia Austin" description={`Custom cakes from ${formatMenuPrice(fromCents, 'fixed')}, Celebration Cakes at ${formatMenuPrice(cat.celebrationCents, 'fixed')}, ${count(cat.flavours.length)} flavours, cupcakes and brownies from Cakeopedia Austin.`} current="/menu/">
+<Base title="Custom cake menu and prices · Cakeopedia Austin" description={`Custom cakes from ${formatMenuPrice(fromCents, 'fixed')}, Celebration Cakes at ${formatMenuPrice(cat.celebrationCents, 'fixed')}, ${count(availableFlavours.length)} flavours, cupcakes and brownies from Cakeopedia Austin.`} current="/menu/">
   <div class="wrap page-head prose">
     <p class="eyebrow">The menu</p>
     <h1>Baked from scratch, made to your occasion</h1>
@@ -30,9 +31,9 @@ const money = (c: number, k: 'fixed' | 'starting') => formatMenuPrice(c, k);
       <table class="sizes"><thead><tr><th scope="col">Size</th><th scope="col">Starting price</th><th scope="col">Rasmalai Cake</th></tr></thead>
         <tbody>{SIZES.map((d) => <tr><th scope="row">{d} inches</th><td>{money(cat.baseCents[d]!, 'starting')}</td><td>{money(cat.baseCents[d]! + cat.rasmalaiCents[d]!, 'starting')}</td></tr>)}</tbody></table>
       <p class="small">Two- and three-tier cakes, including Rasmalai, are quoted personally.</p>
-      <h3>{count(cat.flavours.length)[0]!.toUpperCase() + count(cat.flavours.length).slice(1)} flavours</h3>
+      <h3>{count(availableFlavours.length)[0]!.toUpperCase() + count(availableFlavours.length).slice(1)} flavours</h3>
       <ul class="flavours">
-        {cat.flavours.map((f) => <li><strong>{f.name}</strong><span>{f.description}</span></li>)}
+        {cat.flavours.map((f) => <li class={f.available ? undefined : 'paused'}><strong>{f.name}{f.available ? '' : ' · not available at the moment'}</strong><span>{f.description}</span></li>)}
       </ul>
       <h3>Add-ons</h3>
       <ul class="plain">
@@ -103,6 +104,7 @@ const money = (c: number, k: 'fixed' | 'starting') => formatMenuPrice(c, k);
   .flavours, .plain { list-style: none; padding: 0; margin: 0 0 var(--space-3); }
   .flavours li { display: grid; align-content: start; gap: .2rem; padding-block: .8rem; border-top: 1px solid var(--border); }
   .flavours li span { font-size: var(--step--1); }
+  .flavours li.paused strong { font-weight: 500; font-style: italic; }
   .plain li { padding-block: .5rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 1rem; }
   .sizes { border-collapse: collapse; width: 100%; margin-bottom: var(--space-2); }
   .sizes th, .sizes td { text-align: left; padding: .6rem .75rem .6rem 0; border-top: 1px solid var(--border); }

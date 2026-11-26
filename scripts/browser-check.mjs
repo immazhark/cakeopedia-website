@@ -141,10 +141,13 @@ try {
   const first = page.locator('#prices input').first();
   await first.fill('abc'); await page.getByRole('button', { name: 'Save draft' }).click();
   await page.getByText('dollars and cents').waitFor({ timeout: 5000 }).then(() => check(true, 'an invalid price is refused with a plain message'), () => check(false, 'an invalid price is refused with a plain message'));
+  const flavourBox = page.getByRole('checkbox').first(); await flavourBox.uncheck();
   await first.fill('136.00'); await page.getByRole('button', { name: 'Save draft' }).click();
   await page.waitForFunction(() => [...document.querySelectorAll('#prices button')].find((b) => b.textContent.includes('Publish'))?.disabled === false, null, { timeout: 8000 }).then(() => check(true, 'a saved draft can be published'), () => check(false, 'a saved draft can be published'));
+  check(!(await page.getByRole('checkbox').first().isChecked()), 'a paused flavour stays paused after saving the draft');
   await page.getByRole('button', { name: 'Publish to the website' }).click();
   await page.locator('#prices [role=status]').waitFor({ timeout: 8000 }).then(() => check(true, 'publishing confirms with a status message'), () => check(false, 'publishing confirms with a status message'));
+  await page.getByRole('checkbox').first().check(); await page.getByRole('button', { name: 'Save draft' }).click(); await page.waitForTimeout(500); // leave the local draft with every flavour on offer
   // Owner Enquiries and Calendar by keyboard: re-rendering must not drop focus to the top of the page.
   const kept = (id) => page.evaluate((i) => document.getElementById(i).contains(document.activeElement), id);
   await page.getByRole('button', { name: 'Enquiries', exact: true }).click();
