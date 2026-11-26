@@ -32,6 +32,7 @@ A production Wrangler config does not exist yet; only `wrangler.local.jsonc` (lo
 5. Schedule: one cron trigger on the Worker. With the three switches on, each run sends due notifications, clears rate windows and purges orphaned uploads and expired upload sessions. Confirm one run in logs.
 6. Resend: sending domain verified; send one test message to the owner before enabling `NOTIFICATIONS_ENABLED`.
 7. Spending: confirm plan limits and that no billing is attached (AGENTS.md: no purchases without authority).
+8. Transport security: the site's own headers (`_headers`) set nosniff, referrer policy, permissions policy and frame blocking, and the page CSP is a hash-based meta tag. Checked in a production build in Edge: 0 CSP violations on 11 pages. There is **no** `Strict-Transport-Security` header in the repository; confirm HTTPS-only and HSTS in the Cloudflare zone settings for cakeopedia.com (UNVERIFIED, a zone setting, not code).
 
 ## 4. Release
 
