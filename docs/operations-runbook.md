@@ -15,7 +15,7 @@ Status: written from the code, not from a live system. No provider account was i
 |---|---|---|
 | Static site | Astro build, served by Workers Static Assets (docs/service-register.md; hosting setup itself not verified) | astro.config.mjs, `npm run build` |
 | Worker | enquiry intake, uploads, owner API, scheduled jobs | worker/index.ts, worker/live.ts |
-| D1 | enquiries, quotes, payments, uploads, catalogue | migrations/0001 to 0017 |
+| D1 | enquiries, quotes, payments, uploads, catalogue | migrations/0001 to 0018 |
 | R2 | private pictures, never public | binding `UPLOADS` |
 | Cloudflare Access | owner login (JWT checked in the Worker, issuer pinned) | worker/auth.ts |
 | Turnstile | bot check on submit and on the first upload | worker/turnstile.ts |
@@ -28,7 +28,7 @@ A production Wrangler config does not exist yet; only `wrangler.local.jsonc` (lo
 1. Cloudflare Access application covers `/admin/*` and `/admin/api/*`; the policy lists only the owner; `ACCESS_AUD` and `ACCESS_ISSUER` match it. Check: an unauthenticated request to `/admin/api/enquiries` is refused, a wrong-audience token is refused.
 2. Turnstile widget hostnames list the production domain only; `TURNSTILE_SECRET` is the rotated secret.
 3. R2 bucket has no public access and no custom domain. Check: an object URL returns 403/404 without Worker mediation.
-4. D1: apply migrations in order (`wrangler d1 migrations apply`), then confirm `ready_at` (0015), catalogue tables (0016) and `upload_sessions` (0017) exist.
+4. D1: apply migrations in order (`wrangler d1 migrations apply`), then confirm `ready_at` (0015), catalogue tables (0016) `upload_sessions` (0017) and its `client` column (0018) exist.
 5. Schedule: one cron trigger on the Worker. With the three switches on, each run sends due notifications, clears rate windows and purges orphaned uploads and expired upload sessions. Confirm one run in logs.
 6. Resend: sending domain verified; send one test message to the owner before enabling `NOTIFICATIONS_ENABLED`.
 7. Spending: confirm plan limits and that no billing is attached (AGENTS.md: no purchases without authority).

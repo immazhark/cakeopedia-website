@@ -47,7 +47,14 @@ function build(env: Env, transport: typeof fetch): Live | null {
     return who !== null && limit(scope, who, POLICY[scope]);
   };
   const verifyBot = createTurnstileVerifier({ secret: turnstile, hostname: site.hostname, action: 'enquiry' }, transport);
-  const uploads = { db, bucket, origin, allowRequest: guard('upload'), verifyBot };
+  const hmacKey = crypto.subtle.importKey('raw', new TextEncoder().encode(rateSecret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const clientKey = async (request: Request) => { // pseudonym for the per-client daily upload-session cap; never the raw address
+    const who = canonicalClientNetwork(request.headers.get('CF-Connecting-IP'));
+    if (who === null) return null;
+    const sig = await crypto.subtle.sign('HMAC', await hmacKey, new TextEncoder().encode(JSON.stringify(['upload-day', who])));
+    return Array.from(new Uint8Array(sig), (b) => b.toString(16).padStart(2, '0')).join('');
+  };
+  const uploads = { db, bucket, origin, allowRequest: guard('upload'), verifyBot, clientKey };
   // Optional deploy hook (a secret URL) that rebuilds the static site after the owner publishes. Absent: publishing still works and says so.
   const hook = env.CATALOGUE_REBUILD_HOOK;
   const rebuild = hook?.startsWith('https://') ? async () => (await fetch(hook, { method: 'POST' })).ok : undefined;

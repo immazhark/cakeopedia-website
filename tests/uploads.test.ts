@@ -15,7 +15,7 @@ let db: Awaited<ReturnType<Miniflare['getD1Database']>>;
 before(async () => {
   mf = new Miniflare({ modules: true, script: 'export default { fetch() { return new Response("t"); } }', compatibilityDate: '2026-07-30', d1Databases: ['DB'] });
   db = await mf.getD1Database('DB');
-  for (const file of ['0001_enquiries.sql', '0002_outbox_leases.sql', '0003_uploads.sql', '0004_enquiry_events.sql', '0005_orders.sql', '0012_upload_tombstones.sql', '0015_upload_ready.sql', '0017_upload_sessions.sql']) {
+  for (const file of ['0001_enquiries.sql', '0002_outbox_leases.sql', '0003_uploads.sql', '0004_enquiry_events.sql', '0005_orders.sql', '0012_upload_tombstones.sql', '0015_upload_ready.sql', '0017_upload_sessions.sql', '0018_upload_session_client.sql']) {
     const sql = (await readFile(new URL(`../migrations/${file}`, import.meta.url), 'utf8')).replace(/^--.*$/gm, '');
     await db.batch(sql.split(';').map((s) => s.trim()).filter(Boolean).map((s) => db.prepare(s)));
   }
@@ -258,4 +258,16 @@ test('cleanup removes expired upload sessions', async () => {
   await handleUpload(up(await png(), sid), deps(bucket, { now: () => t0 }));
   await purgeOrphans(deps(bucket).db, bucket, t0 + 25 * 3600_000);
   assert.equal((await db.prepare('SELECT count(*) AS n FROM upload_sessions WHERE submission_id = ?').bind(sid).first<{ n: number }>())!.n, 0);
+});
+
+test('daily cap: one client can open only so many verified upload sessions; others, and a day later, are unaffected', async () => {
+  const bucket = new MemoryBucket(), day = 24 * 3600_000, t0 = 5_000_000_000_000;
+  const d = (now: number) => deps(bucket, { now: () => now, clientKey: async (r) => r.headers.get('X-Test-Client') });
+  const bytes = await png();
+  for (let i = 0; i < POLICY.sessionsPerClientPerDay; i++) assert.equal((await handleUpload(up(bytes, crypto.randomUUID(), { 'X-Test-Client': 'client-a' }), d(t0 + i))).status, 201);
+  const blocked = await handleUpload(up(bytes, crypto.randomUUID(), { 'X-Test-Client': 'client-a' }), d(t0 + 100));
+  assert.deepEqual([blocked.status, (await blocked.json() as { error: string }).error], [429, 'try_later']);
+  assert.equal((await handleUpload(up(bytes, crypto.randomUUID(), { 'X-Test-Client': 'client-b' }), d(t0 + 101))).status, 201); // a different client
+  assert.equal((await handleUpload(up(bytes, crypto.randomUUID()), d(t0 + 102))).status, 201); // no client key: that cap is skipped
+  assert.equal((await handleUpload(up(bytes, crypto.randomUUID(), { 'X-Test-Client': 'client-a' }), d(t0 + day + 1000))).status, 201); // a day later
 });

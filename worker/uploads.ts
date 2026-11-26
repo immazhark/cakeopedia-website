@@ -18,9 +18,11 @@ export interface UploadDeps {
   allowRequest: (request: Request) => Promise<boolean>;
   /** Verifies one Turnstile token; a verified token opens an upload session for the submission. */
   verifyBot: (token: string) => Promise<boolean>;
+  /** Stable pseudonym of the requesting client (never a raw address), used for the daily session cap; null or absent skips that cap. */
+  clientKey?: (request: Request) => Promise<string | null>;
   now?: () => number;
 }
-export const POLICY = { perSubmission: 3, perDay: 200, orphanMs: 24 * 3600_000, leaseMs: 5 * 60_000, sessionMs: 3600_000, sessionKeepMs: 24 * 3600_000 } as const; // leaseMs: how long a cleaner owns a tombstone before another may retry it
+export const POLICY = { perSubmission: 3, perDay: 200, orphanMs: 24 * 3600_000, leaseMs: 5 * 60_000, sessionMs: 3600_000, sessionKeepMs: 24 * 3600_000, sessionsPerClientPerDay: 20 } as const; // leaseMs: how long a cleaner owns a tombstone before another may retry it
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const accepted = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
@@ -77,7 +79,13 @@ export async function handleUpload(request: Request, deps: UploadDeps): Promise<
     if (!open) {
       const token = request.headers.get('X-Bot-Token') ?? '';
       if (!token || token.length > 2048 || !await deps.verifyBot(token)) return reply(403, { error: 'verification_failed' });
-      await deps.db.prepare('INSERT INTO upload_sessions (submission_id, verified_at) VALUES (?, ?) ON CONFLICT(submission_id) DO UPDATE SET verified_at = excluded.verified_at').bind(submission, now).run();
+      // A client may open only so many verified sessions per day, so one source cannot fill the site-wide upload cap by itself.
+      // The cap is inside the INSERT, so concurrent first uploads cannot overshoot it.
+      const client = deps.clientKey ? await deps.clientKey(request) : null;
+      await deps.db.prepare(`INSERT INTO upload_sessions (submission_id, verified_at, client) SELECT ?1, ?2, ?3
+        WHERE ?3 IS NULL OR (SELECT count(*) FROM upload_sessions WHERE client = ?3 AND verified_at > ?4) < ?5
+        ON CONFLICT(submission_id) DO UPDATE SET verified_at = excluded.verified_at`).bind(submission, now, client, now - 24 * 3600_000, POLICY.sessionsPerClientPerDay).run();
+      if (!await deps.db.prepare('SELECT 1 AS x FROM upload_sessions WHERE submission_id = ? AND verified_at > ?').bind(submission, now - POLICY.sessionMs).first()) return reply(429, { error: 'try_later' });
     }
     const raw = await readBytes(request);
     if (!raw) return reply(413, { error: 'image_too_large' });
