@@ -2,7 +2,9 @@
 // Needs the local stack running first: `npm run dev:api` and `npm run dev` (uses local D1 with test data only).
 // Usage: node scripts/browser-check.mjs [outDir]   -> exits non-zero on any failed check.
 import { mkdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { chromium, devices } from 'playwright-core';
+const axePath = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
 
 const BASE = process.env.BASE ?? 'http://127.0.0.1:4321', out = process.argv[2] ?? 'browser-check-out';
 mkdirSync(out, { recursive: true });
@@ -22,6 +24,11 @@ try {
       const m = await page.evaluate(() => ({ over: document.documentElement.scrollWidth - innerWidth, vw: innerWidth, broken: [...document.images].filter((i) => i.complete && i.naturalWidth === 0).length }));
       check(m.vw === width && m.over <= 0 && m.broken === 0, `${path} @${width}: viewport ${m.vw}, overflow ${m.over}px, broken images ${m.broken}`);
       if (width === 390 && path === '/') await page.screenshot({ path: `${out}/home-390.png` });
+      if (width === 390) { // automated accessibility rules (axe-core, WCAG 2.2 A/AA tags); every violation fails the check
+        await page.addScriptTag({ path: axePath });
+        const v = await page.evaluate(async () => (await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] } })).violations.map((x) => `${x.id} (${x.impact}) x${x.nodes.length}: ${x.nodes[0].target.join(' ')}`));
+        check(v.length === 0, `${path} axe: ${v.length ? v.join(' | ') : 'no WCAG A/AA violations'}`);
+      }
     }
     await ctx.close();
   }

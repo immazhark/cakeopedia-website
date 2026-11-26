@@ -56,7 +56,7 @@ const occasions = ['Birthday', 'Anniversary', 'Wedding or engagement', 'Baby or 
     <div class="field field--check"><input id="privacy" name="privacy" type="checkbox" required aria-describedby="privacy-err" /><label for="privacy">I agree that Cakeopedia may use these details to reply to my enquiry. <a href="/privacy/">Privacy</a> *</label></div>
     <p class="err" id="privacy-err" hidden></p>
     <div class="field" id="bot-field">
-      <div id="bot" data-sitekey={siteKey} aria-label="Security check"></div>
+      <div id="bot" role="group" data-sitekey={siteKey} aria-label="Security check"></div>
       <p class="err" id="bot-err" role="alert" hidden></p>
       <button class="chip" id="bot-retry" type="button" hidden>Try the security check again</button>
     </div>
