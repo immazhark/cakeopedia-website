@@ -141,3 +141,15 @@ Next: admin catalogue editor screen, wire/retire old menu editor, enquiry retent
 - Tests (tests/orders.test.ts): setting parser; old closed erased, recent closed/confirmed/open untouched, storage failure retried, financial rows kept, repeat is a no-op.
 - Owner decision still needed: the period, and whether never-closed old enquiries should be handled (currently never auto-deleted). Restore drill should come before enabling.
 
+## 2026-11-26 — Independent security review (two read-only reviewers, findings verified against the code before acting)
+Fixed (each new test fails on the old code, passes now):
+- Rate limiter: one client could lock everyone out (global budget was spent by rejected attempts). Now three gates: attempts cap (min(5 x global, 10000), stored under a hex subject no client identity can produce, so the table check and migration 0011 are unchanged), per-client quota, then the global budget of admitted requests only. Trade-off: row creation by rotating identities is bounded by 5 x the global limit per minute instead of 1 x; volumetric floods need a Cloudflare edge rule (runbook).
+- Erase vs confirm race: a guard statement aborts the whole erase batch if the order became confirmed after the status check (confirmed orders keep their contact details). Pictures are tombstoned and deleted before the batch, so a confirmed order that loses this race can still lose its inspiration pictures; acceptable (needs two owner actions within milliseconds).
+- Owner picture route no longer serves a tombstoned picture.
+- JPEG cleaner: an appended second image (own EXIF) is rejected; the first FF D9 after the scan must be the end of the file. Progressive JPEGs still pass.
+Recorded, not changed:
+- Two owner routes (status POST, menu PUT) call `request.json()` without a size cap; Access-authenticated operators only. Low.
+- Daily site-wide upload cap (200) could be filled with purchased Turnstile solves; a per-client daily cap would help. Low-medium, open.
+- Customer confirmation email goes to an unverified address (could be used to mail a third party; fixed text, 3 per minute per client, Turnstile). Policy decision for the owner (send only after a reply?). Notifications are off.
+- Cleanup switches were optional; now mandatory at launch (runbook). Not reviewed: owner picture viewer client code, live Access policy.
+

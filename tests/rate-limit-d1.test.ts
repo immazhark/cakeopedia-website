@@ -21,12 +21,12 @@ test('D1 emulator shares atomic budget across limiter instances and expires old 
   const decisions=await Promise.all(Array.from({length:8},(_,i)=>(i%2?a:b)('upload','synthetic-client',policy)));
   assert.equal(decisions.filter(Boolean).length,2);
   const count=await db.prepare('SELECT count(*) AS n FROM request_rate_windows').first<{n:number}>();
-  assert.equal(count?.n,2);
+  assert.equal(count?.n,3); // attempts counter, client quota, admitted (global) budget
   const next=createRateLimiter(db,secret,()=>120_000);
   assert.equal(await next('upload','synthetic-client',policy),true);
   await purgeRateWindows(db,120_000,1);
   const old=await db.prepare('SELECT count(*) AS n FROM request_rate_windows WHERE window_start=0').first<{n:number}>();
-  assert.equal(old?.n,1);
+  assert.equal(old?.n,2); // one of the three old rows purged
   await purgeRateWindows(db,120_000,2);
-  assert.equal((await db.prepare('SELECT count(*) AS n FROM request_rate_windows').first<{n:number}>())?.n,2);
+  assert.equal((await db.prepare('SELECT count(*) AS n FROM request_rate_windows').first<{n:number}>())?.n,3); // only the current window's three rows remain
 });

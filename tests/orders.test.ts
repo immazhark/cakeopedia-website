@@ -367,3 +367,22 @@ test('retention erases old closed enquiries only; open, confirmed and recent one
   assert.equal((await db.prepare('SELECT count(*) AS n FROM quotes WHERE enquiry_id = ?').bind(oldClosed.id).first<{ n: number }>())!.n, 1); // money records stay
   assert.deepEqual(await purgeExpiredEnquiries(spy as never, bucket, now, 90), { erased: 0, failed: 0 });
 });
+
+test('erase: an order confirmed after the status check is not erased (the whole batch aborts)', async () => {
+  const { id, ref } = await seedPersonal(); const deleted: string[] = [];
+  inboxBucket = { get: async () => null, delete: async (k) => { deleted.push(k); } };
+  race = { match: /DELETE FROM uploads WHERE enquiry_id/, run: () => call(url(id, 'status'), 'POST', { status: 'confirmed', expected: 'new' }) };
+  assert.deepEqual(await json(await call(url(id, 'erase'), 'POST', { confirmReference: ref })), { error: 'order_active' });
+  assert.equal(JSON.parse((await db.prepare('SELECT payload_json AS p FROM enquiries WHERE id = ?').bind(id).first<{ p: string }>())!.p).name, 'Real Person'); // contact details intact
+  assert.equal((await db.prepare('SELECT count(*) AS n FROM uploads WHERE enquiry_id = ?').bind(id).first<{ n: number }>())!.n, 1); // batch rolled back
+  inboxBucket = undefined;
+});
+test('owner picture route does not serve a picture whose erasure has started', async () => {
+  const { id, key } = await seedPersonal();
+  const up = (await db.prepare('SELECT id FROM uploads WHERE enquiry_id = ?').bind(id).first<{ id: string }>())!.id;
+  inboxBucket = { get: async () => ({ body: new Uint8Array([1]) } as never), delete: async () => undefined } as never;
+  assert.equal((await call(`/admin/api/uploads/${up}`)).status, 200);
+  await db.prepare('UPDATE uploads SET deleted_at = 1 WHERE id = ?').bind(up).run();
+  assert.equal((await call(`/admin/api/uploads/${up}`)).status, 404);
+  inboxBucket = undefined; void key;
+});

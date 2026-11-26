@@ -21,7 +21,9 @@ export async function eraseEnquiry(db: AdminDb, id: string, actor: string, t: nu
     for (const p of pics) { try { await bucket.delete(p.key); } catch { return { ok: false, error: 'erase_incomplete' }; } }
   }
   const eid = crypto.randomUUID();
-  await db.batch([
+  try { await db.batch([
+    // Guard: if the order became confirmed after the status check above, this violates NOT NULL and aborts the whole batch, so a confirmed order's contact details are never wiped.
+    db.prepare("UPDATE enquiries AS e SET payload_hash = NULL WHERE e.id = ? AND " + CURRENT + " = 'confirmed'").bind(id),
     db.prepare('DELETE FROM uploads WHERE enquiry_id = ?').bind(id),
     db.prepare("UPDATE notification_snapshots SET kind = 'skip', payload = NULL WHERE event_id IN (SELECT id FROM notification_outbox WHERE enquiry_id = ?)").bind(id),
     db.prepare("UPDATE notification_outbox SET state = 'failed' WHERE enquiry_id = ? AND state <> 'sent'").bind(id),
@@ -30,7 +32,11 @@ export async function eraseEnquiry(db: AdminDb, id: string, actor: string, t: nu
     db.prepare('UPDATE payments SET note = NULL WHERE enquiry_id = ?').bind(id),
     db.prepare("INSERT INTO enquiry_events (id, enquiry_id, status, created_at, actor, note) SELECT ?, e.id, 'closed', ?, ?, NULL FROM enquiries e WHERE e.id = ? AND json_extract(e.payload_json, '$.erased') IS NULL AND " + CURRENT + " <> 'closed'").bind(eid, t, actor, id),
     db.prepare('UPDATE enquiries SET payload_json = ? WHERE id = ?').bind(ERASED_PAYLOAD, id),
-  ]);
+  ]); } catch (err) {
+    const now = await db.prepare(`SELECT ${CURRENT} AS status FROM enquiries e WHERE e.id = ?`).bind(id).first<{ status: string }>();
+    if (now?.status === 'confirmed') return { ok: false, error: 'order_active' };
+    throw err;
+  }
   return { ok: true, alreadyErased: row.erased === 1 };
 }
 

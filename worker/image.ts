@@ -36,7 +36,11 @@ function cleanJpeg(b: Uint8Array): CleanImage {
     let m = b[i + 1]!; // tolerate fill bytes
     while (m === 0xff && i + 2 < b.length) { i++; m = b[i + 1]!; }
     if (m === 0xd9) break;
-    if (m === 0xda) { kept.push(b.subarray(i)); i = b.length; break; } // scan data copied verbatim through EOI
+    if (m === 0xda) { // scan data is copied verbatim through EOI; entropy data never contains FF D9, so the first FF D9 must be the very end (no appended second image)
+      let j = i + 2; while (j + 1 < b.length && !(b[j] === 0xff && b[j + 1] === 0xd9)) j++;
+      if (j !== b.length - 2) bad();
+      kept.push(b.subarray(i)); i = b.length; break;
+    }
     const len = u16(b, i + 2);
     if (len < 2 || i + 2 + len > b.length) bad();
     const sof = m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc;

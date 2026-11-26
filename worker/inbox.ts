@@ -28,7 +28,7 @@ export async function handleInbox(request: Request, db: AdminDb, cfg: AccessConf
     if (pic) { // authorised read of a customer's private inspiration picture (attached ones only)
       if (request.method !== 'GET') return new Response(null, { status: 405 });
       if (!bucket || !uuid.test(pic[1]!)) return out(404, { error: 'not_found' });
-      const meta = await db.prepare('SELECT object_key AS key, content_type AS type FROM uploads WHERE id = ? AND enquiry_id IS NOT NULL').bind(pic[1]!.toLowerCase()).first<{ key: string; type: string }>();
+      const meta = await db.prepare('SELECT object_key AS key, content_type AS type FROM uploads WHERE id = ? AND enquiry_id IS NOT NULL AND deleted_at IS NULL').bind(pic[1]!.toLowerCase()).first<{ key: string; type: string }>();
       const object = meta && await bucket.get(meta.key);
       if (!meta || !object) return out(404, { error: 'not_found' });
       return new Response(object.body, { headers: { 'Content-Type': meta.type, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox", 'Content-Disposition': 'inline; filename="inspiration"' } });

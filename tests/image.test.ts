@@ -58,3 +58,11 @@ test('size, dimension and pixel-count bombs are rejected before any decoding', a
   const jf = jpg.slice(); jf[sof + 5] = 0xff; jf[sof + 6] = 0xff; jf[sof + 7] = 0xff; jf[sof + 8] = 0xff;
   rejects(jf, 'dimensions');
 });
+
+test('jpeg: an appended second image (with its own metadata) is rejected, progressive files still pass', async () => {
+  const clean = await make('jpeg', false), withMeta = await make('jpeg', true);
+  const joined = new Uint8Array(clean.length + withMeta.length); joined.set(clean, 0); joined.set(withMeta, clean.length); // ends in FF D9 like a valid file
+  assert.throws(() => inspectImage(joined), (e) => e instanceof RejectedImage);
+  const progressive = new Uint8Array(await sharp({ create: { width: 64, height: 48, channels: 3, background: '#cc8899' } }).jpeg({ progressive: true }).toBuffer());
+  assert.equal(inspectImage(progressive).type, 'image/jpeg');
+});
