@@ -94,6 +94,34 @@ try {
     await kctx.close();
   }
 
+  // 1c. Enquiry with two pictures at 390px: the first upload carries the security token, the second rides the upload session,
+  // and the final submit (after the widget resets) succeeds. Needs Cloudflare's test widget from the internet: skipped with a note if it never yields a token.
+  {
+    const sharp = (await import('sharp')).default;
+    const pic = (c) => sharp({ create: { width: 600, height: 800, channels: 3, background: c } }).png().toBuffer();
+    const fctx = await browser.newContext({ ...devices['Pixel 7'], viewport: { width: 390, height: 844 } });
+    const fp = await fctx.newPage();
+    const uploads = []; fp.on('request', (r) => { if (r.method() === 'POST' && new URL(r.url()).pathname === '/api/uploads') uploads.push(!!r.headers()['x-bot-token']); });
+    await fp.goto(BASE + '/enquiry/', { waitUntil: 'load' });
+    await fp.fill('#name', 'Browser Form'); await fp.fill('#contact', 'browser.form@example.com'); await fp.check('#undecided'); await fp.check('#privacy');
+    await fp.waitForTimeout(5000); // let the widget finish its challenge
+    const first = fp.waitForResponse((r) => new URL(r.url()).pathname === '/api/uploads', { timeout: 15000 });
+    await fp.setInputFiles('#pic-input', { name: 'one.png', mimeType: 'image/png', buffer: await pic('#e8a0b4') });
+    const r1 = await first.catch(() => null);
+    if (!r1 || r1.status() === 403) console.log('SKIP enquiry with pictures: the test widget did not produce a token');
+    else {
+      check(r1.status() === 201 && uploads[0] === true, `first picture accepted (${r1.status()}) with the security token`);
+      const second = fp.waitForResponse((r) => new URL(r.url()).pathname === '/api/uploads', { timeout: 15000 });
+      await fp.setInputFiles('#pic-input', { name: 'two.png', mimeType: 'image/png', buffer: await pic('#91ae8f') });
+      const r2 = await second.catch(() => null);
+      check(r2?.status() === 201 && uploads[1] === false, `second picture accepted (${r2?.status()}) without a new token`);
+      await fp.waitForTimeout(5000); // fresh token after the widget reset
+      await fp.click('#submit');
+      await fp.waitForURL('**/enquiry-received/**', { timeout: 20000 }).then(() => check(true, 'enquiry with two pictures submits and reaches the thank-you page'), () => check(false, 'enquiry with two pictures submits: still on ' + fp.url()));
+    }
+    await fctx.close();
+  }
+
   // 2. Owner journey at 390px: prices, enquiries and calendar.
   const ctx = await browser.newContext({ ...devices['Pixel 7'], viewport: { width: 390, height: 844 } });
   const page = await ctx.newPage();
