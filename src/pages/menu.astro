@@ -11,7 +11,7 @@ const count = (n: number) => numberWords[n] ?? String(n);
 import { formatMenuPrice } from '../data/menu-presentation';
 const money = (c: number, k: 'fixed' | 'starting') => formatMenuPrice(c, k);
 ---
-<Base title="Menu · Cakeopedia Austin" description={`Custom cakes from ${formatMenuPrice(fromCents, 'fixed')}, Celebration Cakes at ${formatMenuPrice(cat.celebrationCents, 'fixed')}, ${count(cat.flavours.length)} flavours, cupcakes and brownies from Cakeopedia Austin.`} current="/menu/">
+<Base title="Custom cake menu and prices · Cakeopedia Austin" description={`Custom cakes from ${formatMenuPrice(fromCents, 'fixed')}, Celebration Cakes at ${formatMenuPrice(cat.celebrationCents, 'fixed')}, ${count(cat.flavours.length)} flavours, cupcakes and brownies from Cakeopedia Austin.`} current="/menu/">
   <div class="wrap page-head prose">
     <p class="eyebrow">The menu</p>
     <h1>Baked from scratch, made to your occasion</h1>

@@ -4,7 +4,7 @@ import EnquiryForm from '../components/EnquiryForm.astro';
 // Open in local dev, or in a build only when PUBLIC_ENQUIRY_FORM=on. Production stays closed until release gates pass.
 const open = import.meta.env.DEV || import.meta.env.PUBLIC_ENQUIRY_FORM === 'on';
 ---
-<Base title="Enquire · Cakeopedia Austin" description="Send an enquiry to Cakeopedia Austin about a celebration cake." current="/enquiry/">
+<Base title="Enquire · Cakeopedia Austin" description="Send an enquiry to Cakeopedia Austin about a custom celebration cake: your date, size, flavour and ideas. We reply with a personal quotation." current="/enquiry/">
   {!open ? (
     <div class="wrap page-head prose">
       <p class="eyebrow">Enquire</p>

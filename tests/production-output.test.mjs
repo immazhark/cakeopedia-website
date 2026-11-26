@@ -38,3 +38,20 @@ test('FAQ page is indexable with FAQPage and breadcrumb data that match its visi
   assert.match(read('robots.txt'), /User-agent: GPTBot\nDisallow: \//);
   assert.doesNotMatch(read('robots.txt'), /User-agent: (OAI-SearchBot|PerplexityBot|Googlebot)/);
 });
+
+test('every indexable page has a unique title and a useful description; the thank-you page stays out of search', async () => {
+  const { readdirSync, statSync } = await import('node:fs');
+  const walk = (d) => readdirSync(d).flatMap((f) => { const p = join(d, f); return statSync(p).isDirectory() ? walk(p) : p.endsWith('.html') ? [p] : []; });
+  assert.match(read('enquiry-received/index.html'), /noindex/);
+  const seen = new Map();
+  for (const f of walk(out)) {
+    const h = readFileSync(f, 'utf8');
+    if (/name="robots" content="[^"]*noindex/.test(h)) continue;
+    const title = h.match(/<title>([^<]*)/)?.[1] ?? '', desc = h.match(/<meta name="description" content="([^"]*)"/)?.[1] ?? '';
+    assert.ok(title.length >= 20 && title.length <= 70, `${f}: title length ${title.length}`);
+    assert.ok(desc.length >= 70 && desc.length <= 175, `${f}: description length ${desc.length}`);
+    assert.ok(!seen.has(title), `${f}: duplicate title with ${seen.get(title)}`);
+    seen.set(title, f);
+  }
+  assert.ok(seen.size >= 30);
+});

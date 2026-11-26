@@ -3,9 +3,9 @@ import '@fontsource-variable/fraunces';
 import '@fontsource-variable/figtree';
 import '../styles/global.css';
 import { SITE, INSTAGRAM } from '../site';
-interface Props { title: string; description: string; current?: string; image?: string; private?: boolean; bakery?: boolean; ld?: object[] }
-const { title, description, current, image, private: isPrivate = false, bakery = false, ld = [] } = Astro.props;
-const indexable = import.meta.env.PUBLIC_SITE_ENV === 'production' && !isPrivate;
+interface Props { title: string; description: string; current?: string; image?: string; private?: boolean; noindex?: boolean; bakery?: boolean; ld?: object[] }
+const { title, description, current, image, private: isPrivate = false, noindex = false, bakery = false, ld = [] } = Astro.props;
+const indexable = import.meta.env.PUBLIC_SITE_ENV === 'production' && !isPrivate && !noindex;
 const canonical = new URL(Astro.url.pathname, SITE).href;
 const abs = image ? new URL(image, SITE).href : undefined;
 // Only facts the owner approved: no address, hours, prices, ratings or service area.
