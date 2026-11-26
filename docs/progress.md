@@ -33,3 +33,18 @@ Shared context is consolidated in [shared decisions](shared-context-and-decision
 
 | Public site slice | Local candidate | Home, gallery, 19 creation pages, story, closed enquiry; verify passes; not visually signed off. |
 
+## State at 26 November 2026 (local and CI only; nothing staging or production verified)
+
+| Area | State | Evidence / limitation |
+|---|---|---|
+| Financial integrity | Implemented locally | Each quote, payment, void and confirmation is one conditional SQL statement with optimistic versions, full-payload idempotent replay and bounded bodies. Fault-injection race tests fail on the old code and pass now. D1 emulator only; real D1 behaviour unverified. |
+| Private pictures | Implemented locally | Upload sessions (Turnstile token on first upload), ready-state, tombstone and lease cleanup, atomic attach guard, owner erasure. Real Turnstile secret and R2 unverified. |
+| Catalogue and CMS | Implemented locally | Owner Prices tab to public menu and FAQ through an approved snapshot; versions and restore. Per-item availability and cupcakes not built. |
+| Public design | Local candidate | Squared hero frame, banded two-column menu, FAQ, care; reviewed in Edge at desktop and 390px by the developer. Owner has not reviewed. |
+| Accessibility, performance, SEO | Lab checks in CI | See feature map. No field data, no screen-reader pass. |
+| CI | Two jobs green | `verify` (type check, 193 tests, build, 10 built-output tests) and `browser` (100 real-browser checks in Chrome). |
+| Operations | Runbook drafted | [Operations runbook](operations-runbook.md). Provider verification blocked: Wrangler is not logged in, so Access, Turnstile, D1, R2 and Resend are unverified. No production Wrangler config, external backup, monitoring or retention job yet. |
+| Launch gate | Closed | Worker closed unless every live setting is present; form closed in production builds. No live intake, payments or customer communication. |
+
+Owner decisions still needed: retention period, AI-crawler policy default, cupcake price and minimum, delivery area and fees, allergen and storage matrix, final policy wording and legal review, logo, media permissions, business email provisioning, review of the new hero.
+
