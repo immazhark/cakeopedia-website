@@ -75,6 +75,7 @@ a:hover { color: var(--cta-hover); text-decoration-thickness: 2px; }
 /* two-up and steps */
 .split { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: center; }
 @media (min-width: 56rem) { .split { grid-template-columns: 1fr 1fr; gap: var(--space-5); } }
+.split h2 + p { margin-top: var(--space-2); }
 .film { position: relative; width: min(100%, 21rem); justify-self: center; border-radius: var(--radius-m); overflow: hidden; box-shadow: var(--shadow-soft); background: var(--brand-sage); }
 .film video { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; }
 .steps { counter-reset: step; list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-3); }
