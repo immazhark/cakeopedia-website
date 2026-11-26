@@ -16,7 +16,8 @@ try {
     const ctx = await browser.newContext({ ...devices['Pixel 7'], viewport: { width, height: 844 } });
     const page = await ctx.newPage();
     for (const path of ['/', '/creations/', '/story/', '/enquiry/', '/collections/floral/', '/menu/', '/faq/', '/size-guide/', '/cake-care/']) {
-      await page.goto(BASE + path, { waitUntil: 'networkidle' });
+      // 'load', not 'networkidle': the dev build mounts the real Turnstile widget, which keeps a connection open
+      await page.goto(BASE + path, { waitUntil: 'load' });
       await page.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 600) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 40)); } });
       const m = await page.evaluate(() => ({ over: document.documentElement.scrollWidth - innerWidth, vw: innerWidth, broken: [...document.images].filter((i) => i.complete && i.naturalWidth === 0).length }));
       check(m.vw === width && m.over <= 0 && m.broken === 0, `${path} @${width}: viewport ${m.vw}, overflow ${m.over}px, broken images ${m.broken}`);
@@ -35,17 +36,17 @@ try {
       const e = document.activeElement; if (!e || e === document.body) return null;
       const again = window.__last === e; window.__last = e; // native video/date controls take several Tab stops inside one element
       const s = getComputedStyle(e), r = e.getBoundingClientRect();
-      return { again, tag: e.tagName, id: e.id, cls: e.className, text: (e.textContent || '').trim().slice(0, 30), ring: s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0, onscreen: r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth && r.width > 0 };
+      return { again, tag: e.tagName, id: e.id, cls: e.className, text: (e.textContent || '').trim().slice(0, 30), ring: !!e.closest('#bot') /* third-party Turnstile draws its own focus UI */ || (s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0), onscreen: r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth && r.width > 0 };
     });
     for (const path of ['/', '/creations/', '/story/', '/enquiry/', '/collections/floral/', '/menu/', '/faq/', '/size-guide/', '/cake-care/']) {
-      await kp.goto(BASE + path, { waitUntil: 'networkidle' });
+      await kp.goto(BASE + path, { waitUntil: 'load' });
       await kp.keyboard.press('Tab');
       const first = await focusInfo();
       check(!!first && /skip/.test(String(first.cls)) && first.onscreen && first.ring, `${path} first Tab lands on a visible skip link ${JSON.stringify(first)}`);
       await kp.keyboard.press('Enter');
       check(await kp.evaluate(() => location.hash === '#main'), `${path} skip link jumps to #main`);
       // Walk the whole tab order: every stop shows a focus ring and is on screen; focus must leave the page (no trap).
-      await kp.goto(BASE + path, { waitUntil: 'networkidle' });
+      await kp.goto(BASE + path, { waitUntil: 'load' });
       const bad = []; let stops = 0, left = false;
       for (let i = 0; i < 120; i++) {
         await kp.keyboard.press('Tab'); const f = await focusInfo();
@@ -64,7 +65,7 @@ try {
       check(rm.hidden === 0 && rm.running === 0 && rm.autoplay === 0 && !rm.smooth, `${path} reduced motion: hidden ${rm.hidden}, running animations ${rm.running}, playing videos ${rm.autoplay}, smooth scroll ${rm.smooth}`);
     }
     // Enquiry form by keyboard: Enter on the submit button with a blank form shows errors and moves focus to them.
-    await kp.goto(BASE + '/enquiry/', { waitUntil: 'networkidle' });
+    await kp.goto(BASE + '/enquiry/', { waitUntil: 'load' });
     const submit = kp.getByRole('button', { name: /send|submit/i }).last();
     await submit.focus(); await kp.keyboard.press('Enter');
     await kp.waitForTimeout(400);
@@ -74,45 +75,22 @@ try {
     await kctx.close();
   }
 
-  // 2. Owner menu journey at 390px: add a draft, publish it with a size, edit, and see a stale-edit conflict.
+  // 2. Owner journey at 390px: prices, enquiries and calendar.
   const ctx = await browser.newContext({ ...devices['Pixel 7'], viewport: { width: 390, height: 844 } });
   const page = await ctx.newPage();
   const errors = []; page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto(BASE + '/admin/', { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: 'Menu', exact: true }).click();
-  await page.getByRole('button', { name: 'Add a menu item' }).click();
-  const name = 'Browser check cake ' + Date.now();
-  await page.getByLabel('Name', { exact: true }).fill(name);
-  await page.getByLabel(/^Group/).fill('Test');
-  await page.getByRole('button', { name: 'Add a size' }).click();
-  await page.getByLabel(/^Size name/).fill('6 inch');
-  await page.getByLabel('Serves from').fill('6');
-  await page.getByLabel('Serves up to').fill('8');
-  await page.getByLabel('Price ($)').first().fill('55.00');
-  await page.getByLabel('Status', { exact: true }).selectOption('published');
-  await page.screenshot({ path: `${out}/menu-form-390.png`, fullPage: true });
-  check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'menu form has no horizontal overflow at 390');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await page.getByRole('heading', { name: 'Menu', exact: true }).waitFor({ timeout: 5000 }).then(() => check(true, 'menu list has a Menu heading'), () => check(false, 'menu list has a Menu heading'));
-  check(await page.evaluate(() => document.getElementById('menu').contains(document.activeElement)), 'focus stays inside the Menu tab after Save (not dropped to the page top)');
-  await page.getByRole('button', { name: new RegExp(name + ' · published') }).waitFor({ timeout: 5000 }).then(() => check(true, 'published item listed after save'), () => check(false, 'published item listed after save'));
-  // Stale edit: change the same item behind the page's back, then try to save from the old copy.
-  await page.getByRole('button', { name: new RegExp(name) }).click();
-  const id = await page.evaluate(() => document.querySelector('#menu input')?.value);
-  const bump = await page.evaluate(async (nm) => {
-    const list = await (await fetch('/admin/api/menu', { headers: { 'X-Cakeopedia-Admin': '1' } })).json();
-    const it = list.items.find((i) => i.title === nm); const { revision, updatedAt, ...rest } = it;
-    const r = await fetch('/admin/api/menu/' + it.id, { method: 'PUT', headers: { 'X-Cakeopedia-Admin': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ expectedRevision: revision, item: { ...rest, title: nm + ' (phone 2)' } }) });
-    return r.status;
-  }, name);
-  check(bump === 200, 'second device edit succeeds');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await page.getByText('changed somewhere else').waitFor({ timeout: 5000 }).then(() => check(true, 'stale save shows the conflict message'), () => check(false, 'stale save shows the conflict message'));
-  // Edit history: the item now has two saved revisions, so the older one is offered in Earlier versions.
-  await page.getByRole('button', { name: new RegExp(name) }).click();
-  await page.getByText('Earlier versions').click();
-  await page.locator('#menu details ul button.row').first().waitFor({ timeout: 5000 }).then(() => check(true, 'Earlier versions lists the previous saved revision'), () => check(false, 'Earlier versions lists the previous saved revision'));
-  await page.getByRole('button', { name: 'Cancel' }).click();
+  // Prices journey: the draft is private, a bad price is refused, a saved draft can be published, and the page stays within the viewport.
+  await page.getByRole('button', { name: 'Prices', exact: true }).click();
+  await page.locator('#prices input').first().waitFor({ timeout: 8000 });
+  check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Prices tab has no horizontal overflow at 390');
+  const first = page.locator('#prices input').first();
+  await first.fill('abc'); await page.getByRole('button', { name: 'Save draft' }).click();
+  await page.getByText('dollars and cents').waitFor({ timeout: 5000 }).then(() => check(true, 'an invalid price is refused with a plain message'), () => check(false, 'an invalid price is refused with a plain message'));
+  await first.fill('136.00'); await page.getByRole('button', { name: 'Save draft' }).click();
+  await page.waitForFunction(() => [...document.querySelectorAll('#prices button')].find((b) => b.textContent.includes('Publish'))?.disabled === false, null, { timeout: 8000 }).then(() => check(true, 'a saved draft can be published'), () => check(false, 'a saved draft can be published'));
+  await page.getByRole('button', { name: 'Publish to the website' }).click();
+  await page.locator('#prices [role=status]').waitFor({ timeout: 8000 }).then(() => check(true, 'publishing confirms with a status message'), () => check(false, 'publishing confirms with a status message'));
   // Owner Enquiries and Calendar by keyboard: re-rendering must not drop focus to the top of the page.
   const kept = (id) => page.evaluate((i) => document.getElementById(i).contains(document.activeElement), id);
   await page.getByRole('button', { name: 'Enquiries', exact: true }).click();
@@ -132,7 +110,6 @@ try {
   check(await kept('calendar'), 'focus stays in Calendar after toggling a day by keyboard');
   await page.keyboard.press('Enter'); await page.waitForTimeout(600); // toggle it back so test data stays clean
   check(errors.length === 0, 'no uncaught page errors in owner journey ' + errors.join(' | '));
-  void id;
   await ctx.close();
 } finally { await browser.close(); }
 if (failures.length) { console.error(`\n${failures.length} check(s) failed`); process.exit(1); }
