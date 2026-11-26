@@ -34,6 +34,9 @@ a:hover { color: var(--cta-hover); text-decoration-thickness: 2px; }
 .nav { display: flex; gap: 0 var(--space-3); list-style: none; margin: 0; padding: 0; flex-wrap: wrap; }
 .nav a { color: var(--heading); text-decoration: none; font-weight: 500; padding-block: .6rem; display: inline-block; border-bottom: 2px solid transparent; }
 .nav a:hover, .nav a[aria-current='page'] { border-bottom-color: var(--brand-butter); }
+/* Phones: keep the six links on one row (about 350px at 390px wide) so the header does not push the page down. */
+@media (max-width: 30rem) { .nav { gap: 0 .7rem; flex-wrap: nowrap; } .nav a { font-size: .875rem; padding-block: .5rem; } .site-header .wrap { padding-block: var(--space-1); } }
+@media (max-width: 23rem) { .nav { flex-wrap: wrap; } }
 
 /* hero */
 .hero { padding-block: var(--space-5) var(--space-6); }

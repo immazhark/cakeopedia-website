@@ -15,7 +15,7 @@ try {
   for (const width of [320, 390, 430]) {
     const ctx = await browser.newContext({ ...devices['Pixel 7'], viewport: { width, height: 844 } });
     const page = await ctx.newPage();
-    for (const path of ['/', '/creations/', '/story/', '/enquiry/', '/collections/floral/']) {
+    for (const path of ['/', '/creations/', '/story/', '/enquiry/', '/collections/floral/', '/menu/', '/faq/', '/size-guide/', '/cake-care/']) {
       await page.goto(BASE + path, { waitUntil: 'networkidle' });
       await page.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 600) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 40)); } });
       const m = await page.evaluate(() => ({ over: document.documentElement.scrollWidth - innerWidth, vw: innerWidth, broken: [...document.images].filter((i) => i.complete && i.naturalWidth === 0).length }));
@@ -37,7 +37,7 @@ try {
       const s = getComputedStyle(e), r = e.getBoundingClientRect();
       return { again, tag: e.tagName, id: e.id, cls: e.className, text: (e.textContent || '').trim().slice(0, 30), ring: s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0, onscreen: r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth && r.width > 0 };
     });
-    for (const path of ['/', '/creations/', '/story/', '/enquiry/', '/collections/floral/']) {
+    for (const path of ['/', '/creations/', '/story/', '/enquiry/', '/collections/floral/', '/menu/', '/faq/', '/size-guide/', '/cake-care/']) {
       await kp.goto(BASE + path, { waitUntil: 'networkidle' });
       await kp.keyboard.press('Tab');
       const first = await focusInfo();
