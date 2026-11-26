@@ -10,13 +10,14 @@ export interface Catalogue {
   addons: { id: string; name: string; priceCents: number; note?: string }[];
   flavours: { id: string; name: string; description: string; available: boolean }[]; // available=false: paused for now, still listed
   celebrationFlavours: string[];
+  pausedCelebrationFlavours: string[]; // a subset of celebrationFlavours that is paused for now, still listed
 }
 export const defaultCatalogue: Catalogue = {
   baseCents: Object.fromEntries(SIZES.map((d) => [String(d), BASE_CENTS[d]])), rasmalaiCents: Object.fromEntries(SIZES.map((d) => [String(d), RASMALAI_SURCHARGE_CENTS[d]])),
   celebrationCents: 7500, brownieBoxCents: browniePrice.boxCents, brownieSlabCents: browniePrice.slabCents, brownieToppingCents: BROWNIE_TOPPING_CENTS,
   addons: addons.map(({ id, name, priceCents, note }) => ({ id, name, priceCents, ...(note ? { note } : {}) })),
   flavours: flavours.map(({ id, name, description }) => ({ id, name, description, available: true })),
-  celebrationFlavours: [...celebrationFlavours],
+  celebrationFlavours: [...celebrationFlavours], pausedCelebrationFlavours: [],
 };
 
 const bad = (): never => { throw new Error('Invalid catalogue'); };
@@ -38,7 +39,8 @@ const rows = <T>(v: unknown, max: number, one: (x: unknown) => T, id: (x: T) => 
 };
 /** Strict parse: rejects unknown keys, non-integer or non-positive prices, duplicates and control characters. */
 export function parseCatalogue(value: unknown): Catalogue {
-  const d = obj(value, ['baseCents', 'rasmalaiCents', 'celebrationCents', 'brownieBoxCents', 'brownieSlabCents', 'brownieToppingCents', 'addons', 'flavours', 'celebrationFlavours']);
+  const hasPaused = !!value && typeof value === 'object' && Object.hasOwn(value, 'pausedCelebrationFlavours'); // snapshots published before pausing existed have no such key
+  const d = obj(value, ['baseCents', 'rasmalaiCents', 'celebrationCents', 'brownieBoxCents', 'brownieSlabCents', 'brownieToppingCents', 'addons', 'flavours', 'celebrationFlavours', ...(hasPaused ? ['pausedCelebrationFlavours'] : [])]);
   const c: Catalogue = {
     baseCents: bySize(d.baseCents, 1), rasmalaiCents: bySize(d.rasmalaiCents, 0),
     celebrationCents: cents(d.celebrationCents), brownieBoxCents: cents(d.brownieBoxCents), brownieSlabCents: cents(d.brownieSlabCents), brownieToppingCents: cents(d.brownieToppingCents, 0),
@@ -47,7 +49,9 @@ export function parseCatalogue(value: unknown): Catalogue {
       if (f.available !== undefined && typeof f.available !== 'boolean') bad();
       return { id: str(f.id, 60), name: str(f.name, 100), description: str(f.description, 400), available: f.available !== false }; }, (f) => f.id),
     celebrationFlavours: rows(d.celebrationFlavours, 20, (x) => str(x, 80), (f) => f),
+    pausedCelebrationFlavours: hasPaused ? rows(d.pausedCelebrationFlavours, 20, (x) => str(x, 80), (f) => f) : [],
   };
+  if (c.pausedCelebrationFlavours.some((p) => !c.celebrationFlavours.includes(p)) || c.pausedCelebrationFlavours.length >= c.celebrationFlavours.length) bad(); // only listed flavours can be paused, and one must stay available
   if (c.flavours.length === 0 || !c.flavours.some((f) => f.available) || c.celebrationFlavours.length === 0) bad(); // at least one flavour must stay available
   return c;
 }

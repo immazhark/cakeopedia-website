@@ -302,9 +302,11 @@ import Base from '../../layouts/Base.astro';
         h('div', { class: 'form price-group' }, h('h4', {}, 'Add-ons'), ...c.addons.map((a: Json) => money_(a.name + ' ($)', () => a.priceCents, (v) => { a.priceCents = v; }))),
         h('div', { class: 'form price-group' }, h('h4', {}, 'Flavours on offer'), h('p', { class: 'hint', style: 'grid-column:1/-1;margin:0' }, 'Untick a flavour to pause it. It stays on the menu marked "not available at the moment".'),
           ...c.flavours.map((f: Json) => { const cb = input('checkbox', {}); cb.checked = f.available !== false; cb.addEventListener('change', () => { dirty = true; publishBtn.disabled = true; }); reads.push(() => { f.available = cb.checked; return true; }); return h('label', { class: 'field field--check' }, cb, f.name); })),
+        h('div', { class: 'form price-group' }, h('h4', {}, 'Celebration Cake flavours'),
+          ...(c.celebrationFlavours as string[]).map((name) => { const cb = input('checkbox', {}); cb.checked = !(c.pausedCelebrationFlavours ?? []).includes(name); cb.addEventListener('change', () => { dirty = true; publishBtn.disabled = true; }); reads.push(() => { const rest = ((c.pausedCelebrationFlavours ?? []) as string[]).filter((x) => x !== name); c.pausedCelebrationFlavours = cb.checked ? rest : [...rest, name]; return true; }); return h('label', { class: 'field field--check' }, cb, name); })),
         h('div', { class: 'actions' }, btn('Save draft', async () => {
           if (!reads.map((r) => r()).every(Boolean)) return notice('Enter each price as dollars and cents, for example 135.00.');
-          if (!c.flavours.some((f: Json) => f.available)) return notice('Keep at least one flavour available.');
+          if (!c.flavours.some((f: Json) => f.available) || (c.pausedCelebrationFlavours ?? []).length >= c.celebrationFlavours.length) return notice('Keep at least one flavour available in each list.');
           const r = await api('/admin/api/catalogue', 'PUT', { expectedRevision: rev, catalogue: c });
           if (!r.ok) { notice(r.status === 409 ? 'These prices changed somewhere else. Reloaded the latest.' : r.status === 0 ? '' : 'Please check the prices. Each must be above zero (Rasmalai extra may be zero).'); if (r.status === 409) loadPrices(); return; }
           notice(''); await loadPrices();

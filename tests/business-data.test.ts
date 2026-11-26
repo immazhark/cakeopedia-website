@@ -77,3 +77,18 @@ test('flavour availability: old snapshots default to available; a paused flavour
   assert.throws(() => parseCatalogue({ ...defaultCatalogue, flavours: defaultCatalogue.flavours.map((f) => ({ ...f, available: false })) }));
   assert.throws(() => parseCatalogue({ ...defaultCatalogue, flavours: defaultCatalogue.flavours.map((f, i) => (i === 0 ? { ...f, available: 'no' } : f)) }));
 });
+
+test('Celebration flavour pausing: optional key, subset only, one must stay available, FAQ lists only available ones', async () => {
+  const { defaultCatalogue, parseCatalogue } = await import('../src/data/catalogue.ts');
+  const { buildFaq } = await import('../src/data/faq.ts');
+  const { pausedCelebrationFlavours: _drop, ...old } = defaultCatalogue; // a snapshot published before pausing existed
+  assert.deepEqual(parseCatalogue(old).pausedCelebrationFlavours, []);
+  const first = defaultCatalogue.celebrationFlavours[0]!;
+  const one = parseCatalogue({ ...defaultCatalogue, pausedCelebrationFlavours: [first] });
+  assert.deepEqual(one.pausedCelebrationFlavours, [first]);
+  const faq = buildFaq(one).find((q) => q.id === 'celebration')!.a;
+  assert.ok(!faq.includes(first) && faq.includes(defaultCatalogue.celebrationFlavours[1]!));
+  assert.throws(() => parseCatalogue({ ...defaultCatalogue, pausedCelebrationFlavours: ['Not a flavour'] }));
+  assert.throws(() => parseCatalogue({ ...defaultCatalogue, pausedCelebrationFlavours: [...defaultCatalogue.celebrationFlavours] }));
+  assert.throws(() => parseCatalogue({ ...defaultCatalogue, pausedCelebrationFlavours: [first, first] }));
+});

@@ -51,7 +51,7 @@ const money = (c: number, k: 'fixed' | 'starting') => formatMenuPrice(c, k);
     </div>
     <div class="menu-body">
       <h3>Flavours</h3>
-      <ul class="plain">{cat.celebrationFlavours.map((f) => <li>{f}</li>)}</ul>
+      <ul class="plain">{cat.celebrationFlavours.map((f) => <li>{cat.pausedCelebrationFlavours.includes(f) ? <em>{f} · not available at the moment</em> : f}</li>)}</ul>
     </div>
   </div></section>
 
