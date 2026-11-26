@@ -46,7 +46,7 @@ function build(env: Env, transport: typeof fetch): Live | null {
     return who !== null && limit(scope, who, POLICY[scope]);
   };
   const verifyBot = createTurnstileVerifier({ secret: turnstile, hostname: site.hostname, action: 'enquiry' }, transport);
-  const uploads = { db, bucket, origin, allowRequest: guard('upload') };
+  const uploads = { db, bucket, origin, allowRequest: guard('upload'), verifyBot };
   // Optional deploy hook (a secret URL) that rebuilds the static site after the owner publishes. Absent: publishing still works and says so.
   const hook = env.CATALOGUE_REBUILD_HOOK;
   const rebuild = hook?.startsWith('https://') ? async () => (await fetch(hook, { method: 'POST' })).ok : undefined;

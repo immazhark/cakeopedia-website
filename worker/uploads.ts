@@ -16,9 +16,11 @@ export interface UploadDatabase { prepare(sql: string): Stmt }
 export interface UploadDeps {
   db: UploadDatabase; bucket: Bucket; origin: string;
   allowRequest: (request: Request) => Promise<boolean>;
+  /** Verifies one Turnstile token; a verified token opens an upload session for the submission. */
+  verifyBot: (token: string) => Promise<boolean>;
   now?: () => number;
 }
-export const POLICY = { perSubmission: 3, perDay: 200, orphanMs: 24 * 3600_000, leaseMs: 5 * 60_000 } as const; // leaseMs: how long a cleaner owns a tombstone before another may retry it
+export const POLICY = { perSubmission: 3, perDay: 200, orphanMs: 24 * 3600_000, leaseMs: 5 * 60_000, sessionMs: 3600_000, sessionKeepMs: 24 * 3600_000 } as const; // leaseMs: how long a cleaner owns a tombstone before another may retry it
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const accepted = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
@@ -70,6 +72,13 @@ export async function handleUpload(request: Request, deps: UploadDeps): Promise<
   let rowId: string | null = null;
   try {
     if (!await deps.allowRequest(request)) return reply(429, { error: 'try_later' });
+    // Bot challenge before any bytes are read or rows reserved. One verified token covers this submission for an hour.
+    const open = await deps.db.prepare('SELECT 1 AS x FROM upload_sessions WHERE submission_id = ? AND verified_at > ?').bind(submission, now - POLICY.sessionMs).first();
+    if (!open) {
+      const token = request.headers.get('X-Bot-Token') ?? '';
+      if (!token || token.length > 2048 || !await deps.verifyBot(token)) return reply(403, { error: 'verification_failed' });
+      await deps.db.prepare('INSERT INTO upload_sessions (submission_id, verified_at) VALUES (?, ?) ON CONFLICT(submission_id) DO UPDATE SET verified_at = excluded.verified_at').bind(submission, now).run();
+    }
     const raw = await readBytes(request);
     if (!raw) return reply(413, { error: 'image_too_large' });
     let image;
@@ -130,6 +139,7 @@ export async function ownsUploads(db: UploadDatabase, submissionId: string, ids:
  * concurrent cleaner skips them); only the claimant deletes the object, then the row. A claim whose lease expired is retried.
  */
 export async function purgeOrphans(db: UploadDatabase, bucket: Bucket, now: number, limit = 100): Promise<number> {
+  await db.prepare('DELETE FROM upload_sessions WHERE verified_at < ?').bind(now - POLICY.sessionKeepMs).run();
   const { results } = await db.prepare(`UPDATE uploads SET deleted_at = ?1 WHERE enquiry_id IS NULL AND (deleted_at IS NULL OR deleted_at < ?3)
     AND id IN (SELECT id FROM uploads WHERE enquiry_id IS NULL AND ((deleted_at IS NULL AND created_at < ?2) OR deleted_at < ?3) LIMIT ?4) RETURNING id, object_key AS key`)
     .bind(now, now - POLICY.orphanMs, now - POLICY.leaseMs, limit).all<{ id: string; key: string }>();

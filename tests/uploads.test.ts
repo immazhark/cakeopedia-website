@@ -15,7 +15,7 @@ let db: Awaited<ReturnType<Miniflare['getD1Database']>>;
 before(async () => {
   mf = new Miniflare({ modules: true, script: 'export default { fetch() { return new Response("t"); } }', compatibilityDate: '2026-07-30', d1Databases: ['DB'] });
   db = await mf.getD1Database('DB');
-  for (const file of ['0001_enquiries.sql', '0002_outbox_leases.sql', '0003_uploads.sql', '0004_enquiry_events.sql', '0005_orders.sql', '0012_upload_tombstones.sql', '0015_upload_ready.sql']) {
+  for (const file of ['0001_enquiries.sql', '0002_outbox_leases.sql', '0003_uploads.sql', '0004_enquiry_events.sql', '0005_orders.sql', '0012_upload_tombstones.sql', '0015_upload_ready.sql', '0017_upload_sessions.sql']) {
     const sql = (await readFile(new URL(`../migrations/${file}`, import.meta.url), 'utf8')).replace(/^--.*$/gm, '');
     await db.batch(sql.split(';').map((s) => s.trim()).filter(Boolean).map((s) => db.prepare(s)));
   }
@@ -29,9 +29,9 @@ class MemoryBucket implements Bucket {
   async delete(key: string) { this.objects.delete(key); }
 }
 const png = async (extra: Record<string, number> = {}) => new Uint8Array(await sharp({ create: { width: 40 + (extra.w ?? 0), height: 30, channels: 3, background: '#aabbcc' } }).withExif({ IFD0: { Copyright: 'SYNTHETIC-MARKER' } }).png().toBuffer());
-const deps = (bucket: Bucket, over: Partial<UploadDeps> = {}): UploadDeps => ({ db: db as unknown as UploadDeps['db'], bucket, origin: ORIGIN, allowRequest: async () => true, ...over });
+const deps = (bucket: Bucket, over: Partial<UploadDeps> = {}): UploadDeps => ({ db: db as unknown as UploadDeps['db'], bucket, origin: ORIGIN, allowRequest: async () => true, verifyBot: async () => true, ...over });
 const up = (body: Uint8Array | string, sid: string, headers: Record<string, string> = {}) =>
-  new Request(`${ORIGIN}/api/uploads`, { method: 'POST', headers: { Origin: ORIGIN, 'Content-Type': 'image/png', 'X-Submission-Id': sid, ...headers }, body: body as BodyInit });
+  new Request(`${ORIGIN}/api/uploads`, { method: 'POST', headers: { Origin: ORIGIN, 'Content-Type': 'image/png', 'X-Submission-Id': sid, 'X-Bot-Token': 'tok', ...headers }, body: body as BodyInit });
 async function until(cond: () => Promise<boolean>) { for (let i = 0; i < 200; i++) { if (await cond()) return; await new Promise((r) => setTimeout(r, 10)); } throw new Error('condition not reached'); }
 const rows = async (sid: string) => (await db.prepare('SELECT count(*) AS n FROM uploads WHERE submission_id = ?').bind(sid).first<{ n: number }>())!.n;
 
@@ -227,4 +227,35 @@ test('the delete endpoint is rate limited like uploads', async () => {
   const bucket = new MemoryBucket(), sid = crypto.randomUUID(), id = crypto.randomUUID();
   const r = await handleUploadDelete(new Request(`${ORIGIN}/api/uploads/${id}`, { method: 'DELETE', headers: { Origin: ORIGIN, 'X-Submission-Id': sid } }), id, deps(bucket, { allowRequest: async () => false }));
   assert.equal(r.status, 429);
+});
+
+// ---- bot challenge: one verified token opens an upload session for that submission
+const noTok = (sid: string, body: Uint8Array) => new Request(`${ORIGIN}/api/uploads`, { method: 'POST', headers: { Origin: ORIGIN, 'Content-Type': 'image/png', 'X-Submission-Id': sid }, body: body as BodyInit });
+test('uploads need a verified challenge: missing or rejected tokens create nothing', async () => {
+  const bucket = new MemoryBucket(), sid = crypto.randomUUID(), bytes = await png();
+  assert.equal((await handleUpload(noTok(sid, bytes), deps(bucket))).status, 403);
+  assert.equal((await handleUpload(up(bytes, sid), deps(bucket, { verifyBot: async () => false }))).status, 403);
+  assert.equal(await rows(sid), 0); assert.equal(bucket.objects.size, 0);
+  assert.equal((await db.prepare('SELECT count(*) AS n FROM upload_sessions WHERE submission_id = ?').bind(sid).first<{ n: number }>())!.n, 0);
+});
+test('one verified token opens a session for that submission only, and it expires after an hour', async () => {
+  const bucket = new MemoryBucket(), sid = crypto.randomUUID(), other = crypto.randomUUID(), t0 = 2_000_000_000_000; let calls = 0;
+  const d = (now: number) => deps(bucket, { now: () => now, verifyBot: async () => { calls++; return true; } });
+  assert.equal((await handleUpload(up(await png(), sid), d(t0))).status, 201);
+  assert.equal((await handleUpload(noTok(sid, await png({ w: 1 })), d(t0 + 1000))).status, 201); // same submission rides the session
+  assert.equal(calls, 1);
+  assert.equal((await handleUpload(noTok(other, await png({ w: 2 })), d(t0 + 1000))).status, 403); // another submission does not
+  assert.equal((await handleUpload(noTok(sid, await png({ w: 3 })), d(t0 + 3_600_001))).status, 403); // expired
+  assert.equal((await handleUpload(up(await png({ w: 3 }), sid), d(t0 + 3_600_001))).status, 201); // fresh token renews it
+});
+test('a challenge provider outage is unavailable, not a pass', async () => {
+  const bucket = new MemoryBucket(), sid = crypto.randomUUID();
+  const r = await handleUpload(up(await png(), sid), deps(bucket, { verifyBot: async () => { throw new Error('siteverify down'); } }));
+  assert.equal(r.status, 503); assert.equal(await rows(sid), 0);
+});
+test('cleanup removes expired upload sessions', async () => {
+  const bucket = new MemoryBucket(), sid = crypto.randomUUID(), t0 = 3_000_000_000_000;
+  await handleUpload(up(await png(), sid), deps(bucket, { now: () => t0 }));
+  await purgeOrphans(deps(bucket).db, bucket, t0 + 25 * 3600_000);
+  assert.equal((await db.prepare('SELECT count(*) AS n FROM upload_sessions WHERE submission_id = ?').bind(sid).first<{ n: number }>())!.n, 0);
 });

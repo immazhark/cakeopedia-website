@@ -117,14 +117,18 @@ const occasions = ['Birthday', 'Anniversary', 'Wedding or engagement', 'Baby or 
     });
     picAdd.hidden = pics.length >= 3; picAdd.toggleAttribute('aria-hidden', pics.length >= 3);
   };
+  let uploadSession = false; // true once the server has verified a challenge for this submission
   picInput.addEventListener('change', async () => {
     const file = picInput.files?.[0]; picInput.value = ''; if (!file) return; picMsg('');
     if (pics.length >= 3) return picMsg('You can add up to 3 pictures.');
     picAdd.setAttribute('aria-busy', 'true'); picMsg('Adding picture…');
     try {
       const blob = await downscale(file).catch(() => { throw new Error('format'); });
-      const res = await fetch('/api/uploads', { method: 'POST', headers: { ...sidHeader, 'Content-Type': 'image/jpeg' }, body: blob });
-      if (res.status === 201) { const { attachmentId } = await res.json() as { attachmentId: string }; pics.push({ id: attachmentId, url: URL.createObjectURL(blob) }); renderPics(); picMsg(''); }
+      if (!uploadSession && !botToken) { picMsg('Please complete the security check above, then add your picture.'); return; }
+      const res = await fetch('/api/uploads', { method: 'POST', headers: { ...sidHeader, 'Content-Type': 'image/jpeg', ...(uploadSession ? {} : { 'X-Bot-Token': botToken }) }, body: blob });
+      if (!uploadSession && res.status !== 429) resetBot(); // the token is single-use; the form needs a fresh one to send
+      if (res.status === 201) { uploadSession = true; const { attachmentId } = await res.json() as { attachmentId: string }; pics.push({ id: attachmentId, url: URL.createObjectURL(blob) }); renderPics(); picMsg(''); }
+      else if (res.status === 403) { uploadSession = false; picMsg('The security check did not pass. Please complete it again and retry.'); }
       else if (res.status === 422) picMsg('That picture could not be used. Please try a different JPEG, PNG or WebP image.');
       else if (res.status === 429) picMsg('Too many uploads just now. Please wait a minute and try again.');
       else picMsg('The picture did not upload. Please try again.');

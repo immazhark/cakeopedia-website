@@ -38,7 +38,7 @@ export default {
     const url = new URL(request.url);
     if (env.LOCAL_DEV !== '1' || !['localhost', '127.0.0.1'].includes(url.hostname)) return Response.json({ error: 'intake_not_enabled' }, { status: 503 });
     if (url.pathname.startsWith('/admin/api/')) return devAdmin(request, env);
-    const uploads = { db: env.DB, bucket: env.UPLOADS, origin, allowRequest };
+    const uploads = { db: env.DB, bucket: env.UPLOADS, origin, allowRequest, verifyBot: async (token: string) => token === 'XXXX.DUMMY.TOKEN.XXXX' };
     if (url.pathname === '/api/uploads') return handleUpload(request, uploads);
     if (url.pathname.startsWith('/api/uploads/')) return handleUploadDelete(request, url.pathname.slice('/api/uploads/'.length), uploads);
     if (url.pathname !== '/api/enquiries') return Response.json({ error: 'not_found' }, { status: 404 });
