@@ -29,7 +29,7 @@ async function count(table: 'enquiries' | 'enquiry_references' | 'notification_o
   const value = table === 'enquiries' ? id : (await db.prepare('SELECT id FROM enquiries WHERE submission_id = ?').bind(id).first<{id: string}>())?.id ?? '';
   return (await db.prepare(`SELECT count(*) AS n FROM ${table} WHERE ${key} = ?`).bind(value).first<{ n: number }>())!.n;
 }
-test('receipt follows durable enquiry, references and two notification intents', async () => {
+test('receipt follows durable enquiry, references and one owner notification intent (no automatic customer email)', async () => {
   const body = input({ creationIds: ['synthetic-floral'] });
   const result = await handleEnquiry(request(body), deps());
   assert.equal(result.status, 201);
@@ -38,7 +38,9 @@ test('receipt follows durable enquiry, references and two notification intents',
   assert.equal(receipt.notificationStatus, 'pending');
   assert.equal(await count('enquiries', body.submissionId), 1);
   assert.equal(await count('enquiry_references', body.submissionId), 1);
-  assert.equal(await count('notification_outbox', body.submissionId), 2);
+  assert.equal(await count('notification_outbox', body.submissionId), 1);
+  const id = (await db.prepare('SELECT id FROM enquiries WHERE submission_id = ?').bind(body.submissionId).first<{ id: string }>())!.id;
+  assert.deepEqual((await db.prepare('SELECT recipient_role AS r FROM notification_outbox WHERE enquiry_id = ?').bind(id).all<{ r: string }>()).results.map((x: { r: string }) => x.r), ["owner"]); // owner decision: the unverified customer address is never emailed automatically
 });
 test('lost response replay keeps receipt and skips consumed bot token', async () => {
   const body = input({ botToken: 'single-use-synthetic' });
@@ -46,7 +48,7 @@ test('lost response replay keeps receipt and skips consumed bot token', async ()
   const second = await handleEnquiry(request({ ...body, botToken: '' }), { ...deps(), verifyBot: async () => { throw Error('must not be consumed twice'); } });
   assert.equal(second.status, 200);
   assert.deepEqual(await second.json(), await first.json());
-  assert.equal(await count('notification_outbox', body.submissionId), 2);
+  assert.equal(await count('notification_outbox', body.submissionId), 1);
 });
 test('concurrent same-payload requests converge on one durable receipt', async () => {
   const body = input();
@@ -56,13 +58,13 @@ test('concurrent same-payload requests converge on one durable receipt', async (
   const receipts = await Promise.all(results.map(r => r.json() as Promise<{reference: string}>));
   assert.equal(new Set(receipts.map(r => r.reference)).size, 1);
   assert.equal(await count('enquiries', body.submissionId), 1);
-  assert.equal(await count('notification_outbox', body.submissionId), 2);
+  assert.equal(await count('notification_outbox', body.submissionId), 1);
 });
 test('same ID with different payload conflicts, including concurrent race', async () => {
   const body = input();
   const results = await Promise.all([handleEnquiry(request(body), deps()), handleEnquiry(request({ ...body, name: 'Other Synthetic' }), deps())]);
   assert.deepEqual(results.map(r => r.status).sort(), [201, 409]);
-  assert.equal(await count('notification_outbox', body.submissionId), 2);
+  assert.equal(await count('notification_outbox', body.submissionId), 1);
 });
 test('outbox insertion failure rolls back the entire D1 batch', async () => {
   const body = input({ creationIds: ['synthetic-floral'] });

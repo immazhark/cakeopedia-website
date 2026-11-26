@@ -46,5 +46,5 @@ Shared context is consolidated in [shared decisions](shared-context-and-decision
 | Operations | Runbook drafted | [Operations runbook](operations-runbook.md). Provider verification blocked: Wrangler is not logged in, so Access, Turnstile, D1, R2 and Resend are unverified. No production Wrangler config, external backup, monitoring or retention job yet. |
 | Launch gate | Closed | Worker closed unless every live setting is present; form closed in production builds. No live intake, payments or customer communication. |
 
-Owner decisions still needed: retention period, AI-crawler policy default, cupcake price and minimum, delivery area and fees, allergen and storage matrix, final policy wording and legal review, logo, media permissions, business email provisioning, review of the new hero.
+Owner decisions made 26 November 2026: keep closed enquiries until the owner erases them (automatic retention stays off); no automatic customer email at intake; AI crawler policy confirmed (allow search and AI-retrieval, refuse training). Owner decisions still needed: cupcake price and minimum, delivery area and fees, allergen and storage matrix, final policy wording and legal review, logo, media permissions, business email provisioning, review of the new hero.
 

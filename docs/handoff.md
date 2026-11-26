@@ -153,3 +153,9 @@ Recorded, not changed:
 - Customer confirmation email goes to an unverified address (could be used to mail a third party; fixed text, 3 per minute per client, Turnstile). Policy decision for the owner (send only after a reply?). Notifications are off.
 - Cleanup switches were optional; now mandatory at launch (runbook). Not reviewed: owner picture viewer client code, live Access policy.
 
+## 2026-11-26 — Owner decisions recorded
+- Retention: keep until the owner erases. `RETENTION_DAYS` stays unset (job built, off). E05 now only needs the independent export and restore drill, not a retention period.
+- Customer email: no automatic email at intake. worker/store.ts queues only the owner notification; the customer role, snapshot and sender code are kept for a future owner-triggered message. enquiry tests assert one outbox row (owner). The thank-you page makes no promise of an email.
+- AI crawlers: current policy confirmed (src/data/crawlers.ts).
+- Still open: cupcake price/minimum, delivery area and fees, allergen and storage matrix, policy wording and legal review, logo, media permissions, business email provisioning, provider login, design review.
+

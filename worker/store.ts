@@ -33,7 +33,9 @@ export class EnquiryStore {
     if (enquiry.attachmentIds.length > 0) { // a lost attachment violates NOT NULL, aborting the whole batch: no enquiry that claims a missing picture
       statements.push(this.db.prepare('UPDATE enquiries SET payload_hash = NULL WHERE id = ? AND (SELECT count(*) FROM uploads WHERE enquiry_id = ?) <> ?').bind(id, id, enquiry.attachmentIds.length));
     }
-    for (const role of ['owner', 'customer']) {
+    // Owner decision (26 Nov 2026): no automatic email to the customer at intake, because the address is unverified and the form could be used to email a third party.
+    // The customer role and its sender stay in place for a future owner-triggered message; nothing queues it here.
+    for (const role of ['owner']) {
       statements.push(this.db.prepare('INSERT INTO notification_outbox (id, enquiry_id, recipient_role, next_attempt_at) VALUES (?, ?, ?, ?)')
         .bind(`${id}:${role}`, id, role, now));
     }

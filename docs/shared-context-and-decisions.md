@@ -227,3 +227,8 @@ Closed; do not re-ask. Single source of truth in code: `src/data/pricing.ts` (ru
 - Business email contact@cakeopedia.com approved; provisioning is an infrastructure task, so it is not published yet.
 - Enquiry-first remains: no checkout or automated payment. Commercial launch gate unchanged.
 Still open (not core): cupcake price/minimum, delivery area and charges, allergen/storage matrix, cottage-food compliance, policy legal review, logo production, media reconciliation.
+
+## Owner decisions, 26 November 2026
+- Retention: closed enquiries are kept until the owner erases them; no automatic period (the retention job exists but stays off).
+- Customer email: no automatic email to the customer at intake (unverified address); only the owner is notified. Any customer email will be owner-triggered.
+- AI crawlers: allow search and AI-retrieval crawlers, refuse model-training crawlers.
