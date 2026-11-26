@@ -291,15 +291,15 @@ import Base from '../../layouts/Base.astro';
       }) as HTMLButtonElement;
       publishBtn.disabled = dirty;
       const sizes = ['6', '7', '8', '9', '10'];
-      const sizeRows = sizes.map((d) => h('div', { class: 'form' }, h('h4', {}, `${d}-inch cake`),
+      const sizeRows = sizes.map((d) => h('div', { class: 'form price-group' }, h('h4', {}, `${d}-inch cake`),
         money_('Starting price ($)', () => c.baseCents[d], (v) => { c.baseCents[d] = v; }), money_('Rasmalai extra ($)', () => c.rasmalaiCents[d], (v) => { c.rasmalaiCents[d] = v; })));
       root.replaceChildren(
         h('p', { class: 'hint' }, `You are editing a private draft. The website changes only when you publish. ${current ? `Published version: ${current}.` : 'Nothing published yet: the website shows the confirmed starting prices.'}`),
         ...sizeRows,
-        h('div', { class: 'form' }, h('h4', {}, 'Celebration Cake and brownies'),
+        h('div', { class: 'form price-group' }, h('h4', {}, 'Celebration Cake and brownies'),
           money_('Celebration Cake ($)', () => c.celebrationCents, (v) => { c.celebrationCents = v; }), money_('Box of nine brownies ($)', () => c.brownieBoxCents, (v) => { c.brownieBoxCents = v; }),
           money_('Brownie slab ($)', () => c.brownieSlabCents, (v) => { c.brownieSlabCents = v; }), money_('Topping upgrade, per box or slab ($)', () => c.brownieToppingCents, (v) => { c.brownieToppingCents = v; })),
-        h('div', { class: 'form' }, h('h4', {}, 'Add-ons'), ...c.addons.map((a: Json) => money_(a.name + ' ($)', () => a.priceCents, (v) => { a.priceCents = v; }))),
+        h('div', { class: 'form price-group' }, h('h4', {}, 'Add-ons'), ...c.addons.map((a: Json) => money_(a.name + ' ($)', () => a.priceCents, (v) => { a.priceCents = v; }))),
         h('div', { class: 'actions' }, btn('Save draft', async () => {
           if (!reads.map((r) => r()).every(Boolean)) return notice('Enter each price as dollars and cents, for example 135.00.');
           const r = await api('/admin/api/catalogue', 'PUT', { expectedRevision: rev, catalogue: c });
