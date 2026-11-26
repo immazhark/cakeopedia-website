@@ -44,7 +44,10 @@ const full = c.poster ? img.src : `/media/img/${c.slug}-1280.webp`;
   <section class="section section--beige">
     <div class="wrap">
       <h2 style="font-size:var(--step-2);margin-bottom:var(--space-3)">More from the collection</h2>
-      <ul class="grid" style="grid-template-columns:repeat(auto-fit,minmax(10rem,18rem))">{more.map((m) => <li><CreationCard c={m} /></li>)}</ul>
+      <ul class="grid related">{more.map((m) => <li><CreationCard c={m} /></li>)}</ul>
     </div>
   </section>
 </Base>
+<style>
+  @media (min-width: 48rem) { .related { grid-template-columns: repeat(3, minmax(0, 18rem)); } } /* on phones the shared .grid keeps two columns */
+</style>
