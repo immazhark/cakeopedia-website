@@ -11,6 +11,11 @@ mkdirSync(out, { recursive: true });
 const failures = [];
 const check = (ok, msg) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${msg}`); if (!ok) failures.push(msg); };
 
+const axeScan = async (page, label) => { // automated accessibility rules (axe-core, WCAG A/AA tags); every violation fails the check
+  await page.addScriptTag({ path: axePath });
+  const v = await page.evaluate(async () => (await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] } })).violations.map((x) => `${x.id} (${x.impact}) x${x.nodes.length}: ${x.nodes[0].target.join(' ')}`));
+  check(v.length === 0, `${label} axe: ${v.length ? v.join(' | ') : 'no WCAG A/AA violations'}`);
+};
 const browser = await chromium.launch({ channel: 'msedge' });
 try {
   // 1. Public pages: no horizontal overflow, no broken images, at real phone widths.
@@ -24,11 +29,7 @@ try {
       const m = await page.evaluate(() => ({ over: document.documentElement.scrollWidth - innerWidth, vw: innerWidth, broken: [...document.images].filter((i) => i.complete && i.naturalWidth === 0).length }));
       check(m.vw === width && m.over <= 0 && m.broken === 0, `${path} @${width}: viewport ${m.vw}, overflow ${m.over}px, broken images ${m.broken}`);
       if (width === 390 && path === '/') await page.screenshot({ path: `${out}/home-390.png` });
-      if (width === 390) { // automated accessibility rules (axe-core, WCAG 2.2 A/AA tags); every violation fails the check
-        await page.addScriptTag({ path: axePath });
-        const v = await page.evaluate(async () => (await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] } })).violations.map((x) => `${x.id} (${x.impact}) x${x.nodes.length}: ${x.nodes[0].target.join(' ')}`));
-        check(v.length === 0, `${path} axe: ${v.length ? v.join(' | ') : 'no WCAG A/AA violations'}`);
-      }
+      if (width === 390) await axeScan(page, path);
     }
     await ctx.close();
   }
@@ -88,8 +89,11 @@ try {
   const errors = []; page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto(BASE + '/admin/', { waitUntil: 'networkidle' });
   // Prices journey: the draft is private, a bad price is refused, a saved draft can be published, and the page stays within the viewport.
+  await page.locator('#inbox').waitFor();
+  await axeScan(page, '/admin/ enquiries');
   await page.getByRole('button', { name: 'Prices', exact: true }).click();
   await page.locator('#prices input').first().waitFor({ timeout: 8000 });
+  await axeScan(page, '/admin/ prices');
   check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Prices tab has no horizontal overflow at 390');
   const first = page.locator('#prices input').first();
   await first.fill('abc'); await page.getByRole('button', { name: 'Save draft' }).click();
@@ -107,12 +111,14 @@ try {
   if (await row.count()) {
     await row.focus(); await page.keyboard.press('Enter'); await page.locator('#detail').getByRole('heading', { level: 2 }).waitFor();
     check(await kept('detail'), 'focus moves into the enquiry detail when opened by keyboard');
+    await axeScan(page, '/admin/ enquiry detail');
     await page.getByRole('button', { name: 'Update status' }).focus(); await page.keyboard.press('Enter'); await page.waitForTimeout(800);
     check(await kept('detail'), 'focus stays in the enquiry detail after Update status by keyboard');
     await page.getByRole('button', { name: /All enquiries/ }).click();
   } else console.log('SKIP enquiry detail keyboard check: no enquiries in local data');
   await page.getByRole('button', { name: 'Calendar', exact: true }).click();
   const day = page.locator('#calendar ul button.chip').first(); await day.waitFor();
+  await axeScan(page, '/admin/ calendar');
   await day.focus(); await page.keyboard.press('Enter'); await page.waitForTimeout(600);
   check(await kept('calendar'), 'focus stays in Calendar after toggling a day by keyboard');
   await page.keyboard.press('Enter'); await page.waitForTimeout(600); // toggle it back so test data stays clean
