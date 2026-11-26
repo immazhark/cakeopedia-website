@@ -130,3 +130,8 @@ Next: admin catalogue editor screen, wire/retire old menu editor, enquiry retent
 - Text pages (menu, FAQ, size guide, care, story, enquiry): 76–90 KB, 4 requests, no first-party JavaScript, CLS 0, LCP 0.9–1.3 s. Fonts 56 KB on every page.
 - Home: 410 KB (326 KB images), LCP 3.3 s before; after `fetchpriority="high"` on the eager hero image 1.9–2.3 s over three runs, CLS 0.002. /creations/: 699 KB (609 KB images), LCP 1.5–1.8 s.
 - Not measured: real devices, field data, the Turnstile script cost on /enquiry/ (third party, loaded at runtime).
+
+## 2026-11-26 — Workstream D/G: provider check and CI browser job
+- Provider verification: `wrangler whoami` reports not authenticated on this machine, so Cloudflare Access, Turnstile, D1, R2 and Resend could NOT be verified independently. Blocker: the owner runs `! npx wrangler login` (interactive) in this session, or supplies read-only access. Nothing was created, changed or deployed.
+- CI: new `browser` job (verify.yml) runs `npm run check:browser` on every pull request against the local stack (throwaway D1/R2, test data only) with the runner's Chrome: layout at 320/390/430, keyboard-only, reduced motion, axe WCAG A/AA on public and owner pages, Prices journey, enquiry detail. `SKIP_IMAGE_CHECK=1` is set there only because photos are not in Git by policy; local runs stay strict. Green on 8d6f780 (verify and browser).
+- SEO: enquiry thank-you page noindex, descriptive titles/descriptions, built-output test for unique titles and description length (6510469).
