@@ -1,4 +1,4 @@
-// Real-browser regression check on installed Edge (viewport emulation, not a physical device).
+// Real-browser regression check on installed Edge (set BROWSER_CHANNEL=chrome in CI) (viewport emulation, not a physical device).
 // Needs the local stack running first: `npm run dev:api` and `npm run dev` (uses local D1 with test data only).
 // Usage: node scripts/browser-check.mjs [outDir]   -> exits non-zero on any failed check.
 import { mkdirSync } from 'node:fs';
@@ -16,7 +16,7 @@ const axeScan = async (page, label) => { // automated accessibility rules (axe-c
   const v = await page.evaluate(async () => (await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] } })).violations.map((x) => `${x.id} (${x.impact}) x${x.nodes.length}: ${x.nodes[0].target.join(' ')}`));
   check(v.length === 0, `${label} axe: ${v.length ? v.join(' | ') : 'no WCAG A/AA violations'}`);
 };
-const browser = await chromium.launch({ channel: 'msedge' });
+const browser = await chromium.launch({ channel: process.env.BROWSER_CHANNEL ?? 'msedge' });
 try {
   // 1. Public pages: no horizontal overflow, no broken images, at real phone widths.
   for (const width of [320, 390, 430]) {
