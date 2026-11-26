@@ -18,7 +18,8 @@
     "verify": "npm run check && npm test && npm run build && node --test tests/build.test.mjs tests/production-output.test.mjs",
     "media": "node scripts/build-media.mjs",
     "check:media": "node scripts/check-media.mjs",
-    "check:browser": "node scripts/browser-check.mjs"
+    "check:browser": "node scripts/browser-check.mjs",
+    "backup": "node scripts/backup.ts"
   },
   "dependencies": {
     "astro": "7.4.13"

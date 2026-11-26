@@ -159,3 +159,7 @@ Recorded, not changed:
 - AI crawlers: current policy confirmed (src/data/crawlers.ts).
 - Still open: cupcake price/minimum, delivery area and fees, allergen and storage matrix, policy wording and legal review, logo, media permissions, business email provisioning, provider login, design review.
 
+## 2026-11-26 — Encrypted backup tool and local restore drill
+- scripts/backup.ts and scripts/backup-lib.ts (`npm run backup -- export|decrypt|check`), tests/backup.test.ts (5 tests: round trip, no plain text in the file, wrong key, tamper, truncation, foreign file, short passphrase, required tables, restore check).
+- Local drill: `export --local` of the emulator DB then `check`: 16 tables present, integrity ok. Remote export, off-account storage, schedule and a restore into a real D1 are NOT done (need provider access); backup lifetime (suggested 35 days) and erasure-after-restore procedure recorded in the runbook for the owner and legal review.
+

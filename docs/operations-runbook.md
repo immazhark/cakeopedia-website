@@ -49,11 +49,13 @@ Status: written from the code, not from a live system. No provider account was i
 - **Worker or site code:** redeploy the previous commit. Migrations are additive and old code ignores new columns, so schema does not need to be reverted.
 - **Intake misbehaving:** emergency stop (section 1), investigate, restore.
 
-## 6. Backup and restore (UNVERIFIED, required before live intake)
+## 6. Backup and restore (remote path UNVERIFIED, required before live intake)
 
 - D1 has seven-day Time Travel on the free plan; that is not an independent backup (docs/service-register.md).
-- Needed: a scheduled encrypted export of D1 (and R2 objects for attachments) to storage outside the account, plus one restore drill proving at most 24 hours of data loss and one working day to restore (docs/backlog.md E05). Export and drill are not built yet. The automatic retention job exists (`RETENTION_DAYS`, section 1) but stays off until the owner chooses a period; take and test a restore before turning it on, because erasure is permanent.
-- After any restore, re-apply erasures: an enquiry whose payload has `erased: true` must stay erased.
+- **Tool (built, tested):** `npm run backup -- export <file.ckbak>` exports D1 with Wrangler, refuses a dump that is missing a required table, encrypts it (AES-256-GCM, scrypt key from `BACKUP_PASSPHRASE`, at least 20 characters, never stored) and deletes the plain file. `check <file>` decrypts into a scratch in-memory SQLite database and prints row counts per table and the integrity result. `decrypt <file.ckbak> <out.sql>` is for an actual restore (the SQL contains customer data). A wrong key or any tampering fails to decrypt.
+- **Local drill done (26 Nov 2026):** `export --local` on the emulator database (test data: 7 enquiries, 17 events, 14 migrations), then `check`: every required table present, integrity ok. This proves the format, the encryption and the check; it does not prove the remote export or a restore into a real D1.
+- **Still to do before live intake:** run `export` with `--remote` after `wrangler login`; store the `.ckbak` files outside this Cloudflare account on a schedule (not automated yet) with the passphrase kept in the owner's password manager, separate from the files; run one full restore into a scratch D1 (`wrangler d1 execute ... --file`) and confirm at most 24 hours of data loss and one working day to restore (docs/backlog.md E05).
+- **Erasure and backups:** an erased customer's data still exists in older backups. Give backups a finite life (suggested: delete encrypted backups older than 35 days, final period for the owner and legal review), and after any restore re-run every erasure requested since that backup was taken (an enquiry whose payload has `erased: true` must stay erased). Nothing in the database records erasure requests outside the database, so keep a short private list of references erased and when.
 
 ## 7. Routine owner and operator actions
 
@@ -64,7 +66,7 @@ Status: written from the code, not from a live system. No provider account was i
 
 ## 8. Known gaps
 
-- No production Wrangler config, no provider verification, no external backup, no monitoring or alerting; the retention job is built but off until the owner sets a period.
+- No production Wrangler config, no provider verification, no scheduled off-account backup (the encrypted export tool exists), no monitoring or alerting; the retention job is built but off until the owner sets a period.
 - Upload challenge not yet exercised against real Turnstile.
 - No automatic customer email: the owner decided (26 Nov 2026) that the unverified customer address is never emailed at intake; only the owner notification is queued. The customer sender code remains for a future owner-triggered message.
 - Business email contact@cakeopedia.com is approved but not provisioned, and is not published.
