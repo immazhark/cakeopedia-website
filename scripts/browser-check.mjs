@@ -34,6 +34,13 @@ try {
       check(m.vw === width && m.over <= 0 && (m.broken === 0 || SKIP_IMAGES), `${path} @${width}: viewport ${m.vw}, overflow ${m.over}px, broken images ${m.broken}`);
       if (width === 390 && path === '/') await page.screenshot({ path: `${out}/home-390.png` });
       if (width === 390) await axeScan(page, path);
+      if (width === 390 && path === '/') { // jumping straight to the end (End key, anchor) must not strand any reveal-on-scroll block hidden
+        const jump = await ctx.newPage(); await jump.goto(BASE + path, { waitUntil: 'load' });
+        await jump.evaluate(() => scrollTo(0, document.documentElement.scrollHeight)); await jump.waitForTimeout(900);
+        const hidden = await jump.evaluate(() => document.querySelectorAll('.reveal:not(.in)').length);
+        check(hidden === 0, `/ after jumping to the bottom no content stays hidden (${hidden} hidden)`);
+        await jump.close();
+      }
     }
     await ctx.close();
   }
