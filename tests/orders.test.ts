@@ -386,3 +386,19 @@ test('owner picture route does not serve a picture whose erasure has started', a
   assert.equal((await call(`/admin/api/uploads/${up}`)).status, 404);
   inboxBucket = undefined; void key;
 });
+
+// ---- every owner route bounds the bytes it reads, even when the sender omits Content-Length
+test('readBounded stops reading and cancels the stream once the limit is passed', async () => {
+  const { readBounded } = await import('../worker/admin-common.ts');
+  let cancelled = false, pulled = 0;
+  const stream = new ReadableStream<Uint8Array>({ pull(c) { pulled++; c.enqueue(new Uint8Array(1000)); }, cancel() { cancelled = true; } });
+  const req = new Request('https://x.invalid/', { method: 'POST', body: stream, duplex: 'half' } as RequestInit);
+  assert.equal(await readBounded(req, 3000), null);
+  assert.ok(cancelled && pulled < 10, `pulled ${pulled} chunks of an endless stream`);
+  assert.equal(await readBounded(new Request('https://x.invalid/', { method: 'POST', body: 'hello' }), 10), 'hello');
+});
+test('status and menu routes refuse oversized bodies with 413', async () => {
+  const id = await seed();
+  assert.equal((await call(url(id, 'status'), 'POST', { status: 'replied', expected: 'new', note: 'x'.repeat(20_000) })).status, 413);
+  assert.equal((await call('/admin/api/menu/synthetic-big', 'PUT', { expectedRevision: null, item: { title: 'x'.repeat(70_000) } })).status, 413);
+});

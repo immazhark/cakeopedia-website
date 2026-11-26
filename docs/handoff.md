@@ -148,7 +148,7 @@ Fixed (each new test fails on the old code, passes now):
 - Owner picture route no longer serves a tombstoned picture.
 - JPEG cleaner: an appended second image (own EXIF) is rejected; the first FF D9 after the scan must be the end of the file. Progressive JPEGs still pass.
 Recorded, not changed:
-- Two owner routes (status POST, menu PUT) call `request.json()` without a size cap; Access-authenticated operators only. Low.
+- (Later fixed) Two owner routes (status POST, menu PUT) read bodies without a size cap. All owner routes now read through `readBounded` (admin-common.ts), which cancels the stream once the limit is passed, with or without Content-Length; status 16 KB, menu 64 KB, catalogue 64 KB, orders 32 KB, erase 1 KB.
 - Daily site-wide upload cap (200) could be filled with purchased Turnstile solves; a per-client daily cap would help. Low-medium, open.
 - Customer confirmation email goes to an unverified address (could be used to mail a third party; fixed text, 3 per minute per client, Turnstile). Policy decision for the owner (send only after a reply?). Notifications are off.
 - Cleanup switches were optional; now mandatory at launch (runbook). Not reviewed: owner picture viewer client code, live Access policy.

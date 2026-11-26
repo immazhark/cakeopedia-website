@@ -1,5 +1,5 @@
 import { authorize, type AccessConfig } from './auth.ts';
-import { CURRENT, changed, isStatus, out, uuid, type AdminDb, type Status } from './admin-common.ts';
+import { CURRENT, changed, isStatus, out, readBounded, uuid, type AdminDb, type Status } from './admin-common.ts';
 import { routeCatalogue } from './catalogue.ts';
 import { routeErase } from './erase.ts';
 import { routeMenu } from './menu.ts';
@@ -63,7 +63,7 @@ export async function handleInbox(request: Request, db: AdminDb, cfg: AccessConf
     }
     if (m[2] && request.method === 'POST') {
       let body: unknown;
-      try { body = await request.json(); } catch { return out(400, { error: 'invalid_input' }); }
+      try { const raw = await readBounded(request, 16_384); if (raw === null) return out(413, { error: 'too_large' }); body = JSON.parse(raw); } catch { return out(400, { error: 'invalid_input' }); }
       const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
       const note = b.note ?? null;
       if (!isStatus(b.status) || !isStatus(b.expected) || (note !== null && (typeof note !== 'string' || note.length > 1000))) return out(400, { error: 'invalid_input' });

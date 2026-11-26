@@ -1,5 +1,5 @@
 import { validate, fingerprint, InvalidInput } from './contract.ts';
-import { CURRENT, changed, isCents, isDate, isTime, optText, out, uuid, type AdminDb } from './admin-common.ts';
+import { CURRENT, changed, isCents, isDate, isTime, optText, out, readBounded, uuid, type AdminDb } from './admin-common.ts';
 
 // Quotes, payments, busy dates, calendar and manual (Instagram) enquiries. Money is integer cents; a payment is only
 // ever a record the owner made after checking Zelle herself. Nothing here infers that money arrived.
@@ -32,8 +32,8 @@ const MAX_BODY = 32_768; // largest legitimate body is two 2,000-character notes
 /** The parsed JSON object, null when malformed, or 'too_large' (checked on the bytes actually read, not a header). */
 async function body(request: Request): Promise<Record<string, unknown> | null | 'too_large'> {
   try {
-    const raw = await request.text();
-    if (raw.length > MAX_BODY) return 'too_large';
+    const raw = await readBounded(request, MAX_BODY);
+    if (raw === null) return 'too_large';
     const b = JSON.parse(raw); return b && typeof b === 'object' && !Array.isArray(b) ? (b as Record<string, unknown>) : null;
   } catch { return null; }
 }

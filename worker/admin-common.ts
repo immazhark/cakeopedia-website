@@ -14,6 +14,21 @@ export const CURRENT = `COALESCE((SELECT ev.status FROM enquiry_events ev WHERE 
   CASE e.status WHEN 'booked' THEN 'confirmed' ELSE e.status END)`;
 /** Rows changed by a write; both D1 and the Miniflare emulator report this in meta.changes. */
 export const changed = (r: unknown) => ((r as { meta?: { changes?: number } } | null)?.meta?.changes ?? 0) > 0;
+/** Reads a request body as text but stops (and cancels the stream) as soon as more than `max` bytes arrive. Null means too large. */
+export async function readBounded(request: Request, max: number): Promise<string | null> {
+  if (!request.body) return '';
+  const reader = request.body.getReader(), chunks: Uint8Array[] = []; let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) { await reader.cancel().catch(() => undefined); return null; }
+    chunks.push(value);
+  }
+  const all = new Uint8Array(total); let o = 0;
+  for (const c of chunks) { all.set(c, o); o += c.byteLength; }
+  return new TextDecoder().decode(all);
+}
 export const out = (status: number, body?: object) => new Response(body ? JSON.stringify(body) : null, { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 export const isCents = (v: unknown, min = 0): v is number => typeof v === 'number' && Number.isInteger(v) && v >= min && v <= 10_000_000;
 export function isDate(v: unknown): v is string {

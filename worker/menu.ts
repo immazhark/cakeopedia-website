@@ -1,6 +1,6 @@
 import { approvedMenuExport, editMenuItem } from '../src/data/menu-editor.ts';
 import { parseMenu, type MenuItem } from '../src/data/menu.ts';
-import { out, type AdminDb } from './admin-common.ts';
+import { out, readBounded, type AdminDb } from './admin-common.ts';
 
 // Owner menu persistence. Validation and revision rules live in src/data/menu-editor.ts; this adds the atomic write.
 const idRe = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -28,7 +28,7 @@ export async function routeMenu(request: Request, db: AdminDb, now: () => number
   if (!idRe.test(id) || id.length > 80) return out(404, { error: 'not_found' });
   if (m !== 'PUT') return new Response(null, { status: 405 });
   let b: unknown;
-  try { b = await request.json(); } catch { return out(400, { error: 'invalid_input' }); }
+  try { const raw = await readBounded(request, 65_536); if (raw === null) return out(413, { error: 'too_large' }); b = JSON.parse(raw); } catch { return out(400, { error: 'invalid_input' }); }
   const body = (b && typeof b === 'object' ? b : {}) as Record<string, unknown>;
   const expected = body.expectedRevision ?? null;
   if (expected !== null && (typeof expected !== 'number' || !Number.isInteger(expected) || expected < 1)) return out(400, { error: 'invalid_input' });

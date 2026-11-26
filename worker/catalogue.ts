@@ -1,12 +1,12 @@
 import { defaultCatalogue, parseCatalogue } from '../src/data/catalogue.ts';
-import { changed, out, type AdminDb } from './admin-common.ts';
+import { changed, out, readBounded, type AdminDb } from './admin-common.ts';
 
 // Owner catalogue: edit draft -> publish (append-only snapshot) -> optional rollback. Every transition is one conditional statement,
 // so concurrent owners or retries cannot publish a half-edited or stale draft.
 const MAX_BODY = 65_536;
 async function read(request: Request): Promise<Record<string, unknown> | null | 'too_large'> {
   try {
-    const raw = await request.text(); if (raw.length > MAX_BODY) return 'too_large';
+    const raw = await readBounded(request, MAX_BODY); if (raw === null) return 'too_large';
     const b = JSON.parse(raw); return b && typeof b === 'object' && !Array.isArray(b) ? b : null;
   } catch { return null; }
 }

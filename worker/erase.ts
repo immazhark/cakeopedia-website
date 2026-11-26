@@ -1,4 +1,4 @@
-import { CURRENT, out, uuid, type AdminDb } from './admin-common.ts';
+import { CURRENT, out, readBounded, uuid, type AdminDb } from './admin-common.ts';
 
 // Erasure of one customer's personal data. Financial records (amounts, dates, versions) are evidence and stay;
 // everything that identifies the customer goes: contact and request text, pictures, queued message content and free-text notes.
@@ -47,7 +47,7 @@ export async function routeErase(request: Request, db: AdminDb, actor: string, n
   const id = m[1]!;
   if (!uuid.test(id)) return out(404, { error: 'not_found' });
   let body: { confirmReference?: unknown } = {};
-  try { const raw = await request.text(); if (raw.length > 1000) return out(413, { error: 'too_large' }); body = JSON.parse(raw); } catch { return out(400, { error: 'invalid_input' }); }
+  try { const raw = await readBounded(request, 1000); if (raw === null) return out(413, { error: 'too_large' }); body = JSON.parse(raw); } catch { return out(400, { error: 'invalid_input' }); }
   const r = await eraseEnquiry(db, id, actor, now(), bucket, body.confirmReference);
   if (r.ok) return out(200, { erased: true, alreadyErased: r.alreadyErased });
   if (r.error === 'not_found') return out(404, { error: 'not_found' });
