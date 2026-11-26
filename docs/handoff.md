@@ -118,3 +118,9 @@ Next: admin catalogue editor screen, wire/retire old menu editor, enquiry retent
 - Admin order view shows the balance due date (48 h before fulfilment, Chicago time) from `paymentPlan`, and flags when that deadline has already passed (owner-approved arrangement needed). Type-checked only; not clicked through in a browser.
 - E: home hero arch and orange disc replaced by a squared photo frame with an offset butter mat (decision taken per brief to restrain arches; reversible in src/styles/global.css `.arch`). Checked in Edge at 1280/390 px: no overflow. Not yet reviewed against the original logo or with the owner.
 - B (upload challenge): migration 0017 `upload_sessions`; `handleUpload` requires a verified Turnstile token (`X-Bot-Token`) for the first upload of a submission (session valid 1 h, purged after 24 h), before any bytes are read or rows reserved; provider outage is 503, never a pass. Enquiry form sends the token, then resets the widget for the final submit. Server proven by tests; the form change is type-checked only (not exercised in a browser against real Turnstile).
+
+## 2026-11-26 — Browser walkthroughs of owner flows (local stack, Edge, 390px, test data only)
+- Prices tab: invalid price rejected, draft save, publish, version history; no console errors, no overflow. Layout compacted in 6cd1afb (two-column price groups).
+- Order view: quote 40 days out shows "Balance due by … Chicago time (48 hours before pickup)"; quote for tomorrow shows the rush message; erase with a wrong reference is refused, with the right reference the payload is anonymised and the detail view no longer shows the customer.
+- Not covered: real Turnstile on the upload challenge, the public /api/catalogue route (not served by worker/local.ts), staging/production.
+- Local note: an older wrangler dev from the main repo folder can hold port 8787; run the scratch stack on another port and point astro's dev proxy at it.
