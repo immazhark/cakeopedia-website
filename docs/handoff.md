@@ -124,3 +124,9 @@ Next: admin catalogue editor screen, wire/retire old menu editor, enquiry retent
 - Order view: quote 40 days out shows "Balance due by … Chicago time (48 hours before pickup)"; quote for tomorrow shows the rush message; erase with a wrong reference is refused, with the right reference the payload is anonymised and the detail view no longer shows the customer.
 - Not covered: real Turnstile on the upload challenge, the public /api/catalogue route (not served by worker/local.ts), staging/production.
 - Local note: an older wrangler dev from the main repo folder can hold port 8787; run the scratch stack on another port and point astro's dev proxy at it.
+
+## 2026-11-26 — Performance measurement (emulated, not field data)
+- Method: built site served locally, Edge, Pixel 7 profile, slow-4G throttle (1.6 Mbps, 150 ms) and 4x CPU slowdown; LCP/CLS via PerformanceObserver. Lab emulation only.
+- Text pages (menu, FAQ, size guide, care, story, enquiry): 76–90 KB, 4 requests, no first-party JavaScript, CLS 0, LCP 0.9–1.3 s. Fonts 56 KB on every page.
+- Home: 410 KB (326 KB images), LCP 3.3 s before; after `fetchpriority="high"` on the eager hero image 1.9–2.3 s over three runs, CLS 0.002. /creations/: 699 KB (609 KB images), LCP 1.5–1.8 s.
+- Not measured: real devices, field data, the Turnstile script cost on /enquiry/ (third party, loaded at runtime).
