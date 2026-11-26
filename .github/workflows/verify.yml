@@ -47,6 +47,7 @@ jobs:
       - run: npm run check:browser
         env:
           BROWSER_CHANNEL: chrome
+          SKIP_IMAGE_CHECK: '1' # no photos in the repository by policy
       - name: Server logs on failure
         if: failure()
         run: tail -n 60 api.log web.log

@@ -8,6 +8,9 @@ const axePath = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
 
 const BASE = process.env.BASE ?? 'http://127.0.0.1:4321', out = process.argv[2] ?? 'browser-check-out';
 mkdirSync(out, { recursive: true });
+// CI has no photos (original and processed media are kept out of Git), so it sets SKIP_IMAGE_CHECK=1; local runs stay strict.
+const SKIP_IMAGES = process.env.SKIP_IMAGE_CHECK === '1';
+if (SKIP_IMAGES) console.log('NOTE broken-image check skipped (SKIP_IMAGE_CHECK=1)');
 const failures = [];
 const check = (ok, msg) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${msg}`); if (!ok) failures.push(msg); };
 
@@ -25,9 +28,10 @@ try {
     for (const path of ['/', '/creations/', '/story/', '/enquiry/', '/collections/floral/', '/menu/', '/faq/', '/size-guide/', '/cake-care/']) {
       // 'load', not 'networkidle': the dev build mounts the real Turnstile widget, which keeps a connection open
       await page.goto(BASE + path, { waitUntil: 'load' });
-      await page.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 600) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 40)); } });
+      const scrollAll = () => page.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 600) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 40)); } });
+      await scrollAll().catch(async () => { await page.waitForLoadState('load'); await scrollAll(); }); // a fresh dev server can reload once while it optimises dependencies
       const m = await page.evaluate(() => ({ over: document.documentElement.scrollWidth - innerWidth, vw: innerWidth, broken: [...document.images].filter((i) => i.complete && i.naturalWidth === 0).length }));
-      check(m.vw === width && m.over <= 0 && m.broken === 0, `${path} @${width}: viewport ${m.vw}, overflow ${m.over}px, broken images ${m.broken}`);
+      check(m.vw === width && m.over <= 0 && (m.broken === 0 || SKIP_IMAGES), `${path} @${width}: viewport ${m.vw}, overflow ${m.over}px, broken images ${m.broken}`);
       if (width === 390 && path === '/') await page.screenshot({ path: `${out}/home-390.png` });
       if (width === 390) await axeScan(page, path);
     }
@@ -90,6 +94,10 @@ try {
   await page.goto(BASE + '/admin/', { waitUntil: 'networkidle' });
   // Prices journey: the draft is private, a bad price is refused, a saved draft can be published, and the page stays within the viewport.
   await page.locator('#inbox').waitFor();
+  if (!(await page.locator('#inbox ul button.row').count())) { // a fresh database has no enquiries: add one test enquiry so the detail checks run
+    await page.evaluate(() => fetch('/admin/api/enquiries', { method: 'POST', headers: { 'X-Cakeopedia-Admin': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Browser Check', contact: { kind: 'instagram', value: '@browser.check' }, dateUndecided: true, notes: 'Test data' }) }));
+    await page.reload({ waitUntil: 'networkidle' }); await page.locator('#inbox ul button.row').first().waitFor({ timeout: 8000 });
+  }
   await axeScan(page, '/admin/ enquiries');
   await page.getByRole('button', { name: 'Prices', exact: true }).click();
   await page.locator('#prices input').first().waitFor({ timeout: 8000 });
