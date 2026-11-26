@@ -6,6 +6,7 @@ import type { AccessConfig } from '../worker/auth.ts';
 import { defaultCatalogue, parseCatalogue } from '../src/data/catalogue.ts';
 import { handlePublicCatalogue } from '../worker/catalogue.ts';
 import { handleInbox, type InboxDb } from '../worker/inbox.ts';
+import { purgeExpiredEnquiries, retentionDays } from '../worker/erase.ts';
 
 const ISS = 'https://synthetic.cloudflareaccess.invalid', AUD = 'a', ORIGIN = 'https://admin.example.invalid', OWNER = 'owner@example.invalid', NOW = 1_800_000_000;
 const b64u = (b: ArrayBuffer | string) => Buffer.from(typeof b === 'string' ? b : new Uint8Array(b)).toString('base64url');
@@ -340,4 +341,29 @@ test('erase: a confirmed order must be closed first', async () => {
   const { id, ref } = await seedPersonal();
   assert.equal((await call(url(id, 'status'), 'POST', { status: 'confirmed', expected: 'new' })).status, 200);
   assert.deepEqual(await json(await call(url(id, 'erase'), 'POST', { confirmReference: ref })), { error: 'order_active' });
+});
+
+// ---- retention: only enquiries the owner closed, and only after the configured quiet period
+test('retention setting: off unless a whole number of at least 30 days', () => {
+  for (const v of [undefined, '', '0', '29', '1.5', '-5', 'abc', '90d', '999999']) assert.equal(retentionDays(v), null, String(v));
+  assert.equal(retentionDays('30'), 30); assert.equal(retentionDays('365'), 365);
+});
+test('retention erases old closed enquiries only; open, confirmed and recent ones stay; storage failure is retried; repeat is a no-op', async () => {
+  const DAY = 86_400_000, now = 400 * DAY;
+  const event = (id: string, status: string, at: number) => db.prepare('INSERT INTO enquiry_events (id, enquiry_id, status, created_at, actor, note) VALUES (?,?,?,?,?,?)').bind(crypto.randomUUID(), id, status, at, 't', 'private note').run();
+  const oldClosed = await seedPersonal(), recentClosed = await seedPersonal(), oldConfirmed = await seedPersonal(), oldOpen = await seedPersonal();
+  await event(oldClosed.id, 'closed', 1000); await event(recentClosed.id, 'closed', now - 5 * DAY);
+  await event(oldConfirmed.id, 'confirmed', 1000); await event(oldOpen.id, 'replied', 1000);
+  const name = async (id: string) => JSON.parse((await db.prepare('SELECT payload_json AS p FROM enquiries WHERE id = ?').bind(id).first<{ p: string }>())!.p).name;
+  const deleted: string[] = []; let fail = true;
+  const bucket = { delete: async (k: string) => { if (fail) throw new Error('r2 down'); deleted.push(k); } };
+  assert.deepEqual(await purgeExpiredEnquiries(spy as never, bucket, now, 90), { erased: 0, failed: 1 }); // storage down: data stays, will retry
+  assert.equal(await name(oldClosed.id), 'Real Person');
+  fail = false;
+  assert.deepEqual(await purgeExpiredEnquiries(spy as never, bucket, now, 90), { erased: 1, failed: 0 });
+  assert.deepEqual(deleted, [oldClosed.key]);
+  assert.equal(await name(oldClosed.id), 'Erased customer');
+  for (const kept of [recentClosed, oldConfirmed, oldOpen]) assert.equal(await name(kept.id), 'Real Person');
+  assert.equal((await db.prepare('SELECT count(*) AS n FROM quotes WHERE enquiry_id = ?').bind(oldClosed.id).first<{ n: number }>())!.n, 1); // money records stay
+  assert.deepEqual(await purgeExpiredEnquiries(spy as never, bucket, now, 90), { erased: 0, failed: 0 });
 });

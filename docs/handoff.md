@@ -135,3 +135,9 @@ Next: admin catalogue editor screen, wire/retire old menu editor, enquiry retent
 - Provider verification: `wrangler whoami` reports not authenticated on this machine, so Cloudflare Access, Turnstile, D1, R2 and Resend could NOT be verified independently. Blocker: the owner runs `! npx wrangler login` (interactive) in this session, or supplies read-only access. Nothing was created, changed or deployed.
 - CI: new `browser` job (verify.yml) runs `npm run check:browser` on every pull request against the local stack (throwaway D1/R2, test data only) with the runner's Chrome: layout at 320/390/430, keyboard-only, reduced motion, axe WCAG A/AA on public and owner pages, Prices journey, enquiry detail. `SKIP_IMAGE_CHECK=1` is set there only because photos are not in Git by policy; local runs stay strict. Green on 8d6f780 (verify and browser).
 - SEO: enquiry thank-you page noindex, descriptive titles/descriptions, built-output test for unique titles and description length (6510469).
+
+## 2026-11-26 — Retention job (E05, built, OFF until the owner chooses a period)
+- worker/erase.ts: `eraseEnquiry` extracted from the HTTP route (behaviour unchanged, existing erase tests pass); `purgeExpiredEnquiries` erases enquiries whose current status is `closed` and whose last event is older than `RETENTION_DAYS`, 20 per run, failures leave data for the next run. `retentionDays()` accepts only whole numbers >= 30. Wired into the scheduled handler in worker/live.ts; no env value means no purging.
+- Tests (tests/orders.test.ts): setting parser; old closed erased, recent closed/confirmed/open untouched, storage failure retried, financial rows kept, repeat is a no-op.
+- Owner decision still needed: the period, and whether never-closed old enquiries should be handled (currently never auto-deleted). Restore drill should come before enabling.
+

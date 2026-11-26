@@ -4,6 +4,7 @@ import { canonicalClientNetwork } from './client-network.ts';
 import { handleEnquiry } from './enquiries.ts';
 import { handleInbox, type PrivateBucket } from './inbox.ts';
 import { runConfiguredMaintenance } from './maintenance-runtime.ts';
+import { purgeExpiredEnquiries, retentionDays } from './erase.ts';
 import { createRateLimiter } from './rate-limit.ts';
 import { EnquiryStore, type Database } from './store.ts';
 import { createTurnstileVerifier } from './turnstile.ts';
@@ -19,7 +20,7 @@ export type Env = Opt<{
   LIVE_ENABLED?: string; SITE_ORIGIN?: string; ACCESS_ISSUER?: string; ACCESS_AUD?: string; OPERATORS?: string;
   TURNSTILE_SECRET?: string; RATE_SECRET?: string;
   RESEND_API_KEY?: string; MAIL_FROM?: string; OWNER_EMAIL?: string;
-  CATALOGUE_REBUILD_HOOK?: string; NOTIFICATIONS_ENABLED?: string; RATE_CLEANUP_ENABLED?: string; UPLOAD_CLEANUP_ENABLED?: string;
+  CATALOGUE_REBUILD_HOOK?: string; NOTIFICATIONS_ENABLED?: string; RATE_CLEANUP_ENABLED?: string; UPLOAD_CLEANUP_ENABLED?: string; RETENTION_DAYS?: string;
 }>;
 export interface Live { fetch(request: Request): Promise<Response>; scheduled(): Promise<void> }
 const POLICY = { enquiry: { clientLimit: 3, globalLimit: 60 }, upload: { clientLimit: 10, globalLimit: 100 }, delete: { clientLimit: 10, globalLimit: 100 } } as const;
@@ -66,6 +67,8 @@ function build(env: Env, transport: typeof fetch): Live | null {
     async scheduled() {
       await runConfiguredMaintenance(db, { notifications: env.NOTIFICATIONS_ENABLED, rateCleanup: env.RATE_CLEANUP_ENABLED }, notify, transport);
       if (env.UPLOAD_CLEANUP_ENABLED === '1') await purgeOrphans(db, bucket, Date.now()).catch(() => undefined);
+      const keep = retentionDays(env.RETENTION_DAYS); // off unless the owner set a period of at least 30 days
+      if (keep !== null) await purgeExpiredEnquiries(db as never, bucket as never, Date.now(), keep).catch(() => undefined);
     },
   };
 }

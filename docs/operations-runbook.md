@@ -6,7 +6,7 @@ Status: written from the code, not from a live system. No provider account was i
 
 - The Worker is closed unless **every** one of these is present: `LIVE_ENABLED=1`, bindings `DB` and `UPLOADS`, `SITE_ORIGIN` (https, origin only), `ACCESS_ISSUER`, `ACCESS_AUD`, `OPERATORS`, secrets `TURNSTILE_SECRET` and `RATE_SECRET`. Anything missing or malformed returns 503 `intake_not_enabled`; it never half-opens (worker/live.ts).
 - The public form is closed in production builds unless `PUBLIC_ENQUIRY_FORM=on` (src/pages/enquiry.astro). Open form builds also need a real `PUBLIC_TURNSTILE_SITE_KEY` (test keys fail the build).
-- Optional switches, each off unless exactly `1`: `NOTIFICATIONS_ENABLED`, `RATE_CLEANUP_ENABLED`, `UPLOAD_CLEANUP_ENABLED`. Mail needs `RESEND_API_KEY`, `MAIL_FROM`, `OWNER_EMAIL`. `CATALOGUE_REBUILD_HOOK` (optional) is a deploy-hook URL called after a price publish.
+- Optional switches, each off unless exactly `1`: `NOTIFICATIONS_ENABLED`, `RATE_CLEANUP_ENABLED`, `UPLOAD_CLEANUP_ENABLED`. Mail needs `RESEND_API_KEY`, `MAIL_FROM`, `OWNER_EMAIL`. `RETENTION_DAYS` (a whole number of at least 30; anything else leaves retention off) makes each scheduled run erase enquiries the owner has explicitly closed that have been quiet that long, up to 20 per run, using the same erasure as the owner action (financial records stay; open, replied, quoted and confirmed enquiries are never touched). The owner must choose the period before it is set. `CATALOGUE_REBUILD_HOOK` (optional) is a deploy-hook URL called after a price publish.
 - **Emergency stop for intake:** set `LIVE_ENABLED` to anything other than `1` (or remove it) and redeploy/update the variable. Enquiries stop; the static site stays up. UNVERIFIED.
 
 ## 2. Components
@@ -50,7 +50,7 @@ A production Wrangler config does not exist yet; only `wrangler.local.jsonc` (lo
 ## 6. Backup and restore (UNVERIFIED, required before live intake)
 
 - D1 has seven-day Time Travel on the free plan; that is not an independent backup (docs/service-register.md).
-- Needed: a scheduled encrypted export of D1 (and R2 objects for attachments) to storage outside the account, plus one restore drill proving at most 24 hours of data loss and one working day to restore (docs/backlog.md E05). Not built yet; retention periods need the owner's decision first.
+- Needed: a scheduled encrypted export of D1 (and R2 objects for attachments) to storage outside the account, plus one restore drill proving at most 24 hours of data loss and one working day to restore (docs/backlog.md E05). Export and drill are not built yet. The automatic retention job exists (`RETENTION_DAYS`, section 1) but stays off until the owner chooses a period; take and test a restore before turning it on, because erasure is permanent.
 - After any restore, re-apply erasures: an enquiry whose payload has `erased: true` must stay erased.
 
 ## 7. Routine owner and operator actions
@@ -62,6 +62,6 @@ A production Wrangler config does not exist yet; only `wrangler.local.jsonc` (lo
 
 ## 8. Known gaps
 
-- No production Wrangler config, no provider verification, no external backup, no monitoring or alerting, no automatic retention job.
+- No production Wrangler config, no provider verification, no external backup, no monitoring or alerting; the retention job is built but off until the owner sets a period.
 - Upload challenge not yet exercised against real Turnstile.
 - Business email contact@cakeopedia.com is approved but not provisioned, and is not published.
