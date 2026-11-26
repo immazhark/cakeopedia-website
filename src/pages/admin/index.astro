@@ -22,7 +22,7 @@ import Base from '../../layouts/Base.astro';
   <noscript><p class="wrap">This area needs JavaScript.</p></noscript>
   <script>
     // Phone-first owner screens. All authority lives on the server: this page only calls the authenticated API.
-    import { splitPayment } from '../../data/pricing';
+    import { paymentPlan, splitPayment } from '../../data/pricing';
     type Json = Record<string, any>;
     const $ = (id: string) => document.getElementById(id)!;
     const money = (c: number) => '$' + (c / 100).toFixed(2);
@@ -133,7 +133,7 @@ import Base from '../../layouts/Base.astro';
       for (const x of o.payments as Json[]) pay.append(h('li', {}, `${x.kind} ${money(x.amountCents)} received ${x.receivedOn}${x.note ? ' · ' + x.note : ''}`, ...(x.voidedAt ? [h('span', { class: 'badge' }, 'voided: ' + x.voidReason)] : [voidControl(id, x)])));
       const pk = select([['deposit', 'Deposit'], ['balance', 'Balance']]), pa = input('text', { inputmode: 'decimal' }), pd = input('date'), pnote = input('text', { maxlength: '500' }), prid = crypto.randomUUID();
       root.append(h('h3', {}, 'Payments'), h('p', { class: 'hint' }, 'Record a payment only after you have seen it arrive in Zelle. Nothing here checks payments automatically.'),
-        h('p', {}, q ? `Paid ${money(o.paidCents)} of ${money(q.totalCents)} · balance ${money(o.balanceCents)}` : 'Add a quote to see the balance.'), pay,
+        h('p', {}, q ? `Paid ${money(o.paidCents)} of ${money(q.totalCents)} · balance ${money(o.balanceCents)}` : 'Add a quote to see the balance.'), ...(q ? [balanceDue(q)] : []), pay,
         h('div', { class: 'form' }, field('Type', pk), field('Amount ($)', pa), field('Date received', pd), field('Note (optional)', pnote), btn('Record payment', async () => {
           const a = cents(pa.value); if (a === null || a < 1 || !pd.value) return notice('Enter an amount and the date it arrived.');
           const r5 = await api(`/admin/api/enquiries/${id}/payments`, 'POST', { requestId: prid, kind: pk.value, amountCents: a, receivedOn: pd.value, note: pnote.value || null }); if (r5.ok) openDetail(id); else if (r5.status) notice(r5.data.error === 'exceeds_balance' ? `That is more than the balance (${money(r5.data.balanceCents)}).` : r5.data.error === 'no_quote' ? 'Save a quote first.' : 'Please check the payment details.');
@@ -261,6 +261,12 @@ import Base from '../../layouts/Base.astro';
         box.append(list); root.append(box);
       }
       ($('menu').querySelector('input') as HTMLElement).focus();
+    }
+    // Remaining 50% is due 48 hours before pickup or delivery (Chicago time). Accepted inside that window = owner-approved arrangement.
+    function balanceDue(q: Json) {
+      const plan = paymentPlan({ totalCents: q.totalCents, fulfilDate: q.date, ...(q.time ? { fulfilTime: q.time } : {}), acceptedAt: Date.now() });
+      const due = new Date(plan.balanceDueAt).toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' });
+      return h('p', { class: 'hint' }, plan.rush ? `The usual balance deadline (${due} Chicago time) has passed. Agree the payment arrangement with the customer.` : `Balance due by ${due} Chicago time (48 hours before ${q.fulfilment}).`);
     }
     // ---- prices: edit a private draft, publish the exact saved draft, restore an earlier published version. The public site only ever sees published versions.
     async function loadPrices() {
