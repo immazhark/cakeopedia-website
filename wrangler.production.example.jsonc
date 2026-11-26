@@ -1,0 +1,44 @@
+// TEMPLATE ONLY. Copy to wrangler.jsonc and replace the placeholders after the Cloudflare resources have been verified or created
+// (docs/operations-runbook.md, section 3). Nothing here is a real resource ID, and secrets never belong in this file.
+// Secrets are set separately with `wrangler secret put`: TURNSTILE_SECRET, RATE_SECRET (64 hex characters), RESEND_API_KEY.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cakeopedia",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-07-30",
+  "workers_dev": false,
+  "preview_urls": false,
+
+  // The static site (build with PUBLIC_SITE_ENV=production). Only the API paths run the Worker first; everything else is served as static assets.
+  "assets": {
+    "directory": "./dist",
+    "run_worker_first": ["/api/*", "/admin/api/*", "/health"],
+    "not_found_handling": "404-page"
+  },
+
+  "d1_databases": [
+    { "binding": "DB", "database_name": "REPLACE_WITH_DATABASE_NAME", "database_id": "REPLACE_WITH_DATABASE_ID", "migrations_dir": "migrations" }
+  ],
+  "r2_buckets": [
+    { "binding": "UPLOADS", "bucket_name": "replace-with-private-bucket-name" } // private: no public access, no custom domain
+  ],
+
+  // Scheduled maintenance (notifications, rate-window cleanup, upload cleanup, retention). Each job still needs its own switch below.
+  "triggers": { "crons": ["*/5 * * * *"] },
+
+  // Non-secret settings. Intake stays closed while LIVE_ENABLED is anything other than "1" (emergency stop: change it and redeploy).
+  "vars": {
+    "LIVE_ENABLED": "0",
+    "SITE_ORIGIN": "https://REPLACE_WITH_DOMAIN",
+    "ACCESS_ISSUER": "https://REPLACE_WITH_TEAM.cloudflareaccess.com",
+    "ACCESS_AUD": "REPLACE_WITH_ACCESS_APPLICATION_AUD",
+    "OPERATORS": "REPLACE_WITH_OWNER_EMAIL",
+    "MAIL_FROM": "REPLACE_WITH_VERIFIED_SENDER",
+    "OWNER_EMAIL": "REPLACE_WITH_OWNER_EMAIL",
+    "NOTIFICATIONS_ENABLED": "0",
+    "RATE_CLEANUP_ENABLED": "1",
+    "UPLOAD_CLEANUP_ENABLED": "1"
+    // "RETENTION_DAYS": "REPLACE_WITH_DAYS_AT_LEAST_30"  (leave out until the owner chooses a period and a restore has been tested)
+    // "CATALOGUE_REBUILD_HOOK" is a secret URL: set it with `wrangler secret put CATALOGUE_REBUILD_HOOK`, not here.
+  }
+}

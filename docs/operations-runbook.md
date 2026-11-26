@@ -21,7 +21,7 @@ Status: written from the code, not from a live system. No provider account was i
 | Turnstile | bot check on submit and on the first upload | worker/turnstile.ts |
 | Resend | owner and customer notifications | worker/notification-sender.ts, worker/notification-scheduler.ts |
 
-A production Wrangler config does not exist yet; only `wrangler.local.jsonc` (local emulator, test data) is in the repository. Creating `wrangler.jsonc` with real resource IDs needs account access and is a precondition for the steps below.
+`wrangler.local.jsonc` (local emulator, test data) is the only working config. `wrangler.production.example.jsonc` is a template with placeholder IDs and no secrets (closed by default, only `/api/*`, `/admin/api/*` and `/health` run the Worker first, one 5-minute cron). A dry-run deploy of it validated and bundled offline (215 static files, six bindings); a test keeps it in step with the settings the Worker reads. Copying it to `wrangler.jsonc` with real resource IDs needs account access and is a precondition for the steps below. Note `/admin/` pages are static assets, so only the Cloudflare Access policy on `/admin/*` protects them; the Worker protects `/admin/api/*`.
 
 ## 3. Before first live use (UNVERIFIED unless marked)
 
