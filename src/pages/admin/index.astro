@@ -139,6 +139,15 @@ import Base from '../../layouts/Base.astro';
           const a = cents(pa.value); if (a === null || a < 1 || !pd.value) return notice('Enter an amount and the date it arrived.');
           const r5 = await api(`/admin/api/enquiries/${id}/payments`, 'POST', { requestId: prid, kind: pk.value, amountCents: a, receivedOn: pd.value, note: pnote.value || null }); if (r5.ok) openDetail(id); else if (r5.status) notice(r5.data.error === 'exceeds_balance' ? `That is more than the balance (${money(r5.data.balanceCents)}).` : r5.data.error === 'no_quote' ? 'Save a quote first.' : 'Please check the payment details.');
         })));
+      // erase personal data (financial records stay); the owner must type the reference, and an active confirmed order must be closed first
+      if (!p.erased) {
+        const ref = input('text', { autocomplete: 'off', placeholder: String(e.reference) });
+        root.append(h('h3', {}, 'Erase customer data'), h('p', { class: 'hint' }, 'Removes the name, contact details, request text, pictures and notes. Amounts and dates of quotes and payments are kept. This cannot be undone. Type the reference above to confirm.'),
+          h('div', { class: 'form' }, field('Reference', ref), btn('Erase customer data', async () => {
+            const r6 = await api(`/admin/api/enquiries/${id}/erase`, 'POST', { confirmReference: ref.value.trim() });
+            if (r6.ok) { notice(''); openDetail(id); } else if (r6.status) notice(r6.data.error === 'order_active' ? 'Close this order first, then erase.' : r6.data.error === 'confirmation_mismatch' ? 'The reference does not match.' : 'Could not finish erasing. Please tap the button again; it is safe to repeat.');
+          }, 'btn btn--ghost')));
+      }
       refocus(root, Math.max(fi, 0)); // same control after an update; the Back button when first opened
     }
 

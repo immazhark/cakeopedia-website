@@ -25,11 +25,12 @@ before(async () => {
 });
 after(async () => { await mf?.dispose(); });
 
+let inboxBucket: { get(k: string): Promise<null>; delete(k: string): Promise<void> } | undefined;
 let rebuildHook: (() => Promise<boolean>) | undefined;
 const call = (path: string, method = 'GET', body?: object, jwt: string | null = token) => handleInbox(new Request(`${ORIGIN}${path}`, {
   method, ...(body ? { body: JSON.stringify(body) } : {}),
   headers: { ...(jwt ? { 'Cf-Access-Jwt-Assertion': jwt } : {}), ...(method !== 'GET' ? { Origin: ORIGIN, 'X-Cakeopedia-Admin': '1', 'Content-Type': 'application/json' } : {}) },
-}), spy as unknown as InboxDb, cfg, () => 7000, undefined, rebuildHook);
+}), spy as unknown as InboxDb, cfg, () => 7000, inboxBucket, rebuildHook);
 // Fault injection: run a competing operation once, immediately before the first statement matching `match`.
 let race: { match: RegExp; run: () => Promise<unknown> } | null = null;
 const wrap = (st: any, sql: string): any => new Proxy(st, { get: (t, k) => k === 'bind' ? (...a: unknown[]) => wrap(t.bind(...a), sql) : k === 'sql' ? sql : k === 'run' ? async () => { await fire(sql); return t.run(); } : k === 'first' ? async () => { await fire(sql); return t.first(); } : Reflect.get(t, k) });
@@ -295,4 +296,48 @@ test('catalogue: rollback appends history, needs the current version, and concur
 });
 test('catalogue: oversized bodies are refused', async () => {
   assert.equal((await call('/admin/api/catalogue', 'PUT', { expectedRevision: 4, catalogue: cat({ junk: 'x'.repeat(70_000) }) })).status, 413);
+});
+
+// ---- erasure keeps financial evidence and removes everything that identifies the customer
+async function seedPersonal() {
+  const id = await seed();
+  await db.prepare('UPDATE enquiries SET payload_json = ? WHERE id = ?').bind(JSON.stringify({ name: 'Real Person', contact: { kind: 'email', value: 'real@example.invalid' }, notes: 'private words' }), id).run();
+  await call(url(id, 'quote'), 'POST', quote({ totalCents: 20000, depositCents: 5000, designNotes: 'her mother is called Rose', prepNotes: 'allergic to nuts' }));
+  await pay(id, 5000, { note: 'Zelle from Real Person' });
+  const key = `u/${crypto.randomUUID()}`;
+  await db.prepare('INSERT INTO uploads (id, submission_id, object_key, content_type, bytes, created_at, enquiry_id, ready_at) VALUES (?,?,?,?,?,?,?,?)').bind(crypto.randomUUID(), crypto.randomUUID(), key, 'image/png', 10, 1, id, 1).run();
+  await db.prepare('INSERT INTO notification_outbox (id, enquiry_id, recipient_role, next_attempt_at) VALUES (?,?,?,?)').bind(`${id}:customer`, id, 'customer', 1).run();
+  await db.prepare("INSERT INTO notification_snapshots (event_id, kind, payload, created_at) VALUES (?, 'send', ?, 1)").bind(`${id}:customer`, JSON.stringify({ to: 'real@example.invalid' })).run();
+  return { id, key, ref: (await db.prepare('SELECT public_reference AS r FROM enquiries WHERE id = ?').bind(id).first<{ r: string }>())!.r };
+}
+test('erase: wrong reference refused, active confirmed order blocked, failed storage delete leaves data and is retryable', async () => {
+  const { id, key, ref } = await seedPersonal(); const deleted: string[] = []; let fail = true;
+  inboxBucket = { get: async () => null, delete: async (k) => { if (fail) throw new Error('r2 down'); deleted.push(k); } };
+  assert.equal((await call(url(id, 'erase'), 'POST', { confirmReference: 'CK-wrong' })).status, 400);
+  assert.equal((await call(url(id, 'erase'), 'POST', {})).status, 400);
+  assert.equal((await call(url(id, 'erase'), 'POST', { confirmReference: ref })).status, 503);
+  assert.match((await db.prepare('SELECT payload_json AS p FROM enquiries WHERE id = ?').bind(id).first<{ p: string }>())!.p, /Real Person/); // nothing erased yet
+  fail = false;
+  const r = await call(url(id, 'erase'), 'POST', { confirmReference: ref });
+  assert.equal(r.status, 200); assert.deepEqual(deleted, [key]);
+  inboxBucket = undefined;
+});
+test('erase: personal data gone, money records and versions kept, queue stopped, repeat is safe', async () => {
+  const { id, ref } = await seedPersonal(); const deleted: string[] = [];
+  inboxBucket = { get: async () => null, delete: async (k) => { deleted.push(k); } };
+  assert.equal((await call(url(id, 'erase'), 'POST', { confirmReference: ref })).status, 200);
+  assert.equal((await call(url(id, 'erase'), 'POST', { confirmReference: ref })).status, 200);
+  const dump = async (sql: string, v: string) => (await db.prepare(sql).bind(v).all()).results;
+  const all = JSON.stringify([await dump('SELECT * FROM enquiries WHERE id = ?', id), await dump('SELECT * FROM enquiry_events WHERE enquiry_id = ?', id), await dump('SELECT * FROM quotes WHERE enquiry_id = ?', id),
+    await dump('SELECT * FROM payments WHERE enquiry_id = ?', id), await dump('SELECT * FROM uploads WHERE enquiry_id = ?', id), await dump('SELECT * FROM notification_snapshots WHERE event_id = ?', `${id}:customer`)]);
+  assert.doesNotMatch(all, /Real Person|real@example|private words|Rose|allergic|Zelle from/);
+  const s = (await json<{ order: { quote: { totalCents: number; version: number }; paidCents: number }; status: string; events: { status: string }[] }>(await call(`/admin/api/enquiries/${id}`)));
+  assert.deepEqual([s.order.quote.totalCents, s.order.quote.version, s.order.paidCents, s.status, s.events.filter((e) => e.status === 'closed').length], [20000, 1, 5000, 'closed', 1]);
+  assert.equal((await db.prepare("SELECT state FROM notification_outbox WHERE id = ?").bind(`${id}:customer`).first<{ state: string }>())!.state, 'failed');
+  inboxBucket = undefined;
+});
+test('erase: a confirmed order must be closed first', async () => {
+  const { id, ref } = await seedPersonal();
+  assert.equal((await call(url(id, 'status'), 'POST', { status: 'confirmed', expected: 'new' })).status, 200);
+  assert.deepEqual(await json(await call(url(id, 'erase'), 'POST', { confirmReference: ref })), { error: 'order_active' });
 });

@@ -1,6 +1,7 @@
 import { authorize, type AccessConfig } from './auth.ts';
 import { CURRENT, changed, isStatus, out, uuid, type AdminDb, type Status } from './admin-common.ts';
 import { routeCatalogue } from './catalogue.ts';
+import { routeErase } from './erase.ts';
 import { routeMenu } from './menu.ts';
 import { CONFIRM_OK, confirmBlocker, orderSummary, routeOrders } from './orders.ts';
 
@@ -10,7 +11,7 @@ export type InboxDb = AdminDb;
 export { STATUSES } from './admin-common.ts';
 export interface PrivateBucket { get(key: string): Promise<{ body: ReadableStream } | null> }
 
-export async function handleInbox(request: Request, db: AdminDb, cfg: AccessConfig, now: () => number = Date.now, bucket?: PrivateBucket, rebuild?: () => Promise<boolean>): Promise<Response> {
+export async function handleInbox(request: Request, db: AdminDb, cfg: AccessConfig, now: () => number = Date.now, bucket?: PrivateBucket & { delete?(key: string): Promise<void> }, rebuild?: () => Promise<boolean>): Promise<Response> {
   const op = await authorize(request, cfg);
   if (!op.ok) return op.response;
   const url = new URL(request.url);
@@ -19,6 +20,8 @@ export async function handleInbox(request: Request, db: AdminDb, cfg: AccessConf
     if (order) return order;
     const menu = await routeMenu(request, db, now, url);
     if (menu) return menu;
+    const erase = await routeErase(request, db, op.email, now, url, bucket?.delete ? { delete: (k) => bucket.delete!(k) } : undefined);
+    if (erase) return erase;
     const catalogue = await routeCatalogue(request, db, op.email, now, url, rebuild);
     if (catalogue) return catalogue;
     const pic = url.pathname.match(/^\/admin\/api\/uploads\/([^/]+)$/);
