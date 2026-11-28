@@ -26,7 +26,8 @@ test('every indexable page: one h1, self canonical on the https origin with trai
     assert.equal(h.match(/property="og:url" content="([^"]*)"/)?.[1], canon, `${f}: og:url`);
     const img = h.match(/property="og:image" content="([^"]*)"/)?.[1] ?? '';
     assert.match(img, /^https:\/\/cakeopedia\.com\/media\//, `${f}: og:image`);
-    assert.ok(existsSync(join(prod, new URL(img).pathname)), `${f}: og:image file missing`);
+    // CI has no photos by policy (SKIP_IMAGE_CHECK=1); local runs stay strict so a missing share image is caught before release.
+    if (process.env.SKIP_IMAGE_CHECK !== '1') assert.ok(existsSync(join(prod, new URL(img).pathname)), `${f}: og:image file missing`);
     assert.match(h, /name="twitter:card" content="summary_large_image"/);
     for (const t of ['title', 'description', 'image']) assert.match(h, new RegExp(`name="twitter:${t}"`), `${f}: twitter:${t}`);
   }

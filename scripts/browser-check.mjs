@@ -16,6 +16,8 @@ const check = (ok, msg) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${msg}`); if (
 
 const axeScan = async (page, label) => { // automated accessibility rules (axe-core, WCAG A/AA tags); every violation fails the check
   await page.addScriptTag({ path: axePath });
+  // Scan from the top: axe's target-size rule fails any target partly under a sticky bar, so the result would otherwise depend on where the last click left the scroll.
+  await page.evaluate(() => window.scrollTo(0, 0));
   const v = await page.evaluate(async () => (await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] } })).violations.map((x) => `${x.id} (${x.impact}) x${x.nodes.length}: ${x.nodes[0].target.join(' ')}`));
   check(v.length === 0, `${label} axe: ${v.length ? v.join(' | ') : 'no WCAG A/AA violations'}`);
 };
