@@ -30,7 +30,7 @@ async function devAdmin(request: Request, env: Env): Promise<Response> {
   const token = data + '.' + b64u(await crypto.subtle.sign('RSASSA-PKCS1-v1_5', pair.privateKey, new TextEncoder().encode(data)));
   const headers = new Headers(request.headers); headers.set('Cf-Access-Jwt-Assertion', token);
   const cfg: AccessConfig = { issuer: DEV.iss, audience: DEV.aud, operators: new Set([DEV.email]), getKeys: async () => [jwk], origin };
-  return handleInbox(new Request(request, { headers }), env.DB, cfg, Date.now, env.UPLOADS);
+  return handleInbox(new Request(request, { headers }), env.DB, cfg, Date.now, env.UPLOADS, async () => false); // local proof only: the rebuild hook always fails, so the owner's retry path is exercised
 }
 
 export default {

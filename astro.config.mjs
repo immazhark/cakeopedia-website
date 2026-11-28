@@ -13,7 +13,8 @@ const headers = [
   '  Permissions-Policy: camera=(), microphone=(), geolocation=()',
   "  Content-Security-Policy: frame-ancestors 'none'", // the meta CSP cannot set frame-ancestors
   '  X-Frame-Options: DENY',
-  ...(production ? [] : ['  X-Robots-Tag: noindex, nofollow']),
+  // HSTS only on a launch build, and short at first: raise it (and consider includeSubDomains) only after the live site has been checked. Never preload without an explicit decision.
+  ...(production ? ['  Strict-Transport-Security: max-age=86400'] : ['  X-Robots-Tag: noindex, nofollow']),
   '/admin/*',
   '  X-Robots-Tag: noindex, nofollow',
   '  Cache-Control: no-store',

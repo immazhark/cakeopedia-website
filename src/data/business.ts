@@ -1,7 +1,7 @@
 // Single source of truth for owner-supplied business facts (catalogue, add-ons, care, pending items).
 // Prices are integer USD cents; `null` means "not supplied" and must never render as $0 or an estimate.
 // Source: owner menus dated Jun–Aug 2024, treated as catalogue candidates until current availability is approved.
-import { celebrationFlavours, celebrationShapes, celebrationServings, browniePrice, brownieToppings, BROWNIE_TOPPING_CENTS, brownieSlabServings } from './pricing.ts';
+import { cupcakePrice, celebrationFlavours, celebrationShapes, celebrationServings, browniePrice, brownieToppings, BROWNIE_TOPPING_CENTS, brownieSlabServings } from './pricing.ts';
 export type Money = number | null;
 export interface Flavour { id: string; name: string; description: string }
 
@@ -34,7 +34,7 @@ export const celebrationCake = {
 } as const;
 
 export const cupcakes = {
-  id: 'cupcakes', name: 'Cupcakes', priceCents: null as Money, minimumQuantity: null as number | null, // no topping or filling surcharges
+  id: 'cupcakes', name: 'Cupcakes', dozenCents: cupcakePrice.dozenCents, minimumDozens: cupcakePrice.minimumDozens, sameFlavour: cupcakePrice.sameFlavour, // per dozen; no topping or filling surcharges
   options: [
     { base: 'Vanilla cupcakes with Swiss meringue buttercream', fillings: ['Butterscotch', 'Blueberry', 'Strawberry', 'Lemon curd', 'Caramel', 'Lotus Biscoff', 'Rasmalai'] },
     { base: 'Chocolate cupcakes with chocolate ganache', fillings: ['Nutella', 'Lotus Biscoff'] },
@@ -86,8 +86,8 @@ export const paymentTerms = [
 // Still open, and not core business facts: one place for the remaining decision register.
 export const pending = [
   'Current availability of each menu item (menus are dated Jun–Aug 2024)',
-  'Cupcake price and minimum quantity; whether caramel and chocolate ganache are separate cupcake fillings',
+  'Whether caramel and chocolate ganache are separate cupcake fillings',
   'Delivery area detail (ZIP codes), delivery charges, pickup days, weekend availability',
-  'Final customer-facing policy wording and legal review; business email provisioning',
-  'Product-specific refrigeration, shelf life and allergen matrix; Texas cottage food requirements',
+  'Final customer-facing policy wording and legal review (business email contact@cakeopedia.com is live and verified)',
+  'Product-specific refrigeration, shelf life and allergen matrix; Texas cottage food: DSHS rules verified 27 Nov 2026 (docs/compliance-texas-cottage-food.md), owner to confirm TCS items, food handler training and label address versus DSHS number',
 ] as const;

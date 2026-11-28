@@ -59,3 +59,10 @@ test('upload sessions record only an HMAC pseudonym of the client, stable per ad
   const all = JSON.stringify((await db.prepare('SELECT * FROM upload_sessions').all()).results);
   assert.doesNotMatch(all, /203\.0\.113|198\.51\.100/); // no raw address is stored
 });
+
+test('scheduled run records each enabled job so a failing job is visible', async () => {
+  const at = Date.now();
+  await liveHandler(env({ RATE_CLEANUP_ENABLED: '1', UPLOAD_CLEANUP_ENABLED: '1' }), siteverify)!.scheduled();
+  const { results } = await db.prepare("SELECT job, last_state AS s FROM maintenance_runs WHERE last_run_at >= ? ORDER BY job").bind(at).all<{ job: string; s: string }>();
+  assert.deepEqual(results.map((r: { job: string; s: string }) => [r.job, r.s]), [['rate_cleanup', 'completed'], ['upload_cleanup', 'completed']]);
+});

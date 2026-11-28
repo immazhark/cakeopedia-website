@@ -20,7 +20,7 @@ test('transmits the frozen bytes and same idempotency key on retries', async () 
     assert.equal(headers.get('Idempotency-Key'), key);
     assert.equal(headers.get('Authorization'), 'Bearer test-secret');
     assert.equal(request.body, message);
-    assert.equal(request.redirect, 'error');
+    assert.equal(request.redirect, 'manual');
   }
 });
 

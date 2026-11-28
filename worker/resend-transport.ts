@@ -50,7 +50,7 @@ export async function sendResendEmail(apiKey: string, key: string, serializedPay
   const request = async (): Promise<Delivery> => {
     try {
       const response = await transport(endpoint, {
-        method: 'POST', redirect: 'error', signal: controller.signal,
+        method: 'POST', redirect: 'manual', signal: controller.signal,
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Idempotency-Key': key },
         body: serializedPayload,
       });

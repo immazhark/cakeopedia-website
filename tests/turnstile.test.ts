@@ -8,7 +8,7 @@ const reply=(value:unknown,status=200)=>new Response(JSON.stringify(value),{stat
 test('validates token at fixed Siteverify endpoint and checks hostname and action',async()=>{
   const verify=createTurnstileVerifier(config,async(url,init)=>{
     assert.equal(url,'https://challenges.cloudflare.com/turnstile/v0/siteverify');
-    assert.equal(init?.method,'POST');assert.equal(init?.redirect,'error');
+    assert.equal(init?.method,'POST');assert.equal(init?.redirect,'manual');
     const body=new URLSearchParams(String(init?.body));
     assert.equal(body.get('secret'),config.secret);assert.equal(body.get('response'),'challenge');
     assert.equal(body.get('remoteip'),null);

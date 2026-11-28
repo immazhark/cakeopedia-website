@@ -5,7 +5,7 @@ import Base from '../../layouts/Base.astro';
   <div class="wrap admin" id="admin">
     <div class="page-head" style="padding-block:var(--space-4) var(--space-3)">
       <p class="eyebrow">Owner area</p>
-      <h1 style="font-size:var(--step-3)">Enquiries &amp; orders</h1>
+      <h1 style="font-size:var(--step-3)">Orders, calendar and prices</h1>
     </div>
     <div class="tabs" role="group" aria-label="Section">
       <button class="chip" type="button" data-tab="inbox" aria-pressed="true">Enquiries</button>
@@ -22,7 +22,7 @@ import Base from '../../layouts/Base.astro';
   <noscript><p class="wrap">This area needs JavaScript.</p></noscript>
   <script>
     // Phone-first owner screens. All authority lives on the server: this page only calls the authenticated API.
-    import { paymentPlan, splitPayment } from '../../data/pricing';
+    import { formatChicago, paymentPlan, splitPayment } from '../../data/pricing';
     type Json = Record<string, any>;
     const $ = (id: string) => document.getElementById(id)!;
     const money = (c: number) => '$' + (c / 100).toFixed(2);
@@ -39,6 +39,8 @@ import Base from '../../layouts/Base.astro';
         const r = await fetch(path, { method, headers: { 'X-Cakeopedia-Admin': '1', ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
         const data = r.status === 204 ? {} : await r.json().catch(() => ({}));
         if (r.status === 401) notice('Your sign-in has expired. Please reload the page and sign in again.');
+        else if (r.status === 403 && data.error === 'forbidden') notice('This account is not allowed to use the owner area. Sign in with an approved address.');
+        else if (r.status === 503) notice('The owner area is temporarily unavailable (a service or setting is not ready). Please try again shortly; if it continues, contact support.');
         return { ok: r.ok, status: r.status, data };
       } catch { notice(method === 'GET' ? 'No connection. Please try again.' : 'No connection. We could not confirm whether that was saved. Tap the same button again; it is safe and will not save it twice.'); return { ok: false, status: 0, data: {} }; }
     }
@@ -57,19 +59,34 @@ import Base from '../../layouts/Base.astro';
     document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.addEventListener('click', () => { const t = views[b.dataset.tab!] as 'inbox' | 'calendar' | 'menu' | 'prices'; show(t); if (t === 'calendar') loadCalendar(); else if (t === 'menu') loadMenu(); else if (t === 'prices') loadPrices(); else loadInbox(true); }));
 
     // ---- inbox
-    let filter = ''; let items: Json[] = []; let next: Json | null = null;
+    let filter = ''; let items: Json[] = []; let next: Json | null = null; let attention: Json | null = null;
+    // "Today" in the bakery's own time zone, as YYYY-MM-DD (en-CA formats that way), and a date a number of days later.
+    const chicagoToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+    const plusDays = (d: string, n: number) => new Date(Date.parse(d + 'T12:00:00Z') + n * 86_400_000).toISOString().slice(0, 10);
+    const niceDate = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' });
     async function loadInbox(reset: boolean) {
-      if (reset) { items = []; next = null; }
+      if (reset) { items = []; next = null; const t = chicagoToday(), a = await api(`/admin/api/attention?from=${t}&to=${plusDays(t, 14)}`); attention = a.ok ? a.data : null; }
       const q = new URLSearchParams({ limit: '20' }); if (filter) q.set('status', filter);
       if (next) { q.set('beforeAt', String(next.beforeAt)); q.set('beforeId', next.beforeId); }
       const r = await api('/admin/api/enquiries?' + q); if (!r.ok) return;
       items.push(...r.data.items); next = r.data.next; renderInbox();
     }
+    // What needs the owner today: new enquiries to answer, quotes waiting for a deposit, balances to collect (due 48 hours before fulfilment) and the week ahead.
+    function todayPanel(): HTMLElement | string {
+      const a = attention; if (!a) return '';
+      const rows = (title: string, list: Json[], line: (x: Json) => string) => list.length ? h('section', { class: 'today-group' }, h('h3', {}, title), h('ul', { class: 'admin-list' }, ...list.map((x) => h('li', {}, btn(line(x), () => openDetail(x.id), 'row'))))) : '';
+      const newBit = a.newCount ? h('section', { class: 'today-group' }, h('h3', {}, 'New enquiries'), btn(`${a.newCount} waiting for your first reply${a.oldestNewAt ? ' · oldest ' + when(a.oldestNewAt) : ''}`, () => { filter = 'new'; loadInbox(true); }, 'row')) : '';
+      const body = [newBit,
+        rows('Quotes waiting for a deposit', a.quoted, (x) => `${x.name ?? 'Unnamed'} · ${money(x.totalCents)} · deposit ${money(x.depositCents)} · for ${niceDate(x.date)}`),
+        rows('Balances to collect', a.balances, (x) => `${x.name ?? 'Unnamed'} · ${money(x.dueCents)} due by ${niceDate(plusDays(x.date, -2))} (${x.fulfilment} ${niceDate(x.date)})`),
+        rows('This week', a.week, (x) => `${niceDate(x.date)}${x.time ? ' ' + x.time : ''} · ${x.name ?? 'Unnamed'} · ${x.fulfilment}`)].filter(Boolean) as Node[];
+      return h('section', { class: 'today', 'aria-label': 'Needs attention today' }, h('h2', {}, 'Today'), ...(body.length ? body : [h('p', { class: 'hint' }, 'Nothing needs your attention right now.')]));
+    }
     function renderInbox() {
       const root = $('inbox'), fi = focusIndex(root); root.replaceChildren();
       const chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filter by status' });
       for (const s of ['', 'new', 'replied', 'quoted', 'confirmed', 'closed']) { const c = btn(s || 'All', () => { filter = s; loadInbox(true); }, 'chip'); c.setAttribute('aria-pressed', String(filter === s)); chips.append(c); }
-      root.append(chips, addForm());
+      root.append(todayPanel(), chips, addForm());
       const list = h('ul', { class: 'admin-list' });
       for (const it of items) {
         const b = btn('', () => openDetail(it.id), 'row');
@@ -138,6 +155,28 @@ import Base from '../../layouts/Base.astro';
           const a = cents(pa.value); if (a === null || a < 1 || !pd.value) return notice('Enter an amount and the date it arrived.');
           const r5 = await api(`/admin/api/enquiries/${id}/payments`, 'POST', { requestId: prid, kind: pk.value, amountCents: a, receivedOn: pd.value, note: pnote.value || null }); if (r5.ok) openDetail(id); else if (r5.status) notice(r5.data.error === 'exceeds_balance' ? `That is more than the balance (${money(r5.data.balanceCents)}).` : r5.data.error === 'no_quote' ? 'Save a quote first.' : 'Please check the payment details.');
         })));
+      // messages: owner-written emails sent from here. Not an inbox: customer replies arrive in the business mailbox.
+      if (!p.erased && p.contact?.kind === 'email') {
+        const tpl = select([['reply', 'Reply'], ['quotation', 'Quote'], ['confirmation', 'Order confirmation'], ['reminder', 'Balance reminder']]);
+        const subj = input('text', { maxlength: '200' }), bodyBox = h('textarea', { rows: '10', maxlength: '8000' }) as HTMLTextAreaElement, mrid = { v: crypto.randomUUID() };
+        const hist = h('ul', { class: 'admin-list' }), off = h('p', { class: 'hint' }, 'Sending is switched off. You can still prepare a draft.'), label: Record<string, string> = { accepted: 'handed to the email service (delivery not confirmed)', queued: 'not sent yet', unknown: 'not sure it was sent', failed: 'refused, not sent' };
+        const loadHist = async () => {
+          const r7 = await api(`/admin/api/enquiries/${id}/messages`); if (!r7.ok) return; hist.replaceChildren();
+          for (const x of r7.data.items as Json[]) hist.append(h('li', {}, `${when(x.createdAt)} · ${x.template} · ${x.subject ?? '(erased)'} · ${label[x.state] ?? x.state}`, ...(['queued', 'unknown'].includes(x.state) ? [btn('Try again', async () => { const r9 = await api(`/admin/api/messages/${x.id}/retry`, 'POST'); notice(r9.ok ? '' : 'Could not try again.'); loadHist(); }, 'btn btn--ghost')] : [])));
+          off.hidden = !!r7.data.mailEnabled;
+        };
+        root.append(h('h3', {}, 'Message the customer'), h('p', { class: 'hint' }, 'Sent from the Cakeopedia address; replies come to the business mailbox, not here. Read and edit the draft before sending.'),
+          h('div', { class: 'form' }, field('Type', tpl), btn('Prepare draft', async () => {
+            const r8 = await api(`/admin/api/enquiries/${id}/messages/draft`, 'POST', { template: tpl.value });
+            if (!r8.ok) return notice(r8.status ? ({ no_quote: 'Save a quote first.', not_confirmed: 'Confirm the order first.', nothing_due: 'Nothing is outstanding.' } as Record<string, string>)[r8.data.error] ?? 'No draft for this customer.' : '');
+            subj.value = r8.data.subject; bodyBox.value = r8.data.body; mrid.v = crypto.randomUUID(); notice('');
+          }, 'btn btn--ghost'), field('Subject', subj), field('Message', bodyBox), btn('Send message', async () => {
+            if (!subj.value.trim() || !bodyBox.value.trim()) return notice('Prepare a draft first.');
+            const r10 = await api(`/admin/api/enquiries/${id}/messages`, 'POST', { template: tpl.value, requestId: mrid.v, subject: subj.value, body: bodyBox.value });
+            if (r10.ok) { notice(''); mrid.v = crypto.randomUUID(); subj.value = ''; bodyBox.value = ''; loadHist(); } else if (r10.status) notice(r10.data.error === 'mail_not_enabled' ? 'Sending is switched off.' : 'Could not send. Please check the message.');
+          })), off, hist);
+        off.hidden = true; loadHist();
+      }
       // erase personal data (financial records stay); the owner must type the reference, and an active confirmed order must be closed first
       if (!p.erased) {
         const ref = input('text', { autocomplete: 'off', placeholder: String(e.reference) });
@@ -265,7 +304,7 @@ import Base from '../../layouts/Base.astro';
     // Remaining 50% is due 48 hours before pickup or delivery (Chicago time). Accepted inside that window = owner-approved arrangement.
     function balanceDue(q: Json) {
       const plan = paymentPlan({ totalCents: q.totalCents, fulfilDate: q.date, ...(q.time ? { fulfilTime: q.time } : {}), acceptedAt: Date.now() });
-      const due = new Date(plan.balanceDueAt).toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' });
+      const due = formatChicago(plan.balanceDueAt);
       return h('p', { class: 'hint' }, plan.rush ? `The usual balance deadline (${due} Chicago time) has passed. Agree the payment arrangement with the customer.` : `Balance due by ${due} Chicago time (48 hours before ${q.fulfilment}).`);
     }
     // ---- prices: edit a private draft, publish the exact saved draft, restore an earlier published version. The public site only ever sees published versions.
@@ -287,7 +326,8 @@ import Base from '../../layouts/Base.astro';
         const r = await api('/admin/api/catalogue/publish', 'POST', { expectedRevision: rev });
         if (!r.ok) { notice(r.status === 409 ? 'These prices changed somewhere else. Reloaded the latest.' : r.status === 0 ? '' : 'Could not publish. Please check the prices and try again.'); if (r.status === 409) loadPrices(); return; }
         notice(''); await loadPrices();
-        $('prices').prepend(h('p', { class: 'hint', role: 'status' }, r.data.rebuild === 'requested' ? 'Published. The website is updating.' : r.data.rebuild === 'failed' ? 'Published, but the website update could not be started. It will show after the next site update.' : 'Published. The website will show it after the next site update.'));
+        // A failed rebuild is already shown, with its retry, by the banner loadPrices() just drew; a second status would repeat it.
+        if (r.data.rebuild !== 'failed') $('prices').prepend(h('p', { class: 'hint', role: 'status' }, r.data.rebuild === 'requested' ? 'Published. The website is updating.' : 'Published. The website will show it after the next site update.'));
       }) as HTMLButtonElement;
       publishBtn.disabled = dirty;
       const sizes = ['6', '7', '8', '9', '10'];
@@ -295,9 +335,11 @@ import Base from '../../layouts/Base.astro';
         money_('Starting price ($)', () => c.baseCents[d], (v) => { c.baseCents[d] = v; }), money_('Rasmalai extra ($)', () => c.rasmalaiCents[d], (v) => { c.rasmalaiCents[d] = v; })));
       root.replaceChildren(
         h('p', { class: 'hint' }, `You are editing a private draft. The website changes only when you publish. ${current ? `Published version: ${current}.` : 'Nothing published yet: the website shows the confirmed starting prices.'}`),
+        ...(g.data.published?.rebuild?.status === 'failed' ? [h('div', { class: 'form note' }, h('p', { class: 'hint', role: 'status' }, 'Your latest prices are saved, but the website update could not be started. The old prices may still show.'),
+          btn('Try the website update again', async () => { const r = await api('/admin/api/catalogue/rebuild', 'POST', {}); if (r.status === 0) return; notice(r.ok && r.data.rebuild === 'requested' ? '' : 'The website update still could not be started. Please try again later.'); if (r.ok) loadPrices(); }, 'btn'))] : []),
         ...sizeRows,
-        h('div', { class: 'form price-group' }, h('h4', {}, 'Celebration Cake and brownies'),
-          money_('Celebration Cake ($)', () => c.celebrationCents, (v) => { c.celebrationCents = v; }), money_('Box of nine brownies ($)', () => c.brownieBoxCents, (v) => { c.brownieBoxCents = v; }),
+        h('div', { class: 'form price-group' }, h('h4', {}, 'Celebration Cake, cupcakes and brownies'),
+          money_('Celebration Cake ($)', () => c.celebrationCents, (v) => { c.celebrationCents = v; }), money_('Cupcakes, per dozen ($)', () => c.cupcakeDozenCents ?? 8000, (v) => { c.cupcakeDozenCents = v; }), money_('Box of nine brownies ($)', () => c.brownieBoxCents, (v) => { c.brownieBoxCents = v; }),
           money_('Brownie slab ($)', () => c.brownieSlabCents, (v) => { c.brownieSlabCents = v; }), money_('Topping upgrade, per box or slab ($)', () => c.brownieToppingCents, (v) => { c.brownieToppingCents = v; })),
         h('div', { class: 'form price-group' }, h('h4', {}, 'Add-ons'), ...c.addons.map((a: Json) => money_(a.name + ' ($)', () => a.priceCents, (v) => { a.priceCents = v; }))),
         h('div', { class: 'form price-group' }, h('h4', {}, 'Flavours on offer'), h('p', { class: 'hint', style: 'grid-column:1/-1;margin:0' }, 'Untick a flavour to pause it. It stays on the menu marked "not available at the moment".'),

@@ -134,6 +134,7 @@ try {
     await page.reload({ waitUntil: 'networkidle' }); await page.locator('#inbox ul button.row').first().waitFor({ timeout: 8000 });
   }
   await axeScan(page, '/admin/ enquiries');
+  check(await page.locator('#inbox .today h2').innerText().then((t) => t === 'Today', () => false) && (await page.locator('#inbox .today button.row').count()) >= 1, 'the owner Today panel lists what needs attention (new enquiries) and is reachable by keyboard');
   await page.getByRole('button', { name: 'Prices', exact: true }).click();
   await page.locator('#prices input').first().waitFor({ timeout: 8000 });
   await axeScan(page, '/admin/ prices');
@@ -146,7 +147,14 @@ try {
   await page.waitForFunction(() => [...document.querySelectorAll('#prices button')].find((b) => b.textContent.includes('Publish'))?.disabled === false, null, { timeout: 8000 }).then(() => check(true, 'a saved draft can be published'), () => check(false, 'a saved draft can be published'));
   check(!(await page.getByRole('checkbox').first().isChecked()), 'a paused flavour stays paused after saving the draft');
   await page.getByRole('button', { name: 'Publish to the website' }).click();
-  await page.locator('#prices [role=status]').waitFor({ timeout: 8000 }).then(() => check(true, 'publishing confirms with a status message'), () => check(false, 'publishing confirms with a status message'));
+  await page.locator('#prices [role=status]').first().waitFor({ timeout: 8000 }).then(() => check(true, 'publishing confirms with a status message'), () => check(false, 'publishing confirms with a status message'));
+  // The local rebuild hook always fails: the owner must see that the website update did not start, and can retry from a visible button.
+  const retry = page.getByRole('button', { name: 'Try the website update again' });
+  await retry.waitFor({ timeout: 8000 }).then(() => check(true, 'a failed website update shows a retry button'), () => check(false, 'a failed website update shows a retry button'));
+  await axeScan(page, '/admin/ prices (retry banner)');
+  await retry.click();
+  await page.locator('#prices [role=status]').filter({ hasText: /could not be started/ }).first().waitFor({ timeout: 8000 }).then(() => check(true, 'retrying while the hook still fails says so honestly and keeps the button'), () => check(false, 'retry failure message'));
+  check(await page.getByRole('button', { name: 'Try the website update again' }).count() === 1, 'retry button stays available after a failed retry');
   await page.getByRole('checkbox').first().check(); await page.getByRole('button', { name: 'Save draft' }).click(); await page.waitForTimeout(500); // leave the local draft with every flavour on offer
   // Owner Enquiries and Calendar by keyboard: re-rendering must not drop focus to the top of the page.
   const kept = (id) => page.evaluate((i) => document.getElementById(i).contains(document.activeElement), id);
@@ -162,6 +170,22 @@ try {
     check(await kept('detail'), 'focus stays in the enquiry detail after Update status by keyboard');
     await page.getByRole('button', { name: /All enquiries/ }).click();
   } else console.log('SKIP enquiry detail keyboard check: no enquiries in local data');
+  // Messages panel (email contact): draft from a template, edit, and a refused send while sending is switched off (local stack has no mail transport).
+  await page.evaluate(() => fetch('/admin/api/enquiries', { method: 'POST', headers: { 'X-Cakeopedia-Admin': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Message Check', contact: { kind: 'email', value: 'message.check@example.invalid' }, dateUndecided: true, notes: 'Test data' }) }));
+  await page.reload({ waitUntil: 'networkidle' });
+  const mrow = page.locator('#inbox ul button.row', { hasText: 'Message Check' }).first();
+  if (await mrow.count()) {
+    await mrow.click(); await page.locator('#detail').getByRole('heading', { name: 'Message the customer' }).waitFor({ timeout: 8000 });
+    await axeScan(page, '/admin/ enquiry detail with Messages panel');
+    await page.getByRole('button', { name: 'Prepare draft' }).click();
+    await page.waitForFunction(() => /Your Cakeopedia enquiry/.test(document.querySelector('#detail input[maxlength="200"]')?.value ?? ''), null, { timeout: 8000 }).then(() => check(true, 'Messages: a draft is prepared from the template'), () => check(false, 'Messages: a draft is prepared from the template'));
+    check((await page.locator('#detail textarea[maxlength="8000"]').inputValue()).startsWith('Hi Message,'), 'Messages: the draft greets the customer by first name and is editable text');
+    await page.getByRole('button', { name: 'Send message' }).click();
+    await page.getByText('Sending is switched off.').first().waitFor({ timeout: 8000 }).then(() => check(true, 'Messages: sending is refused with a plain message while switched off'), () => check(false, 'Messages: sending is refused with a plain message while switched off'));
+    check(await page.getByText('You can still prepare a draft.').isVisible(), 'Messages: the panel says plainly that sending is switched off');
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Messages panel has no horizontal overflow at 390');
+    await page.getByRole('button', { name: /All enquiries/ }).click();
+  } else check(false, 'Messages: test enquiry with an email contact was created');
   await page.getByRole('button', { name: 'Calendar', exact: true }).click();
   const day = page.locator('#calendar ul button.chip').first(); await day.waitFor();
   await axeScan(page, '/admin/ calendar');

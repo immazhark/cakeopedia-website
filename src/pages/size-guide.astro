@@ -10,6 +10,7 @@ const data = configs.map((c) => ({ id: c.id, label: label(c), servings: c.servin
   <div class="wrap page-head prose">
     <p class="eyebrow">Size and servings</p>
     <h1>How big a cake do you need?</h1>
+    <p class="answer" style="margin-top:var(--space-3)"><strong>In short:</strong> A single-tier, {singleTierLayers}-layer round cake serves about {configs.find((c) => c.kind === 'single')!.servings} people at 6 inches and about {configs.filter((c) => c.kind === 'single').at(-1)!.servings} at 10 inches; two- and three-tier cakes serve about {configs.find((c) => c.kind === 'two-tier')!.servings} to {configs.at(-1)!.servings}. Servings are approximate.</p>
     <p class="lede" style="margin-top:var(--space-3)">Tell us how many guests, and we will suggest the smallest cake that serves them.</p>
 
     <form id="finder" class="finder" aria-labelledby="finder-h">

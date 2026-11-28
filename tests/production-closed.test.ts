@@ -6,7 +6,7 @@ test('production worker exposes only closed health status and its scheduled trig
   const response=await production.fetch(new Request('https://cakeopedia.com/health'));
   assert.equal(response.status,200);
   assert.equal(response.headers.get('Cache-Control'),'no-store');
-  assert.deepEqual(await response.json(),{stage:'local-foundation',intakeEnabled:false});
+  assert.deepEqual(await response.json(),{stage:'local-foundation',intakeEnabled:false,adminEnabled:false});
   await production.scheduled({});await production.scheduled({},{LIVE_ENABLED:'1'}); // unconfigured: must neither throw nor touch anything
 });
 test('production write and private read routes cannot be enabled by client headers',async()=>{

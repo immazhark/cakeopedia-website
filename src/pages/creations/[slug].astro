@@ -1,20 +1,23 @@
 ---
 import Base from '../../layouts/Base.astro';
 import CreationCard from '../../components/CreationCard.astro';
+import Picture from '../../components/Picture.astro';
 import { creations, cover, categories } from '../../data/creations';
 import manifest from '../../data/media-manifest.json';
 
 export function getStaticPaths() { return creations.map((c, i) => ({ params: { slug: c.slug }, props: { c, more: [1, 2, 3].map((n) => creations[(i + n) % creations.length]!) } })); }
 const { c, more } = Astro.props;
 const img = cover(c);
-const full = c.poster ? img.src : `/media/img/${c.slug}-1280.webp`;
+const full = c.poster ? img.src : `/media/img/${c.slug}-1280.jpg`; // JPEG: widest support for social previews
 ---
 <Base title={`${c.title} · Cakeopedia Austin`} description={`${c.alt}. Previous work by Cakeopedia Austin.`} image={full}>
   <div class="wrap">
     <p class="crumbs"><a href="/creations/">Creations</a> / {c.title}</p>
     <article class="detail">
       <div class="photo">
-        <img src={full} srcset={c.poster ? undefined : img.srcset} sizes="(min-width: 56rem) 50vw, 100vw" width={img.w} height={img.h} alt={c.alt} fetchpriority="high" />
+        {c.poster
+          ? <img src={full} width={img.w} height={img.h} alt={c.alt} fetchpriority="high" />
+          : <Picture slug={c.slug} alt={c.alt} sizes="(min-width: 56rem) 50vw, 100vw" eager full />}
       </div>
       <div>
         <p class="eyebrow">Previous work</p>

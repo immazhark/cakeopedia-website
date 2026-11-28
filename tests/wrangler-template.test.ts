@@ -18,7 +18,7 @@ function stripComments(src: string): string { // JSONC comments outside strings 
 const cfg = JSON.parse(stripComments(raw)) as { vars: Record<string, string>; assets: { run_worker_first: string[] }; d1_databases: { database_id: string }[]; r2_buckets: { bucket_name: string }[]; triggers: { crons: string[] }; workers_dev: boolean };
 
 test('template is closed by default and carries no secrets or real identifiers', () => {
-  assert.equal(cfg.vars.LIVE_ENABLED, '0');
+  assert.equal(cfg.vars.LIVE_ENABLED, '0'); assert.equal(cfg.vars.ADMIN_ENABLED, '0');
   assert.equal(cfg.vars.NOTIFICATIONS_ENABLED, '0');
   assert.equal(cfg.vars.RATE_CLEANUP_ENABLED, '1'); assert.equal(cfg.vars.UPLOAD_CLEANUP_ENABLED, '1'); // mandatory at launch (runbook)
   assert.ok(!('RETENTION_DAYS' in cfg.vars)); // off until the owner chooses a period
@@ -30,7 +30,7 @@ test('template is closed by default and carries no secrets or real identifiers',
 });
 
 test('only the API paths run the Worker first and a schedule exists for the maintenance jobs', () => {
-  assert.deepEqual([...cfg.assets.run_worker_first].sort(), ['/admin/api/*', '/api/*', '/health']);
+  assert.deepEqual([...cfg.assets.run_worker_first].sort(), ['/admin/api/*', '/api/*', '/health', '/media/video/*']);
   assert.equal(cfg.triggers.crons.length, 1);
 });
 

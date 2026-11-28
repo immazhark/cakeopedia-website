@@ -12,7 +12,7 @@ test('pins key endpoint, keeps concurrent loads request-local and isolates cache
   const source=createAccessKeySource(issuer,async(url,init)=>{
     calls++;
     assert.equal(url,issuer+'/cdn-cgi/access/certs');
-    assert.equal(init?.redirect,'error');
+    assert.equal(init?.redirect,'manual');
     return reply([jwk]);
   },()=>1000);
   const results=await Promise.all(Array.from({length:8},()=>source()));

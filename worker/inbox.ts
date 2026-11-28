@@ -1,6 +1,8 @@
 import { authorize, type AccessConfig } from './auth.ts';
 import { CURRENT, changed, isStatus, out, readBounded, uuid, type AdminDb, type Status } from './admin-common.ts';
 import { routeCatalogue } from './catalogue.ts';
+import { collectHealth, reconcileStorage, type StorageBucket } from './health.ts';
+import { routeCommunications, type MailTransport } from './communications.ts';
 import { routeErase } from './erase.ts';
 import { routeMenu } from './menu.ts';
 import { CONFIRM_OK, confirmBlocker, orderSummary, routeOrders } from './orders.ts';
@@ -11,13 +13,21 @@ export type InboxDb = AdminDb;
 export { STATUSES } from './admin-common.ts';
 export interface PrivateBucket { get(key: string): Promise<{ body: ReadableStream } | null> }
 
-export async function handleInbox(request: Request, db: AdminDb, cfg: AccessConfig, now: () => number = Date.now, bucket?: PrivateBucket & { delete?(key: string): Promise<void> }, rebuild?: () => Promise<boolean>): Promise<Response> {
+export async function handleInbox(request: Request, db: AdminDb, cfg: AccessConfig, now: () => number = Date.now, bucket?: PrivateBucket & { delete?(key: string): Promise<void> }, rebuild?: () => Promise<boolean>, mail?: MailTransport): Promise<Response> {
   const op = await authorize(request, cfg);
   if (!op.ok) return op.response;
   const url = new URL(request.url);
   try {
+    if (url.pathname === '/admin/api/health' && request.method === 'GET') return out(200, await collectHealth(db, now())); // counts and ages only
+    if (url.pathname === '/admin/api/health/storage' && request.method === 'GET') { // bucket vs uploads table; counts and random object keys only
+      const listable = bucket as unknown as Partial<StorageBucket> | undefined;
+      if (!listable?.list) return out(503, { error: 'storage_not_listable' });
+      try { return out(200, await reconcileStorage(db, listable as StorageBucket)); } catch (e) { return out(502, { error: e instanceof Error && e.message.startsWith('storage_') ? e.message : 'storage_check_failed' }); }
+    }
     const order = await routeOrders(request, db, op.email, now, url);
     if (order) return order;
+    const comms = await routeCommunications(request, db, op.email, now, url, mail);
+    if (comms) return comms;
     const menu = await routeMenu(request, db, now, url);
     if (menu) return menu;
     const erase = await routeErase(request, db, op.email, now, url, bucket?.delete ? { delete: (k) => bucket.delete!(k) } : undefined);

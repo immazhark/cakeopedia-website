@@ -27,10 +27,12 @@ export async function eraseEnquiry(db: AdminDb, id: string, actor: string, t: nu
     db.prepare('DELETE FROM uploads WHERE enquiry_id = ?').bind(id),
     db.prepare("UPDATE notification_snapshots SET kind = 'skip', payload = NULL WHERE event_id IN (SELECT id FROM notification_outbox WHERE enquiry_id = ?)").bind(id),
     db.prepare("UPDATE notification_outbox SET state = 'failed' WHERE enquiry_id = ? AND state <> 'sent'").bind(id),
+    db.prepare('UPDATE communications SET recipient = NULL, subject = NULL, body = NULL, payload = NULL WHERE enquiry_id = ?').bind(id),
     db.prepare('UPDATE enquiry_events SET note = NULL WHERE enquiry_id = ?').bind(id),
     db.prepare('UPDATE quotes SET design_notes = NULL, prep_notes = NULL WHERE enquiry_id = ?').bind(id),
     db.prepare('UPDATE payments SET note = NULL WHERE enquiry_id = ?').bind(id),
     db.prepare("INSERT INTO enquiry_events (id, enquiry_id, status, created_at, actor, note) SELECT ?, e.id, 'closed', ?, ?, NULL FROM enquiries e WHERE e.id = ? AND json_extract(e.payload_json, '$.erased') IS NULL AND " + CURRENT + " <> 'closed'").bind(eid, t, actor, id),
+    db.prepare('INSERT OR IGNORE INTO erasure_ledger (reference, erased_at, source) VALUES (?, ?, ?)').bind(row.ref, t, actor === 'retention' ? 'retention' : 'owner'), // auditable and free of personal data
     db.prepare('UPDATE enquiries SET payload_json = ? WHERE id = ?').bind(ERASED_PAYLOAD, id),
   ]); } catch (err) {
     const now = await db.prepare(`SELECT ${CURRENT} AS status FROM enquiries e WHERE e.id = ?`).bind(id).first<{ status: string }>();
@@ -41,6 +43,10 @@ export async function eraseEnquiry(db: AdminDb, id: string, actor: string, t: nu
 }
 
 export async function routeErase(request: Request, db: AdminDb, actor: string, now: () => number, url: URL, bucket?: EraseBucket): Promise<Response | null> {
+  if (url.pathname === '/admin/api/erasures' && request.method === 'GET') { // the audit trail: references and dates only, never personal data
+    const { results } = await db.prepare('SELECT reference, erased_at AS erasedAt, source FROM erasure_ledger ORDER BY erased_at DESC LIMIT 1000').all();
+    return out(200, { count: results.length, items: results });
+  }
   const m = url.pathname.match(/^\/admin\/api\/enquiries\/([^/]+)\/erase$/);
   if (!m) return null;
   if (request.method !== 'POST') return new Response(null, { status: 405 });
@@ -75,4 +81,24 @@ export async function purgeExpiredEnquiries(db: AdminDb, bucket: EraseBucket | u
     if (r.ok) erased++; else failed++;
   }
   return { erased, failed };
+}
+
+// SQL that re-applies one erasure to a RESTORED database, keyed by the public reference (what the ledger keeps). Idempotent, and equivalent to eraseEnquiry's
+// batch except that it does not add the closing event. The reference must match REFERENCE, which also makes the quoting safe.
+export const REFERENCE = /^CK-[A-Za-z0-9-]{4,90}$/;
+export function reapplyErasureSql(reference: string, at: number, source = 'owner'): string[] {
+  if (!REFERENCE.test(reference) || !Number.isSafeInteger(at) || !['owner', 'retention', 'backfill'].includes(source)) throw new Error('Refusing an unsafe erasure reference.');
+  const ids = `(SELECT id FROM enquiries WHERE public_reference = '${reference}')`;
+  return [
+    `UPDATE uploads SET deleted_at = COALESCE(deleted_at, ${at}) WHERE enquiry_id IN ${ids};`,
+    `DELETE FROM uploads WHERE enquiry_id IN ${ids};`,
+    `UPDATE notification_snapshots SET kind = 'skip', payload = NULL WHERE event_id IN (SELECT id FROM notification_outbox WHERE enquiry_id IN ${ids});`,
+    `UPDATE notification_outbox SET state = 'failed' WHERE enquiry_id IN ${ids} AND state <> 'sent';`,
+    `UPDATE communications SET recipient = NULL, subject = NULL, body = NULL, payload = NULL WHERE enquiry_id IN ${ids};`,
+    `UPDATE enquiry_events SET note = NULL WHERE enquiry_id IN ${ids};`,
+    `UPDATE quotes SET design_notes = NULL, prep_notes = NULL WHERE enquiry_id IN ${ids};`,
+    `UPDATE payments SET note = NULL WHERE enquiry_id IN ${ids};`,
+    `UPDATE enquiries SET payload_json = '${ERASED_PAYLOAD.replaceAll("'", "''")}' WHERE public_reference = '${reference}';`,
+    `INSERT OR IGNORE INTO erasure_ledger (reference, erased_at, source) VALUES ('${reference}', ${at}, '${source}');`,
+  ];
 }

@@ -50,7 +50,7 @@ export function createTurnstileVerifier(config:Config,transport:typeof fetch,tim
     });
     const request=async()=>{
       const response=await transport(endpoint,{
-        method:'POST',redirect:'error',signal:controller.signal,
+        method:'POST',redirect:'manual',signal:controller.signal,
         headers:{'Content-Type':'application/x-www-form-urlencoded'},
         body:new URLSearchParams({secret,response:token}).toString(),
       });

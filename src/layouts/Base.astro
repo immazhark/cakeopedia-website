@@ -3,13 +3,24 @@ import '@fontsource-variable/fraunces';
 import '@fontsource-variable/figtree';
 import '../styles/global.css';
 import { SITE, INSTAGRAM } from '../site';
+import { bySlug, cover } from '../data/creations';
+import { businessEmail } from '../data/business';
 interface Props { title: string; description: string; current?: string; image?: string; private?: boolean; noindex?: boolean; bakery?: boolean; ld?: object[] }
 const { title, description, current, image, private: isPrivate = false, noindex = false, bakery = false, ld = [] } = Astro.props;
 const indexable = import.meta.env.PUBLIC_SITE_ENV === 'production' && !isPrivate && !noindex;
 const canonical = new URL(Astro.url.pathname, SITE).href;
-const abs = image ? new URL(image, SITE).href : undefined;
-// Only facts the owner approved: no address, hours, prices, ratings or service area.
-const bakeryLd = { '@context': 'https://schema.org', '@type': 'Bakery', '@id': `${SITE}/#bakery`, name: 'Cakeopedia Austin', url: SITE + '/', description, sameAs: [INSTAGRAM], ...(abs ? { image: abs } : {}) };
+// Pages without their own picture share the home page's real hero photo, so every shared link has a genuine image.
+const abs = new URL(image ?? cover(bySlug('vintage-piped-castle')).src, SITE).href;
+const isHome = Astro.url.pathname === '/';
+const crumbNames: Record<string, string> = { '/menu/': 'Menu', '/creations/': 'Creations', '/size-guide/': 'Size guide', '/cake-care/': 'Cake care', '/story/': 'Story', '/enquiry/': 'Enquire', '/privacy/': 'Privacy' };
+const pageName = crumbNames[Astro.url.pathname] ?? title.split(' · ')[0]!;
+const parent = ['/creations/', '/collections/'].some((d) => Astro.url.pathname.startsWith(d) && Astro.url.pathname !== d) ? [{ name: 'Creations', path: '/creations/' }] : [];
+// Trail follows the real page hierarchy; a page that supplies its own BreadcrumbList (FAQ) is left alone.
+const crumbs = isPrivate || noindex || isHome || ld.some((i) => (i as any)['@type'] === 'BreadcrumbList') ? null : { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [{ name: 'Home', path: '/' }, ...parent, { name: pageName, path: Astro.url.pathname }].map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: SITE + c.path })) };
+// Only facts the owner approved: no street address, hours, prices or ratings. North Austin is the stated service area.
+const bakeryLd = { '@context': 'https://schema.org', '@type': 'Bakery', '@id': `${SITE}/#bakery`, name: 'Cakeopedia Austin', url: SITE + '/', description, email: businessEmail, areaServed: 'North Austin, Texas', sameAs: [INSTAGRAM], image: abs, parentOrganization: { '@id': `${SITE}/#org` } };
+const orgLd = { '@context': 'https://schema.org', '@type': 'Organization', '@id': `${SITE}/#org`, name: 'Cakeopedia Austin', url: SITE + '/', email: businessEmail, sameAs: [INSTAGRAM] }; // no logo property until the owner approves a real logo asset: a cake photograph is not a logo
+const siteLd = { '@context': 'https://schema.org', '@type': 'WebSite', '@id': `${SITE}/#website`, name: 'Cakeopedia Austin', url: SITE + '/', publisher: { '@id': `${SITE}/#org` } };
 const nav = isPrivate ? [] : [['/menu/', 'Menu'], ['/creations/', 'Creations'], ['/size-guide/', 'Size guide'], ['/cake-care/', 'Care'], ['/story/', 'Story'], ['/enquiry/', 'Enquire']];
 ---
 <!doctype html>
@@ -19,7 +30,8 @@ const nav = isPrivate ? [] : [['/menu/', 'Menu'], ['/creations/', 'Creations'], 
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <!-- Previews stay out of search; robots.txt and this tag flip only for a production build. -->
     {!indexable && <meta name="robots" content="noindex, nofollow" />}
-    <link rel="icon" href="data:," />
+    <link rel="icon" type="image/png" href="/brand/icon-64.png" />
+    <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
     <meta name="description" content={description} />
     <meta name="theme-color" content="#91ae8f" />
     {indexable && <link rel="canonical" href={canonical} />}
@@ -28,10 +40,14 @@ const nav = isPrivate ? [] : [['/menu/', 'Menu'], ['/creations/', 'Creations'], 
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     {indexable && <meta property="og:url" content={canonical} />}
-    {abs && <meta property="og:image" content={abs} />}
-    <meta name="twitter:card" content={abs ? 'summary_large_image' : 'summary'} />
-    {indexable && bakery && <script type="application/ld+json" set:html={JSON.stringify(bakeryLd).replace(/</g, '\u003c')} />}
-    {indexable && ld.map((item) => <script type="application/ld+json" set:html={JSON.stringify(item).replace(/</g, '<')} />)}
+    <meta property="og:image" content={abs} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={abs} />
+    {indexable && bakery && [bakeryLd, orgLd, siteLd].map((item) => <script type="application/ld+json" set:html={JSON.stringify(item).replace(/</g, '\u003c')} />)}
+    {indexable && crumbs && <script type="application/ld+json" set:html={JSON.stringify(crumbs).replace(/</g, '\u003c')} />}
+    {indexable && ld.map((item) => <script type="application/ld+json" set:html={JSON.stringify(item).replace(/</g, '\u003c')} />)}
     <title>{title}</title>
     <script is:inline>document.documentElement.classList.add('js');</script>
   </head>
@@ -39,7 +55,7 @@ const nav = isPrivate ? [] : [['/menu/', 'Menu'], ['/creations/', 'Creations'], 
     <a class="skip" href="#main">Skip to content</a>
     <header class="site-header">
       <div class="wrap">
-        <a class="brand" href="/">Cakeopedia <span>Austin</span></a>
+        <a class="brand" href="/"><img class="brand-mark" src="/brand/hat.png" width="128" height="102" alt="" />Cakeopedia <span>Austin</span></a>
         <nav aria-label="Main">
           <ul class="nav">
             {nav.map(([href, label]) => <li><a href={href} aria-current={current === href ? 'page' : undefined}>{label}</a></li>)}
@@ -51,13 +67,16 @@ const nav = isPrivate ? [] : [['/menu/', 'Menu'], ['/creations/', 'Creations'], 
     <footer class="site-footer">
       <div class="wrap">
         <div>
+          <img class="foot-badge" src="/brand/badge-480.webp" width="480" height="480" alt="Cakeopedia Austin, custom baked goods" loading="lazy" decoding="async" />
           <p><strong>Cakeopedia Austin</strong> is a small home bakery in Austin, Texas. Cakes shown on this site are previous work, not a menu.</p>
-          <p>{!indexable && "Development preview. "}Prices, flavours, sizes and fulfilment details are being confirmed with the baker.</p>
         </div>
+        {!isPrivate && <nav aria-label="Footer"><p class="foot-h">Explore</p><ul class="foot-nav">{nav.map(([href, label]) => <li><a href={href}>{label}</a></li>)}<li><a href="/faq/">Questions</a></li><li><a href="/privacy/">Privacy</a></li></ul></nav>}
         <div>
+          <p class="foot-h">Say hello</p>
           <p><a href="https://www.instagram.com/cakeopedia.austin/" rel="noopener">@cakeopedia.austin on Instagram</a></p>
           <p>Online enquiries are not open yet.</p>
         </div>
+        <p class="foot-note">{!indexable && "Development preview. "}Prices, flavours, sizes and fulfilment details are being confirmed with the baker.</p>
       </div>
     </footer>
     <script>

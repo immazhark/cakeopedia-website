@@ -1,14 +1,18 @@
 ---
 import { cover, categories, type Creation } from '../data/creations';
-interface Props { c: Creation; eager?: boolean; sizes?: string }
-const { c, eager = false, sizes = '(min-width: 48rem) 30vw, 46vw' } = Astro.props;
+import Picture from './Picture.astro';
+interface Props { c: Creation; eager?: boolean; sizes?: string; level?: 2 | 3 } // level: the card title follows the page's heading outline
+const { c, eager = false, sizes = '(min-width: 48rem) 30vw, 46vw', level = 3 } = Astro.props;
+const Heading = `h${level}` as 'h2' | 'h3';
 const img = cover(c);
 ---
 <a class="card" href={`/creations/${c.slug}/`}>
   <div class="frame">
-    <img src={img.src} srcset={img.srcset} sizes={sizes} width={img.w} height={img.h} alt={c.alt}
-      style={c.focus ? `object-position:${c.focus}` : undefined} loading={eager ? 'eager' : 'lazy'} fetchpriority={eager ? 'high' : undefined} decoding="async" />
+    {c.poster
+      ? <img src={img.src} width={img.w} height={img.h} alt={c.alt}
+          style={c.focus ? `object-position:${c.focus}` : undefined} loading={eager ? 'eager' : 'lazy'} fetchpriority={eager ? 'high' : undefined} decoding="async" />
+      : <Picture slug={c.slug} alt={c.alt} sizes={sizes} eager={eager} focus={c.focus} />}
   </div>
-  <h3>{c.title}</h3>
+  <Heading>{c.title}</Heading>
   <p class="meta">{c.cats.map((k) => categories[k]).join(' · ')}{c.video ? ' · Video' : ''}</p>
 </a>

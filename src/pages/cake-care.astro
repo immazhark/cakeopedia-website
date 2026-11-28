@@ -6,6 +6,7 @@ import { careSteps } from '../data/business';
   <div class="wrap page-head prose">
     <p class="eyebrow">Cake care</p>
     <h1>From our kitchen to your table</h1>
+    <p class="answer" style="margin-top:var(--space-3)"><strong>In short:</strong> Carry the box from underneath, keep it flat in an air-conditioned car, refrigerate as instructed, keep it out of sun and heat, and remove non-edible decorations before cutting. Storage times are confirmed with your order.</p>
     <p class="lede" style="margin-top:var(--space-3)">A few simple habits keep a tall, hand-finished cake looking and tasting its best.</p>
     <ol class="care">
       {careSteps.map((s) => <li id={s.id}><h2>{s.title}</h2><p>{s.text}</p></li>)}

@@ -1,5 +1,7 @@
 ---
 import { creations } from '../data/creations';
+import { defaultCatalogue } from '../data/catalogue';
+import { SIZES } from '../data/pricing';
 // Site key is public but environment-specific: Cloudflare's always-pass test key in dev only; a real key must be supplied at build.
 const testKey = '1x00000000000000000000AA';
 const siteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || (import.meta.env.DEV ? testKey : '');
@@ -10,17 +12,18 @@ const occasions = ['Birthday', 'Anniversary', 'Wedding or engagement', 'Baby or 
   <p class="eyebrow">Enquire</p>
   <h1 style="font-size:var(--step-3)">Tell us about your cake</h1>
   <p class="lede" style="margin-top:var(--space-2)">This is an enquiry, not an order. We will reply personally about availability, then agree the design, price and details with you.</p>
-  <div class="note" style="margin-top:var(--space-3)"><p><strong>Local test mode.</strong> Nothing here reaches a real inbox. Required fields are marked with an asterisk.</p></div>
+  {import.meta.env.DEV && <div class="note" style="margin-top:var(--space-3)"><p><strong>Local test mode.</strong> Nothing here reaches a real inbox.</p></div>}
+  <p class="hint" style="margin-top:var(--space-3)">Required fields are marked with an asterisk.</p>
 </div>
 <div class="wrap">
   <div id="errors" class="form-errors" role="alert" tabindex="-1" hidden></div>
   <form id="enquiry" class="form" novalidate>
     <fieldset>
       <legend>About you</legend>
-      <div class="field"><label for="name">Your name *</label><input id="name" name="name" autocomplete="name" maxlength="100" required /><p class="err" id="name-err" hidden></p></div>
+      <div class="field"><label for="name">Your name *</label><input id="name" name="name" enterkeyhint="next" autocomplete="name" maxlength="100" required /><p class="err" id="name-err" hidden></p></div>
       <div class="field"><label for="kind">Best way to reach you *</label>
         <select id="kind" name="kind"><option value="email">Email</option><option value="phone">Phone or text</option><option value="instagram">Instagram</option></select></div>
-      <div class="field"><label for="contact" id="contact-label">Email address *</label><input id="contact" name="contact" type="email" inputmode="email" autocomplete="email" maxlength="254" required aria-describedby="contact-hint contact-err" /><p class="hint" id="contact-hint">We only use this to reply to your enquiry.</p><p class="err" id="contact-err" hidden></p></div>
+      <div class="field field--wide"><label for="contact" id="contact-label">Email address *</label><input id="contact" name="contact" type="email" inputmode="email" autocomplete="email" maxlength="254" required aria-describedby="contact-hint contact-err" /><p class="hint" id="contact-hint">We only use this to reply to your enquiry.</p><p class="err" id="contact-err" hidden></p></div>
     </fieldset>
 
     <fieldset>
@@ -28,7 +31,7 @@ const occasions = ['Birthday', 'Anniversary', 'Wedding or engagement', 'Baby or 
       <div class="field"><label for="occasion">Occasion</label><select id="occasion" name="occasion"><option value="">Choose one</option>{occasions.map((o) => <option>{o}</option>)}</select></div>
       <div class="field"><label for="date">Date you need it</label><input id="date" name="date" type="date" aria-describedby="date-hint date-err" /><p class="hint" id="date-hint">Please allow about two weeks if you can.</p><p class="err" id="date-err" hidden></p></div>
       <div class="field field--check"><input id="undecided" name="undecided" type="checkbox" /><label for="undecided">I don't know the date yet</label></div>
-      <div class="field"><label for="servings">About how many people? <span class="opt">(optional)</span></label><input id="servings" name="servings" type="number" inputmode="numeric" min="1" max="10000" aria-describedby="servings-err" /><p class="err" id="servings-err" hidden></p></div>
+      <div class="field"><label for="servings">About how many people? <span class="opt">(optional)</span></label><input id="servings" name="servings" type="number" enterkeyhint="next" inputmode="numeric" min="1" max="10000" aria-describedby="servings-err" /><p class="err" id="servings-err" hidden></p></div>
       <fieldset class="radios"><legend>Pickup or delivery</legend>
         <label><input type="radio" name="fulfilment" value="pickup" /> Pickup</label>
         <label><input type="radio" name="fulfilment" value="delivery" /> Delivery</label>
@@ -38,11 +41,12 @@ const occasions = ['Birthday', 'Anniversary', 'Wedding or engagement', 'Baby or 
 
     <fieldset>
       <legend>The cake</legend>
-      <div class="field"><label for="size">Size <span class="opt">(optional)</span></label><input id="size" name="size" maxlength="100" aria-describedby="size-hint" /><p class="hint" id="size-hint">For example "6 inch" or "two tiers". Leave blank if you are not sure.</p></div>
-      <div class="field"><label for="flavour">Flavour ideas <span class="opt">(optional)</span></label><input id="flavour" name="flavour" maxlength="100" /></div>
-      <div class="field"><label for="addons">Add-ons or extras <span class="opt">(optional)</span></label><input id="addons" name="addons" maxlength="200" aria-describedby="addons-hint addons-err" /><p class="hint" id="addons-hint">Separate with commas, for example "topper, extra flowers".</p><p class="err" id="addons-err" hidden></p></div>
-      <div class="field"><label for="budget">Budget in US dollars <span class="opt">(optional)</span></label><input id="budget" name="budget" type="number" inputmode="numeric" min="0" max="100000" step="1" aria-describedby="budget-err" /><p class="err" id="budget-err" hidden></p></div>
-      <div class="field"><label for="creation">A Cakeopedia cake you like <span class="opt">(optional)</span></label>
+      <div class="field"><label for="size">Size <span class="opt">(optional)</span></label><input id="size" name="size" list="size-options" enterkeyhint="next" maxlength="100" aria-describedby="size-hint" /><p class="hint" id="size-hint">For example "6 inch" or "two tiers". Leave blank if you are not sure.</p></div>
+      <div class="field"><label for="flavour">Flavour ideas <span class="opt">(optional)</span></label><input id="flavour" name="flavour" list="flavour-options" enterkeyhint="next" maxlength="100" /></div>
+      <datalist id="size-options">{SIZES.map((d) => <option value={`${d} inch`} />)}</datalist><datalist id="flavour-options">{defaultCatalogue.flavours.map((f) => <option value={f.name} />)}</datalist>
+      <div class="field"><label for="addons">Add-ons or extras <span class="opt">(optional)</span></label><input id="addons" name="addons" enterkeyhint="next" maxlength="200" aria-describedby="addons-hint addons-err" /><p class="hint" id="addons-hint">Separate with commas, for example "topper, extra flowers".</p><p class="err" id="addons-err" hidden></p></div>
+      <div class="field"><label for="budget">Budget in US dollars <span class="opt">(optional)</span></label><input id="budget" name="budget" type="number" enterkeyhint="next" inputmode="numeric" min="0" max="100000" step="1" aria-describedby="budget-err" /><p class="err" id="budget-err" hidden></p></div>
+      <div class="field field--wide"><label for="creation">A Cakeopedia cake you like <span class="opt">(optional)</span></label>
         <select id="creation" name="creation"><option value="">None</option>{creations.map((c) => <option value={c.slug}>{c.title}</option>)}</select></div>
       <fieldset class="pics">
         <legend>Inspiration pictures <span class="opt">(optional)</span></legend>
@@ -50,7 +54,7 @@ const occasions = ['Birthday', 'Anniversary', 'Wedding or engagement', 'Baby or 
         <ul id="pic-list" class="pic-list" aria-live="polite"></ul>
         <div class="field"><label class="btn btn--ghost" id="pic-add" for="pic-input">Add a picture</label><input id="pic-input" class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" aria-describedby="pics-hint pic-err" /><p class="err" id="pic-err" role="alert" hidden></p></div>
       </fieldset>
-      <div class="field"><label for="notes">Additional comments <span class="opt">(optional)</span></label><textarea id="notes" name="notes" rows="5" maxlength="2000" aria-describedby="notes-hint"></textarea><p class="hint" id="notes-hint">Colours, cake wording, preferred time of day and anything else we should know.</p></div>
+      <div class="field field--wide"><label for="notes">Additional comments <span class="opt">(optional)</span></label><textarea id="notes" name="notes" rows="5" maxlength="2000" aria-describedby="notes-hint"></textarea><p class="hint" id="notes-hint">Colours, cake wording, preferred time of day and anything else we should know.</p></div>
     </fieldset>
 
     <div class="field field--check"><input id="privacy" name="privacy" type="checkbox" required aria-describedby="privacy-err" /><label for="privacy">I agree that Cakeopedia may use these details to reply to my enquiry. <a href="/privacy/">Privacy</a> *</label></div>

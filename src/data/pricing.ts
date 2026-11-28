@@ -30,6 +30,14 @@ export function browniePriceCents(input: { format: 'box' | 'slab'; toppings: rea
   return (format === 'box' ? browniePrice.boxCents : browniePrice.slabCents) + (toppings.length ? BROWNIE_TOPPING_CENTS : 0);
 }
 
+// Cupcakes (owner, 27 Nov 2026): $80 per dozen, minimum one dozen, all cupcakes in a dozen the same flavour; no topping or filling charges.
+export const cupcakePrice = { dozenCents: 8000, minimumDozens: 1, sameFlavour: true } as const;
+/** Whole dozens only (the minimum is one). Other quantities need owner review and are not priced here. */
+export function cupcakeOrderCents(dozens: number, dozenCents: number = cupcakePrice.dozenCents): number {
+  if (!Number.isSafeInteger(dozens) || dozens < cupcakePrice.minimumDozens || dozens > 1000) throw new RangeError('dozens');
+  return dozens * dozenCents;
+}
+
 export const celebrationFlavours = ['Chocolate Truffle', 'Chocolate Buttercream', 'Classic Vanilla', 'Vanilla with Berries', 'Vanilla with Caramel', 'Vanilla with Lotus Biscoff'] as const;
 export const celebrationShapes = ['Round', 'Heart'] as const;
 export const celebrationServings = { min: 8, max: 10 } as const;
@@ -70,6 +78,9 @@ export function paymentPlan(input: { totalCents: number; fulfilDate: string; ful
   // A rush order never gets an invented exception: the owner sets the arrangement.
   return { ...splitPayment(input.totalCents), balanceDueAt, rush, ownerArrangementRequired: rush };
 }
+
+/** How a deadline is shown to the owner: always Chicago time, whatever the viewer's device clock says. */
+export const formatChicago = (ms: number) => new Date(ms).toLocaleString('en-US', { timeZone: TIME_ZONE, dateStyle: 'medium', timeStyle: 'short' }).replace(/ /g, ' ');
 
 /** Rescheduling must be requested at least seven calendar days (Chicago) before the original date; owner approval still required. */
 export function canRequestReschedule(originalDate: string, requestedAt: number): boolean {

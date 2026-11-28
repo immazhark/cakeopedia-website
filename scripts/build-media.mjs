@@ -1,7 +1,8 @@
 // Builds web derivatives from local originals. Originals stay untouched and outside Git.
-// Usage: CAKEOPEDIA_MEDIA_DIR=<folder> FFMPEG=<path> node scripts/build-media.mjs
+// Usage: CAKEOPEDIA_MEDIA_DIR=<folder> FFMPEG=<path> node scripts/build-media.mjs   (FORCE_VIDEO=1 re-encodes clips)
 // Provenance (neutral slug -> source file) lives in the gitignored private/ folder.
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+// Images: AVIF + WebP + JPEG fallback at 480/800/1280, metadata stripped, dominant colour for a placeholder.
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import sharp from 'sharp';
@@ -16,24 +17,32 @@ const clips = {
   'balloon-reveal': { ss: 0, t: 12, poster: 3.2 },
 };
 const WIDTHS = [480, 800, 1280];
+// Quality is tuned for roughly equal looks: AVIF 52 ~ WebP 74 ~ mozjpeg 74 on buttercream and flowers.
+const ENC = { avif: (s) => s.avif({ quality: 52, effort: 5 }), webp: (s) => s.webp({ quality: 74 }), jpg: (s) => s.jpeg({ quality: 74, mozjpeg: true }) };
 mkdirSync('public/media/img', { recursive: true });
 mkdirSync('public/media/video', { recursive: true });
 const manifest = { images: {}, videos: {} };
+const hex = ({ r, g, b }) => '#' + [r, g, b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('');
 
 for (const [slug, file] of Object.entries(prov.images)) {
-  const base = sharp(join(src, file), { failOn: 'none' }).rotate(); // sharp drops EXIF/GPS by default
-  const meta = await sharp(await base.clone().toBuffer()).metadata();
-  for (const w of WIDTHS) await base.clone().resize({ width: w, withoutEnlargement: true }).webp({ quality: 78 }).toFile(`public/media/img/${slug}-${w}.webp`);
-  manifest.images[slug] = { w: meta.width, h: meta.height, widths: WIDTHS };
+  // rotate() applies EXIF orientation; sharp writes no EXIF/GPS/ICC text unless asked, so outputs carry no metadata.
+  const base = sharp(join(src, file), { failOn: 'none' }).rotate();
+  const buf = await base.clone().toBuffer();
+  const meta = await sharp(buf).metadata();
+  for (const w of WIDTHS)
+    for (const [ext, enc] of Object.entries(ENC)) await enc(sharp(buf).resize({ width: w, withoutEnlargement: true })).toFile(`public/media/img/${slug}-${w}.${ext}`);
+  const small = await sharp(buf).resize(32, 32, { fit: 'inside' }).stats(); // cheap placeholder: mean colour of the picture
+  manifest.images[slug] = { w: meta.width, h: meta.height, widths: WIDTHS, bg: hex(small.channels.length >= 3 ? { r: small.channels[0].mean, g: small.channels[1].mean, b: small.channels[2].mean } : { r: 128, g: 128, b: 128 }) };
   console.log('img', slug, meta.width, meta.height);
 }
 for (const [slug, file] of Object.entries(prov.videos)) {
-  const c = clips[slug], input = join(src, file);
+  const c = clips[slug], input = join(src, file), out = `public/media/video/${slug}.mp4`;
+  if (!process.env.FORCE_VIDEO && existsSync(out) && existsSync(`public/media/video/${slug}-poster.webp`)) { manifest.videos[slug] = { w: 540, h: 960, seconds: c.t }; console.log('video kept', slug); continue; }
   // -an: decorative footage ships silent; -map_metadata -1 strips container tags (incl. location).
   execFileSync(ffmpeg, ['-v', 'error', '-y', '-ss', String(c.ss), '-t', String(c.t), '-i', input, '-an', '-map_metadata', '-1',
-    '-vf', 'scale=540:960:flags=lanczos', '-c:v', 'libx264', '-preset', 'slow', '-crf', '29', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', `public/media/video/${slug}.mp4`]);
+    '-vf', 'scale=540:960:flags=lanczos', '-c:v', 'libx264', '-preset', 'slow', '-crf', '29', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out]);
   execFileSync(ffmpeg, ['-v', 'error', '-y', '-ss', String(c.poster), '-i', input, '-frames:v', '1', '-vf', 'scale=540:960:flags=lanczos', `private/poster-${slug}.png`]);
-  await sharp(`private/poster-${slug}.png`).webp({ quality: 80 }).toFile(`public/media/video/${slug}-poster.webp`);
+  await sharp(`private/poster-${slug}.png`).webp({ quality: 72 }).toFile(`public/media/video/${slug}-poster.webp`);
   manifest.videos[slug] = { w: 540, h: 960, seconds: c.t };
   console.log('video', slug);
 }

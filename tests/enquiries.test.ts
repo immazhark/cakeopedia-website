@@ -124,7 +124,7 @@ test('public Worker stays closed, including all private endpoints', async () => 
     assert.equal((await entry.fetch(new Request('https://preview.example.invalid' + path))).status, 503);
   }
   const health = await entry.fetch(new Request('http://localhost/health'));
-  assert.deepEqual(await health.json(), { stage: 'local-foundation', intakeEnabled: false });
+  assert.deepEqual(await health.json(), { stage: 'local-foundation', intakeEnabled: false, adminEnabled: false });
 });
 test('contact routes, fulfilment, add-ons and budget validate and normalise', async () => {
   const ok = async (extra: Record<string, unknown>) => (await handleEnquiry(request(input(extra)), deps())).status;

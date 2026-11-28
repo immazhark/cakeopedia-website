@@ -1,0 +1,18 @@
+---
+// One photograph as AVIF, WebP and JPEG at the widths build-media.mjs writes. Explicit width/height keep layout
+// stable; the dominant colour shows while the file loads. Only an eager image gets fetchpriority=high.
+import manifest from '../data/media-manifest.json';
+interface Props { slug: string; alt: string; sizes: string; eager?: boolean; focus?: string | undefined; full?: boolean }
+const { slug, alt, sizes, eager = false, focus, full = false } = Astro.props;
+const m = (manifest.images as Record<string, { w: number; h: number; widths: number[]; bg: string }>)[slug];
+if (!m) throw new Error(`no media manifest entry for ${slug}`);
+const set = (ext: string) => m.widths.map((w) => `/media/img/${slug}-${w}.${ext} ${w}w`).join(', ');
+const base = full ? Math.max(...m.widths) : 800;
+const style = [`background-color:${m.bg}`, focus ? `object-position:${focus}` : ''].filter(Boolean).join(';');
+---
+<picture style="display:contents">
+  <source type="image/avif" srcset={set('avif')} sizes={sizes} />
+  <source type="image/webp" srcset={set('webp')} sizes={sizes} />
+  <img src={`/media/img/${slug}-${base}.jpg`} srcset={set('jpg')} sizes={sizes} width={base} height={Math.round((base * m.h) / m.w)} alt={alt}
+    style={style} loading={eager ? 'eager' : 'lazy'} fetchpriority={eager ? 'high' : undefined} decoding="async" />
+</picture>

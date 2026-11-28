@@ -3,7 +3,7 @@
 type Config = Readonly<{ from: string; owner: string }>;
 type Contact = Readonly<{ kind: 'email' | 'phone' | 'instagram'; value: string }>;
 type Snapshot = { kind: 'send'; payload: string } | { kind: 'skip'; reason: 'non_email_contact' };
-function address(value: string): string {
+export function address(value: string): string {
   if (value.length > 254 || !/^[a-zA-Z0-9.!#$%&'*+\/=\?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+$/.test(value) || /[\r\n]/.test(value)) throw Error('Invalid notification address');
   return value;
 }

@@ -16,7 +16,7 @@ const label = categories[cat];
   </div>
   <div class="wrap">
     <CategoryNav active={cat} />
-    <ul class="grid">{items.map((c, i) => <li><CreationCard c={c} eager={i < 3} /></li>)}</ul>
+    <ul class="grid grid--gallery">{items.map((c, i) => <li><CreationCard c={c} eager={i < 3} level={2} /></li>)}</ul>
   </div>
   <div style="height:var(--space-6)"></div>
 </Base>

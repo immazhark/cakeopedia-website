@@ -68,6 +68,21 @@ export async function routeOrders(request: Request, db: AdminDb, actor: string, 
     if (m === 'DELETE') { await db.prepare('DELETE FROM busy_dates WHERE date = ?').bind(date).run(); return out(204); }
     return new Response(null, { status: 405 });
   }
+  // ---- "needs attention": what the owner should act on today. Four bounded queries; names and amounts only (the owner already sees these in the list).
+  if (p === '/admin/api/attention' && m === 'GET') {
+    const from = url.searchParams.get('from'), to = url.searchParams.get('to'); // the owner's local "today" and today + 14 days
+    if (!isDate(from) || !isDate(to) || to < from || (Date.parse(to) - Date.parse(from)) / 86_400_000 > 60) return bad();
+    const latestQuote = 'JOIN quotes q ON q.enquiry_id = e.id AND q.version = (SELECT max(version) FROM quotes WHERE enquiry_id = e.id)';
+    const paid = '(SELECT COALESCE(SUM(amount_cents), 0) FROM payments p WHERE p.enquiry_id = e.id AND p.voided_at IS NULL)';
+    const fresh = await db.prepare(`SELECT count(*) AS n, MIN(c) AS oldest FROM (SELECT e.created_at AS c, ${CURRENT} AS status FROM enquiries e) WHERE status = 'new'`).first<{ n: number; oldest: number | null }>();
+    const { results: quoted } = await db.prepare(`SELECT * FROM (SELECT e.id, json_extract(e.payload_json, '$.name') AS name, ${CURRENT} AS status, q.total_cents AS totalCents, q.deposit_cents AS depositCents, q.created_at AS quotedAt, q.fulfil_date AS date
+      FROM enquiries e ${latestQuote}) WHERE status = 'quoted' ORDER BY quotedAt LIMIT 10`).all();
+    const { results: balances } = await db.prepare(`SELECT * FROM (SELECT e.id, json_extract(e.payload_json, '$.name') AS name, ${CURRENT} AS status, q.fulfil_date AS date, q.fulfil_time AS time, q.fulfilment,
+      q.total_cents - ${paid} AS dueCents FROM enquiries e ${latestQuote} WHERE q.fulfil_date BETWEEN ? AND ?) WHERE status = 'confirmed' AND dueCents > 0 ORDER BY date, time LIMIT 20`).bind(from, to).all();
+    const { results: week } = await db.prepare(`SELECT * FROM (SELECT e.id, json_extract(e.payload_json, '$.name') AS name, ${CURRENT} AS status, q.fulfil_date AS date, q.fulfil_time AS time, q.fulfilment
+      FROM enquiries e ${latestQuote} WHERE q.fulfil_date BETWEEN ? AND date(?, '+7 days')) WHERE status = 'confirmed' ORDER BY date, time LIMIT 20`).bind(from, from).all();
+    return out(200, { newCount: fresh?.n ?? 0, oldestNewAt: fresh?.oldest ?? null, quoted, balances, week });
+  }
   // ---- calendar: confirmed orders by fulfilment date + busy dates in a bounded window
   if (p === '/admin/api/calendar' && m === 'GET') {
     const from = url.searchParams.get('from'), to = url.searchParams.get('to');

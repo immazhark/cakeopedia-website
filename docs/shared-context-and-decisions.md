@@ -163,7 +163,7 @@ Public brand remains Cakeopedia Austin.
 
 Proposed, not verified/provisioned: retain Spaceship as registrar; Cloudflare Free DNS and suitable free-tier hosting. No registrar transfer is needed for that approach. Do not assume nameservers, DNS records, email, hosting, SSL, redirects or canonical URLs are configured.
 
-Branded email such as hello@cakeopedia.com was an example, not a selected/created mailbox. Confirm owner contact choice and mail provider first. Preserve existing DNS/email records before any nameserver change.
+[Superseded 2026-11-27] Email: public contact@cakeopedia.com forwards (Cloudflare Email Routing) to the business mailbox cakeopedia.austin@gmail.com; automated mail is sent by Resend from contact@cakeopedia.com; no Gmail Send-As; the owner's personal Gmail is not used for operations. Preserve existing DNS/email records before any nameserver change.
 
 Free-first throughout. Verify commercial permissions and actual account limits; free tiers are not unlimited or guaranteed forever. No paid APIs, paid trials, SMS subscriptions, card checkout fees or new spend without explicit approval. Reuse existing capable tools; avoid repetitive environment/tooling optimisation. Sponsor manages purchases/accounts.
 
@@ -226,7 +226,8 @@ Closed; do not re-ask. Single source of truth in code: `src/data/pricing.ts` (ru
 - Celebration Cake: $75, 6 in, 2 layers, 8–10 servings, round or heart, six dedicated flavours, no fondant, no custom-cake minimum.
 - Business email contact@cakeopedia.com approved; provisioning is an infrastructure task, so it is not published yet.
 - Enquiry-first remains: no checkout or automated payment. Commercial launch gate unchanged.
-Still open (not core): cupcake price/minimum, delivery area and charges, allergen/storage matrix, cottage-food compliance, policy legal review, logo production, media reconciliation.
+Cupcakes (owner, supplied via sponsor 27 Nov 2026; no earlier written record in docs/): $80 per dozen, minimum one dozen, all in the same flavour, no topping or filling charges. Modelled as `cupcakeDozenCents` (catalogue, owner Prices tab), `cupcakePrice` (pricing.ts).
+Still open (not core): delivery area and charges, allergen/storage matrix, cottage-food compliance, policy legal review, logo production, media reconciliation.
 
 ## Owner decisions, 26 November 2026
 - Retention: closed enquiries are kept until the owner erases them; no automatic period (the retention job exists but stays off).

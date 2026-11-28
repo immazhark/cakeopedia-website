@@ -81,7 +81,7 @@ test('inbox: unauthenticated and non-operator requests are denied on every route
   const stranger = await sign(good, { email: 'stranger@example.invalid' });
   for (const [path, init] of [['/admin/api/enquiries', {}], [`/admin/api/enquiries/${id}`, {}], [`/admin/api/enquiries/${id}/status`, { method: 'POST', body: '{}' }]] as const) {
     assert.equal((await handleInbox(new Request(`${ORIGIN}${path}`, init), db as unknown as InboxDb, cfg)).status, 401, path);
-    assert.equal((await call(path, init, stranger)).status, 401, path);
+    assert.equal((await call(path, init, stranger)).status, 403, path);
   }
 });
 

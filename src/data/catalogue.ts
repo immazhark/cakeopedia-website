@@ -1,5 +1,5 @@
 import { addons, flavours } from './business.ts';
-import { BASE_CENTS, BROWNIE_TOPPING_CENTS, browniePrice, celebrationFlavours, RASMALAI_SURCHARGE_CENTS, SIZES } from './pricing.ts';
+import { BASE_CENTS, cupcakePrice, BROWNIE_TOPPING_CENTS, browniePrice, celebrationFlavours, RASMALAI_SURCHARGE_CENTS, SIZES } from './pricing.ts';
 
 // The part of the catalogue the owner edits from her phone: prices, add-ons and flavour lists. Rules (how prices combine, payment
 // terms) stay in pricing.ts. Unknown prices are absent, never zero. The default below is the owner-confirmed seed; a published
@@ -7,6 +7,7 @@ import { BASE_CENTS, BROWNIE_TOPPING_CENTS, browniePrice, celebrationFlavours, R
 export interface Catalogue {
   baseCents: Record<string, number>; rasmalaiCents: Record<string, number>;
   celebrationCents: number; brownieBoxCents: number; brownieSlabCents: number; brownieToppingCents: number;
+  cupcakeDozenCents: number; // per dozen; the minimum (one dozen) and same-flavour rule live in pricing.ts
   addons: { id: string; name: string; priceCents: number; note?: string }[];
   flavours: { id: string; name: string; description: string; available: boolean }[]; // available=false: paused for now, still listed
   celebrationFlavours: string[];
@@ -14,7 +15,7 @@ export interface Catalogue {
 }
 export const defaultCatalogue: Catalogue = {
   baseCents: Object.fromEntries(SIZES.map((d) => [String(d), BASE_CENTS[d]])), rasmalaiCents: Object.fromEntries(SIZES.map((d) => [String(d), RASMALAI_SURCHARGE_CENTS[d]])),
-  celebrationCents: 7500, brownieBoxCents: browniePrice.boxCents, brownieSlabCents: browniePrice.slabCents, brownieToppingCents: BROWNIE_TOPPING_CENTS,
+  celebrationCents: 7500, brownieBoxCents: browniePrice.boxCents, brownieSlabCents: browniePrice.slabCents, brownieToppingCents: BROWNIE_TOPPING_CENTS, cupcakeDozenCents: cupcakePrice.dozenCents,
   addons: addons.map(({ id, name, priceCents, note }) => ({ id, name, priceCents, ...(note ? { note } : {}) })),
   flavours: flavours.map(({ id, name, description }) => ({ id, name, description, available: true })),
   celebrationFlavours: [...celebrationFlavours], pausedCelebrationFlavours: [],
@@ -40,10 +41,12 @@ const rows = <T>(v: unknown, max: number, one: (x: unknown) => T, id: (x: T) => 
 /** Strict parse: rejects unknown keys, non-integer or non-positive prices, duplicates and control characters. */
 export function parseCatalogue(value: unknown): Catalogue {
   const hasPaused = !!value && typeof value === 'object' && Object.hasOwn(value, 'pausedCelebrationFlavours'); // snapshots published before pausing existed have no such key
-  const d = obj(value, ['baseCents', 'rasmalaiCents', 'celebrationCents', 'brownieBoxCents', 'brownieSlabCents', 'brownieToppingCents', 'addons', 'flavours', 'celebrationFlavours', ...(hasPaused ? ['pausedCelebrationFlavours'] : [])]);
+  const hasCupcake = !!value && typeof value === 'object' && Object.hasOwn(value, 'cupcakeDozenCents'); // snapshots published before cupcakes were priced have no such key: they get the confirmed seed price
+  const d = obj(value, ['baseCents', 'rasmalaiCents', 'celebrationCents', 'brownieBoxCents', 'brownieSlabCents', 'brownieToppingCents', 'addons', 'flavours', 'celebrationFlavours', ...(hasCupcake ? ['cupcakeDozenCents'] : []), ...(hasPaused ? ['pausedCelebrationFlavours'] : [])]);
   const c: Catalogue = {
     baseCents: bySize(d.baseCents, 1), rasmalaiCents: bySize(d.rasmalaiCents, 0),
     celebrationCents: cents(d.celebrationCents), brownieBoxCents: cents(d.brownieBoxCents), brownieSlabCents: cents(d.brownieSlabCents), brownieToppingCents: cents(d.brownieToppingCents, 0),
+    cupcakeDozenCents: hasCupcake ? cents(d.cupcakeDozenCents) : cupcakePrice.dozenCents,
     addons: rows(d.addons, 50, (x) => { const a = obj(x, x && typeof x === 'object' && Object.hasOwn(x, 'note') ? ['id', 'name', 'priceCents', 'note'] : ['id', 'name', 'priceCents']); return { id: str(a.id, 60), name: str(a.name, 100), priceCents: cents(a.priceCents), ...(Object.hasOwn(a, 'note') ? { note: str(a.note, 200) } : {}) }; }, (a) => a.id),
     flavours: rows(d.flavours, 60, (x) => { const f = obj(x, x && typeof x === 'object' && Object.hasOwn(x, 'available') ? ['id', 'name', 'description', 'available'] : ['id', 'name', 'description']); // snapshots published before availability existed have no flag: available
       if (f.available !== undefined && typeof f.available !== 'boolean') bad();

@@ -65,7 +65,7 @@ export function createAccessKeySource(issuer:string,transport:typeof fetch,clock
     const deadline=new Promise<never>((_,reject)=>{
       timer=setTimeout(()=>{controller.abort();reject(unavailable());},timeoutMs);
     });
-    const request=async()=>readKeys(await transport(endpoint,{method:'GET',redirect:'error',signal:controller.signal,headers:{Accept:'application/json'}}),controller.signal);
+    const request=async()=>readKeys(await transport(endpoint,{method:'GET',redirect:'manual',signal:controller.signal,headers:{Accept:'application/json'}}),controller.signal);
     try {
       return await Promise.race([request(),deadline]);
     } catch { throw unavailable(); }

@@ -15,9 +15,10 @@
     "test": "node --test tests/*.test.ts",
     "dev:api": "wrangler dev --config wrangler.local.jsonc --local",
     "db:local": "wrangler d1 migrations apply DB --config wrangler.local.jsonc --local",
-    "verify": "npm run check && npm test && npm run build && node --test tests/build.test.mjs tests/production-output.test.mjs",
+    "verify": "npm run check && npm test && npm run build && node --test tests/build.test.mjs tests/production-output.test.mjs && node --test tests/seo-output.test.mjs",
     "media": "node scripts/build-media.mjs",
     "check:media": "node scripts/check-media.mjs",
+    "check:media:origin": "node scripts/check-media-origin.mjs",
     "check:browser": "node scripts/browser-check.mjs",
     "backup": "node scripts/backup.ts"
   },
@@ -35,5 +36,11 @@
     "sharp": "0.35.5",
     "typescript": "6.0.3",
     "wrangler": "4.167.0"
+  },
+  "overrides": {
+    "miniflare": {
+      "sharp": "0.35.5",
+      "undici": "7.30.2"
+    }
   }
 }

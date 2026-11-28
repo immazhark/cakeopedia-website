@@ -16,6 +16,7 @@ const money = (c: number, k: 'fixed' | 'starting') => formatMenuPrice(c, k);
   <div class="wrap page-head prose">
     <p class="eyebrow">The menu</p>
     <h1>Baked from scratch, made to your occasion</h1>
+    <p class="answer" style="margin-top:var(--space-3)"><strong>In short:</strong> Custom cakes start at {money(fromCents, 'fixed')} (a {customCake.base.diameterIn}-inch, {count(customCake.base.layers)}-layer cake, about {customCake.base.servings} servings), Celebration Cakes are {money(cat.celebrationCents, 'fixed')}, and there are {count(availableFlavours.length)} custom-cake flavours, plus cupcakes ({money(cat.cupcakeDozenCents, 'fixed')} per dozen) and brownies. The final price is agreed in your quotation.</p>
     <p class="lede" style="margin-top:var(--space-3)">Choose a flavour, tell us the occasion, and we will agree the design and price with you.</p>
     <div class="note"><p>This menu is being confirmed for the current season. Availability, final design and price are agreed in your quotation; an enquiry does not reserve a date or confirm an order.</p></div>
   </div>
@@ -58,7 +59,8 @@ const money = (c: number, k: 'fixed' | 'starting') => formatMenuPrice(c, k);
   <section class="section menu-sec" aria-labelledby="cupcakes"><div class="wrap menu-grid">
     <div class="menu-intro">
       <h2 id="cupcakes">Cupcakes</h2>
-      <p class="small">No extra charge for toppings or fillings. Cupcake pricing and minimum quantities are quoted with your enquiry.</p>
+      <p class="price-line"><strong>{money(cat.cupcakeDozenCents, 'fixed')}</strong> <span>per dozen</span></p>
+      <p class="small">Minimum order one dozen, all in the same flavour. No extra charge for toppings or fillings.</p>
     </div>
     <div class="menu-body">
       {cupcakes.options.map((o) => (<><h3>{o.base}</h3><p>Fillings: {o.fillings.join(', ')}.</p></>))}

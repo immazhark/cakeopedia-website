@@ -402,3 +402,26 @@ test('status and menu routes refuse oversized bodies with 413', async () => {
   assert.equal((await call(url(id, 'status'), 'POST', { status: 'replied', expected: 'new', note: 'x'.repeat(20_000) })).status, 413);
   assert.equal((await call('/admin/api/menu/synthetic-big', 'PUT', { expectedRevision: null, item: { title: 'x'.repeat(70_000) } })).status, 413);
 });
+test('catalogue: rebuild outcome is stored and visible, a retried publish is a replay, and a failed rebuild can be retried', async () => {
+  assert.equal((await call('/admin/api/catalogue', 'PUT', { expectedRevision: 3, catalogue: cat({ celebrationCents: 7900 }) })).status, 200);
+  rebuildHook = async () => false; // hook answers non-2xx
+  const first = await json<{ version: number; rebuild: string }>(await call('/admin/api/catalogue/publish', 'POST', { expectedRevision: 4 }));
+  assert.deepEqual([first.version, first.rebuild], [5, 'failed']);
+  const state = async () => (await json<{ published: { version: number; rebuild: { status: string; attempts: number } } }>(await call('/admin/api/catalogue'))).published;
+  assert.deepEqual([(await state()).version, (await state()).rebuild.status, (await state()).rebuild.attempts], [5, 'failed', 1]);
+  let hits = 0; rebuildHook = async () => { hits++; return true; };
+  const replay = await json<{ version: number; replay?: boolean; rebuild: string }>(await call('/admin/api/catalogue/publish', 'POST', { expectedRevision: 4 }));
+  assert.deepEqual([replay.version, replay.replay, replay.rebuild, hits], [5, true, 'failed', 0]); // no second version, no hidden rebuild
+  assert.equal((await json<{ versions: unknown[] }>(await call('/admin/api/catalogue/history'))).versions.length, 5);
+  const retry = await json<{ version: number; rebuild: string }>(await call('/admin/api/catalogue/rebuild', 'POST', {}));
+  assert.deepEqual([retry.version, retry.rebuild, hits, (await state()).rebuild.attempts], [5, 'requested', 1, 2]);
+  assert.equal((await call('/admin/api/catalogue/rebuild', 'POST', {}, null)).status, 401);
+  rebuildHook = undefined;
+});
+test('owner health route: authenticated only, counts and ages with no customer data', async () => {
+  assert.equal((await call('/admin/api/health', 'GET', undefined, null)).status, 401);
+  const h = await call('/admin/api/health'); assert.equal(h.status, 200);
+  const body = await json<{ missingTables: string[]; tablesPresent: string[] }>(h);
+  assert.deepEqual(body.missingTables, []);
+  assert.ok(!/@|CK-/.test(JSON.stringify(body)));
+});

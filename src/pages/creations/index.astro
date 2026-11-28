@@ -12,8 +12,8 @@ import { creations } from '../../data/creations';
   </div>
   <div class="wrap">
     <CategoryNav />
-    <ul class="grid">
-      {creations.map((c, i) => <li><CreationCard c={c} eager={i < 3} /></li>)}
+    <ul class="grid grid--gallery">
+      {creations.map((c, i) => <li><CreationCard c={c} eager={i < 3} level={2} /></li>)}
     </ul>
   </div>
   <div style="height:var(--space-6)"></div>

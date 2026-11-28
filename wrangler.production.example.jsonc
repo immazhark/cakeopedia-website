@@ -12,7 +12,8 @@
   // The static site (build with PUBLIC_SITE_ENV=production). Only the API paths run the Worker first; everything else is served as static assets.
   "assets": {
     "directory": "./dist",
-    "run_worker_first": ["/api/*", "/admin/api/*", "/health"],
+    "binding": "ASSETS", // lets the Worker serve /media/video/* with byte ranges
+    "run_worker_first": ["/api/*", "/admin/api/*", "/health", "/media/video/*"],
     "not_found_handling": "404-page"
   },
 
@@ -26,14 +27,16 @@
   // Scheduled maintenance (notifications, rate-window cleanup, upload cleanup, retention). Each job still needs its own switch below.
   "triggers": { "crons": ["*/5 * * * *"] },
 
-  // Non-secret settings. Intake stays closed while LIVE_ENABLED is anything other than "1" (emergency stop: change it and redeploy).
+  // Non-secret settings. Public intake needs LIVE_ENABLED="1" (emergency stop: change it and redeploy; the owner area and maintenance keep running). The owner area needs ADMIN_ENABLED="1".
   "vars": {
     "LIVE_ENABLED": "0",
+    "ADMIN_ENABLED": "0",
     "SITE_ORIGIN": "https://REPLACE_WITH_DOMAIN",
     "ACCESS_ISSUER": "https://REPLACE_WITH_TEAM.cloudflareaccess.com",
     "ACCESS_AUD": "REPLACE_WITH_ACCESS_APPLICATION_AUD",
     "OPERATORS": "REPLACE_WITH_OWNER_EMAIL",
     "MAIL_FROM": "REPLACE_WITH_VERIFIED_SENDER",
+    "MAIL_REPLY_TO": "REPLACE_WITH_PUBLIC_BUSINESS_ADDRESS",
     "OWNER_EMAIL": "REPLACE_WITH_OWNER_EMAIL",
     "NOTIFICATIONS_ENABLED": "0",
     "RATE_CLEANUP_ENABLED": "1",

@@ -3,7 +3,7 @@ import { configs, label } from './serving.ts';
 import { ingredientScope, ingredientStatements, paymentTerms } from './business.ts';
 
 // Customer questions answered only from owner-confirmed facts. Prices come from the catalogue so the FAQ can never contradict the menu.
-// Deliberately absent until confirmed: delivery area and fees, cancellation wording, allergen and storage advice, cupcake prices.
+// Deliberately absent until confirmed: delivery area and fees, cancellation wording, allergen and storage advice.
 const usd = (c: number) => '$' + (c % 100 === 0 ? c / 100 : (c / 100).toFixed(2));
 export interface Faq { id: string; q: string; a: string }
 
@@ -19,6 +19,7 @@ export function buildFaq(cat: Catalogue): Faq[] {
     { id: 'notice', q: 'How far ahead should I order?', a: 'Two weeks’ notice is recommended. Short-notice orders are possible subject to availability, so send an enquiry with your date and we will tell you.' },
     { id: 'payment', q: 'How do deposits and payment work?', a: `${paymentTerms.slice(0, 3).join(' ')} An enquiry does not reserve a date; your order is confirmed once the quotation is agreed and the advance payment is received.` },
     { id: 'brownies', q: 'What do brownies cost?', a: `A box of nine brownies is ${usd(cat.brownieBoxCents)} and the Fudge Delight Brownie Slab is ${usd(cat.brownieSlabCents)}. A topping (Nutella, Lotus Biscoff or chocolate ganache) adds ${usd(cat.brownieToppingCents)} per box or slab, not per brownie. Unusual quantities are reviewed individually.` },
+    { id: 'cupcakes', q: 'What do cupcakes cost?', a: `Cupcakes are ${usd(cat.cupcakeDozenCents)} per dozen. The minimum order is one dozen, and all the cupcakes in a dozen are the same flavour. There is no extra charge for toppings or fillings.` },
     { id: 'inspiration', q: 'Can I share inspiration pictures?', a: 'Yes. The enquiry form lets you add up to three pictures from anywhere, plus a note describing what you like. Your pictures are stored privately and used only to discuss your order. A picture inspires a conversation; it is not a promise of an exact copy.' },
     { id: 'ingredients', q: 'What ingredients do you use?', a: `${ingredientStatements.join(' ')} ${ingredientScope}` },
   ];

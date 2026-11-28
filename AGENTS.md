@@ -3,6 +3,7 @@
 Existing Austin home-baking business; first website. Repo: immazhark/cakeopedia-website.
 
 ## Start
+Also read docs/directives/MASTER-DESIGN-ENGINEERING-DIRECTIVE.md (permanent owner directive) and DESIGN.md every session; track status in docs/qa/DESIGN-IMPLEMENTATION.md.
 Read the current task, docs/shared-context-and-decisions.md, docs/handoff.md and docs/progress.md; inspect branch/HEAD,
 working changes and relevant PRs. Read docs/master-plan.md and task specifications
 only as needed. Repository code is implementation evidence; plans are not.
