@@ -55,7 +55,7 @@ const nav = isPrivate ? [] : [['/menu/', 'Menu'], ['/creations/', 'Creations'], 
     <a class="skip" href="#main">Skip to content</a>
     <header class="site-header">
       <div class="wrap">
-        <a class="brand" href="/"><img class="brand-mark" src="/brand/hat.png" width="128" height="102" alt="" />Cakeopedia <span>Austin</span></a>
+        <a class="brand" href="/">Cakeopedia <span>Austin</span></a>
         <nav aria-label="Main">
           <ul class="nav">
             {nav.map(([href, label]) => <li><a href={href} aria-current={current === href ? 'page' : undefined}>{label}</a></li>)}

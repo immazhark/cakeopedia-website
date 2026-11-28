@@ -388,9 +388,8 @@ main .today-group h3 { font: 600 .75rem/1 var(--font-body); letter-spacing: .12e
 /* selects match the text inputs beside them (inputs render about 53px, selects 48px) */
 .form select { min-height: 3.3rem; }
 
-/* logo: the chef-hat mark replaces the orange dot beside the wordmark; the full badge sits in the footer */
-.brand::before { display: none; }
-.brand-mark { height: 1.9rem; width: auto; align-self: center; margin-right: .15rem; flex: none; }
+/* logo: the chef-hat mark (a CSS background, so it is purely decorative and needs no alt text) replaces the orange dot; the full badge sits in the footer */
+.brand::before { content: ''; display: block; flex: none; width: 2.38rem; height: 1.9rem; margin: 0 .15rem 0 0; border-radius: 0; box-shadow: none; background: url('/brand/hat.png') center / contain no-repeat; align-self: center; }
 .foot-badge { display: block; width: clamp(8rem, 6rem + 8vw, 11rem); height: auto; margin: 0 0 var(--space-3); }
-@media (max-width: 30rem) { .brand { font-size: 1.4rem; } .brand-mark { height: 1.45rem; } } /* the Enquire button sits at the right edge: the wordmark plus mark must stay clear of it */
-@media (max-width: 23rem) { .brand-mark { display: none; } }
+@media (max-width: 30rem) { .brand { font-size: 1.4rem; } .brand::before { width: 1.82rem; height: 1.45rem; } } /* the Enquire button sits at the right edge: the wordmark plus mark must stay clear of it */
+@media (max-width: 22rem) { .brand::before { display: none; } } /* 352px and narrower: below that the mark would touch the Enquire button; 360px phones keep it */
