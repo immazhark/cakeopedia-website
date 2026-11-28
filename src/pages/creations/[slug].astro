@@ -1,0 +1,56 @@
+---
+import Base from '../../layouts/Base.astro';
+import CreationCard from '../../components/CreationCard.astro';
+import Picture from '../../components/Picture.astro';
+import { creations, cover, categories } from '../../data/creations';
+import manifest from '../../data/media-manifest.json';
+
+export function getStaticPaths() { return creations.map((c, i) => ({ params: { slug: c.slug }, props: { c, more: [1, 2, 3].map((n) => creations[(i + n) % creations.length]!) } })); }
+const { c, more } = Astro.props;
+const img = cover(c);
+const full = c.poster ? img.src : `/media/img/${c.slug}-1280.jpg`; // JPEG: widest support for social previews
+---
+<Base title={`${c.title} · Cakeopedia Austin`} description={`${c.alt}. Previous work by Cakeopedia Austin.`} image={full}>
+  <div class="wrap">
+    <p class="crumbs"><a href="/creations/">Creations</a> / {c.title}</p>
+    <article class="detail">
+      <div class="photo">
+        {c.poster
+          ? <img src={full} width={img.w} height={img.h} alt={c.alt} fetchpriority="high" />
+          : <Picture slug={c.slug} alt={c.alt} sizes="(min-width: 56rem) 50vw, 100vw" eager full />}
+      </div>
+      <div>
+        <p class="eyebrow">Previous work</p>
+        <h1 style="font-size:var(--step-3)">{c.title}</h1>
+        <ul class="tags" aria-label="Style">{c.cats.map((k) => <li>{categories[k]}</li>)}</ul>
+        <p class="lede">{c.alt}.</p>
+        <div class="note">
+          <p>This is a cake that has already been made, not an item you can order as shown. Flavours, size and price are agreed in your enquiry. Which decorations are edible is confirmed with you.</p>
+        </div>
+        {c.video && (
+          <figure style="margin:var(--space-4) 0 0">
+            <div class="film" style="margin-inline:0">
+              <video controls preload="none" playsinline poster={`/media/video/${c.video.slug}-poster.webp`} width={manifest.videos[c.video.slug].w} height={manifest.videos[c.video.slug].h} aria-label={c.video.caption}>
+                <source src={`/media/video/${c.video.slug}.mp4`} type="video/mp4" />
+              </video>
+            </div>
+            <figcaption class="caption">{c.video.caption}</figcaption>
+          </figure>
+        )}
+        <div class="actions">
+          <a class="btn" href={`/enquiry/?creation=${c.slug}`}>Ask about a cake like this</a>
+          <a class="btn btn--ghost" href="/creations/">Back to creations</a>
+        </div>
+      </div>
+    </article>
+  </div>
+  <section class="section section--beige">
+    <div class="wrap">
+      <h2 style="font-size:var(--step-2);margin-bottom:var(--space-3)">More from the collection</h2>
+      <ul class="grid related">{more.map((m) => <li><CreationCard c={m} /></li>)}</ul>
+    </div>
+  </section>
+</Base>
+<style>
+  @media (min-width: 48rem) { .related { grid-template-columns: repeat(3, minmax(0, 18rem)); } } /* on phones the shared .grid keeps two columns */
+</style>

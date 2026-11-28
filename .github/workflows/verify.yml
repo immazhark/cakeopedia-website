@@ -1,0 +1,55 @@
+name: Verify local foundation
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npm run verify
+        env:
+          SKIP_IMAGE_CHECK: '1' # no photos in the repository by policy, so the og:image file cannot exist in CI
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      # Local stack with a throwaway D1/R2 and test data only; real Chrome from the runner image.
+      - run: npm run db:local
+      - name: Start local API and site
+        run: |
+          nohup npm run dev:api > api.log 2>&1 &
+          nohup npm run dev > web.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -fs http://127.0.0.1:4321/menu/ > /dev/null && curl -s -o /dev/null http://127.0.0.1:4321/admin/api/enquiries -H 'X-Cakeopedia-Admin: 1' && break
+            sleep 2
+          done
+      - run: npm run check:browser
+        env:
+          BROWSER_CHANNEL: chrome
+          SKIP_IMAGE_CHECK: '1' # no photos in the repository by policy
+      - name: Server logs on failure
+        if: failure()
+        run: tail -n 60 api.log web.log

@@ -15,8 +15,8 @@ not a guarantee of unlimited availability. Commercial SaaS terms require review 
 | Resend Free | 100/day, 3,000/month; recipients and inbound count; 24h idempotency | Domain verification; persistent bounded outbox recovery. API acceptance is not delivery. |
 | Turnstile Free | 20 widgets; unlimited challenges; 10 hostnames/widget; single-use five-minute tokens | Server Siteverify plus application limits and recoverable replay. |
 | Access | Free plan advertised for teams under 50 users | Exact allowlist/backend JWT/alternate-host proof; no homegrown password system. |
-| R2 Standard | 10GB-month, 1m A/10m B operations allowance; metered overage | Deferred; no direct customer uploads in release one. |
-| Domain | Registration and renewal cost depends on selected name/provider | Owner-managed; wait for approved identity and purchase scope. |
+| R2 Standard | 10GB-month, 1m A/10m B operations allowance; metered overage | Conditional private inspiration uploads, up to three; validate actual account/quota/overage controls before activation. |
+| Domain | Registration and renewal cost depends on selected name/provider | Purchased by sponsor: cakeopedia.com at Spaceship. DNS/hosting/email setup not verified; no further purchase needed for registration. |
 
 ## Before activation
 

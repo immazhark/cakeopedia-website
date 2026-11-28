@@ -1,9 +1,12 @@
 # Enquiry behaviour and API boundary — proposed v1
 
-This specifies a future implementation. There is no working endpoint in this package.
+The contract below remains the product target. A locally tested dependency-injected
+core now implements the minimal email payload, bounded body/validation, D1 persistence
+and replay. It is not connected to the closed public Worker entry point. No live
+intake, inbox or notification dispatcher is implemented. See local-development.md.
 
 ## Customer form
-Required: name and a supported contact route. Email is the proposed initial route; if owner chooses phone/Instagram instead, adapt validators and acknowledge on-screen without inventing an email address. Optional/unsure: event date, occasion, servings, general area, budget, flavours and notes. Selected website creation IDs prefill automatically. Date is a local calendar date, not midnight UTC. Fulfilment times use America/Chicago later.
+Required: name and a supported contact route. Email is the proposed initial route; if owner chooses phone/Instagram instead, adapt validators and acknowledge on-screen without inventing an email address. Optional/unsure: event date, occasion, servings, general area, budget, flavours and notes. Selected website creation IDs prefill automatically. Up to three optional inspiration images may depict any reference design, not only Cakeopedia work. Include optional Additional comments; all images are inspiration, not exact-reproduction promises. Date is a local calendar date, not midnight UTC. Fulfilment times use America/Chicago later.
 
 Keep contact values in form memory by default. Persist only non-sensitive choices locally with expiry and clear controls. No partial upload or owner visibility before explicit submit. A privacy notice explains submission; marketing permission is separate, optional and initially unnecessary. Validate without discarding valid fields. Disable repeated taps temporarily, but permit recovery after network failure.
 
@@ -19,7 +22,7 @@ A reference is not an authorisation token. Public success URL must not reveal re
 ## Operational data
 Enquiry: id, unique submission_id, public_reference, created_at, contact, requested local date, permitted notes, status, replied_at|null. Reference: enquiry_id, public_creation_id. Outbox: id, enquiry_id, recipient role, delivery status, attempt count, next_attempt_at, provider id|null, safe last_error_code. Settings: configured private notification destination and operational flags. Contact details encrypted in exports; access-controlled at rest using provider protections and threat review.
 
-Status: new → replied → booked or closed, with corrections allowed and timestamps. No automatic acceptance. Do not use CMS for private records.
+Target status: new → replied → quoted → confirmed or closed, with corrections allowed and timestamps. Existing booked status must be deliberately mapped/migrated if retained; do not pretend the new target states already exist in code. No automatic acceptance. Do not use CMS for private records.
 
 ## Notifications and outages
 On receipt, show confirmation even if email is queued. Owner and customer messages are distinct and count separately. Use verified From domain and safe Reply-To; never spoof customer From. Use deterministic event keys for retry handling; provider support for idempotency must be verified. If send outcome is ambiguous, reconcile rather than blindly duplicate.
@@ -29,7 +32,7 @@ Retry transient failures and quotas with bounded backoff. Permanent address erro
 If persistence is definitively rejected, say not received. If the network outcome is ambiguous, say receipt could not be confirmed and offer a safe retry with the same submission ID. Keep in-memory values and the approved Instagram alternative. Do not claim a successful submission because email alone was sent.
 
 ## Upload option
-Off by default until private storage/billing gate passes. Then allow small JPEG/PNG/WebP references with actual-content validation and strict file/count/byte limits. HEIC requires an explicitly tested path or helpful instructions, not silent failure. Customer may submit without files. Use authenticated reads or short-lived scoped URLs, clean abandoned files, strip location metadata; no images in public CMS or logs.
+Owner-approved launch scope: up to three optional inspiration images from any source. Activation remains off until private storage/security/cost gates pass; approval is not implementation. Then allow bounded JPEG/PNG/WebP references with actual-content validation and strict file/count/byte limits. HEIC requires an explicitly tested path or helpful instructions, not silent failure. Customer may submit without files. Use authenticated reads or short-lived scoped URLs, clean abandoned files, strip location metadata; no images in public CMS or logs.
 
 ## Required verification
 Valid request; invalid email/contact; unknown references; duplicate click; replay after lost response; DB outage; email outage; quota exhaustion; unauthorised inbox/API access; oversized payload; bot failure; date boundary; optional fields absent; XSS strings rendered safely. Cloud dependencies mocked locally remain marked not cloud-verified.

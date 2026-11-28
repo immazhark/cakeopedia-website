@@ -1,0 +1,70 @@
+---
+import type { publicMenu } from '../data/menu';
+import { formatMenuPrice, formatServingRange } from '../data/menu-presentation';
+interface Props { items: ReturnType<typeof publicMenu> }
+const { items } = Astro.props;
+const categories = new Map<string, typeof items>();
+for (const item of items) {
+  const group = categories.get(item.category);
+  if (group) group.push(item);
+  else categories.set(item.category, [item]);
+}
+---
+{items.length === 0 ? (
+  <div class="menu-empty">
+    <p class="eyebrow">Menu in preparation</p>
+    <h2>The details are worth getting right.</h2>
+    <p>Current flavours, sizes, serving guidance and prices are being confirmed with the baker. In the meantime, explore previous creations for inspiration.</p>
+    <a class="btn" href="/creations/">Explore creations</a>
+  </div>
+) : (
+  <div class="menu-groups">
+    {[...categories].map(([category, entries]) => (
+      <section class="menu-group">
+        <h2>{category}</h2>
+        {entries.map(item => (
+          <article class="menu-entry">
+            <div class="entry-intro">
+              <p class="eyebrow">{item.priceKind === 'fixed' ? 'Standard offering' : 'Custom cake'}</p>
+              <h3>{item.title}</h3>
+              {item.flavours.length > 0 && <p><strong>Flavours:</strong> {item.flavours.join(', ')}</p>}
+              {item.fillings.length > 0 && <p><strong>Fillings:</strong> {item.fillings.join(', ')}</p>}
+              {item.ingredientNote && <p>{item.ingredientNote}</p>}
+            </div>
+            <div class="entry-details">
+              <h4>Sizes &amp; portions</h4>
+              <ul class="size-list">
+                {item.sizes.map(size => (
+                  <li>
+                    <div><strong>{size.label}</strong><span>{size.layers} {size.layers === 1 ? 'layer' : 'layers'} · {formatServingRange(size.servings.min, size.servings.max)}</span></div>
+                    <strong class="price">{formatMenuPrice(size.priceCents, item.priceKind)}</strong>
+                  </li>
+                ))}
+              </ul>
+              {item.addons.length > 0 && <><h4>Add-ons</h4><ul class="size-list">{item.addons.map(addon => <li><span>{addon.label}</span><strong class="price">{formatMenuPrice(addon.priceCents, 'fixed')}</strong></li>)}</ul></>}
+            </div>
+          </article>
+        ))}
+      </section>
+    ))}
+    <p class="menu-note">Serving guidance is approximate. Availability, final design, fulfilment and any custom quotation are agreed personally; this guide does not reserve a date or confirm an order.</p>
+  </div>
+)}
+<style>
+  .menu-empty { background:var(--surface-beige); border-block:1px solid var(--border); padding:clamp(2rem,6vw,5rem); }
+  .menu-empty h2 { max-width:18ch; margin-bottom:var(--space-3); }
+  .menu-groups { display:grid; gap:var(--space-5); }
+  .menu-group > h2 { padding-bottom:var(--space-2); border-bottom:2px solid var(--brand-sage); }
+  .menu-entry { display:grid; gap:var(--space-3); padding-block:var(--space-4); border-bottom:1px solid var(--border); }
+  .entry-intro h3 { font-size:var(--step-2); margin-bottom:var(--space-2); overflow-wrap:anywhere; }
+  .entry-intro p { overflow-wrap:anywhere; }
+  .entry-details h4 { margin:0 0 .75rem; font-size:var(--step-0); color:var(--heading); }
+  .size-list { list-style:none; padding:0; margin:0 0 var(--space-3); }
+  .size-list li { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.8rem; border-top:1px solid var(--border); padding:.9rem 0; align-items:baseline; }
+  .size-list li > div { min-width:0; overflow-wrap:anywhere; }
+  .size-list li > div span { display:block; font-size:var(--step--1); margin-top:.3rem; }
+  .price { color:var(--sage-deep); white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .menu-note { margin:0; padding:var(--space-2); border-left:3px solid var(--brand-butter); }
+  @media(min-width:56rem) { .menu-entry { grid-template-columns:minmax(0, .8fr) minmax(0, 1.2fr); gap:var(--space-5); } }
+  @media(max-width:24rem) { .size-list li { grid-template-columns:minmax(0,1fr); gap:.3rem; } }
+</style>

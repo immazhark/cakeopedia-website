@@ -1,0 +1,159 @@
+import { inspectImage, LIMITS, RejectedImage } from './image.ts';
+
+// Private inspiration uploads. Objects live in a private bucket under unguessable keys; there is no public
+// read path. Owner reads need authenticated access (not built yet) and must go through a signed, expiring route.
+export interface Bucket {
+  put(key: string, value: Uint8Array, options: { httpMetadata: { contentType: string } }): Promise<unknown>;
+  delete(key: string): Promise<void>;
+}
+interface Stmt {
+  bind(...values: (string | number | null)[]): Stmt;
+  first<T>(): Promise<T | null>;
+  all<T>(): Promise<{ results: T[] }>;
+  run(): Promise<unknown>;
+}
+export interface UploadDatabase { prepare(sql: string): Stmt }
+export interface UploadDeps {
+  db: UploadDatabase; bucket: Bucket; origin: string;
+  allowRequest: (request: Request) => Promise<boolean>;
+  /** Verifies one Turnstile token; a verified token opens an upload session for the submission. */
+  verifyBot: (token: string) => Promise<boolean>;
+  /** Stable pseudonym of the requesting client (never a raw address), used for the daily session cap; null or absent skips that cap. */
+  clientKey?: (request: Request) => Promise<string | null>;
+  now?: () => number;
+}
+export const POLICY = { perSubmission: 3, perDay: 200, orphanMs: 24 * 3600_000, leaseMs: 5 * 60_000, sessionMs: 3600_000, sessionKeepMs: 24 * 3600_000, sessionsPerClientPerDay: 20 } as const; // leaseMs: how long a cleaner owns a tombstone before another may retry it
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const accepted = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+function reply(status: number, body?: object): Response {
+  return new Response(body ? JSON.stringify(body) : null, { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
+}
+async function readBytes(request: Request): Promise<Uint8Array | null> {
+  const declared = Number(request.headers.get('Content-Length') ?? '0');
+  if (declared > LIMITS.bytes) return null;
+  const reader = request.body?.getReader();
+  if (!reader) return new Uint8Array(0);
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      length += value.byteLength;
+      if (length > LIMITS.bytes) { await reader.cancel(); return null; } // bound actual bytes, not the header
+      chunks.push(value);
+    }
+  } finally { reader.releaseLock(); }
+  const out = new Uint8Array(length);
+  let o = 0;
+  for (const c of chunks) { out.set(c, o); o += c.byteLength; }
+  return out;
+}
+function submissionOf(request: Request): string | null {
+  const id = request.headers.get('X-Submission-Id') ?? '';
+  return uuid.test(id) ? id.toLowerCase() : null;
+}
+
+/** Tombstone first (no longer attachable or counted), then delete object, then row. Safe to repeat. */
+async function retire(deps: UploadDeps, id: string, now: number): Promise<void> {
+  const row = await deps.db.prepare('UPDATE uploads SET deleted_at = COALESCE(deleted_at, ?) WHERE id = ? AND enquiry_id IS NULL RETURNING object_key AS key').bind(now, id).first<{ key: string }>();
+  if (!row) return;
+  await deps.bucket.delete(row.key);
+  await deps.db.prepare('DELETE FROM uploads WHERE id = ? AND enquiry_id IS NULL').bind(id).run();
+}
+
+/** POST /api/uploads  (raw image bytes, header X-Submission-Id) */
+export async function handleUpload(request: Request, deps: UploadDeps): Promise<Response> {
+  if (request.method !== 'POST') return new Response(null, { status: 405, headers: { Allow: 'POST' } });
+  if (request.headers.get('Origin') !== deps.origin) return reply(403, { error: 'forbidden' });
+  if (!accepted.has(request.headers.get('Content-Type')?.split(';')[0]?.trim().toLowerCase() ?? '')) return reply(415, { error: 'unsupported_media_type' });
+  const submission = submissionOf(request);
+  if (!submission) return reply(400, { error: 'invalid_input' });
+  const now = (deps.now ?? Date.now)();
+  let rowId: string | null = null;
+  try {
+    if (!await deps.allowRequest(request)) return reply(429, { error: 'try_later' });
+    // Bot challenge before any bytes are read or rows reserved. One verified token covers this submission for an hour.
+    const open = await deps.db.prepare('SELECT 1 AS x FROM upload_sessions WHERE submission_id = ? AND verified_at > ?').bind(submission, now - POLICY.sessionMs).first();
+    if (!open) {
+      const token = request.headers.get('X-Bot-Token') ?? '';
+      if (!token || token.length > 2048 || !await deps.verifyBot(token)) return reply(403, { error: 'verification_failed' });
+      // A client may open only so many verified sessions per day, so one source cannot fill the site-wide upload cap by itself.
+      // The cap is inside the INSERT, so concurrent first uploads cannot overshoot it.
+      const client = deps.clientKey ? await deps.clientKey(request) : null;
+      await deps.db.prepare(`INSERT INTO upload_sessions (submission_id, verified_at, client) SELECT ?1, ?2, ?3
+        WHERE ?3 IS NULL OR (SELECT count(*) FROM upload_sessions WHERE client = ?3 AND verified_at > ?4) < ?5
+        ON CONFLICT(submission_id) DO UPDATE SET verified_at = excluded.verified_at`).bind(submission, now, client, now - 24 * 3600_000, POLICY.sessionsPerClientPerDay).run();
+      if (!await deps.db.prepare('SELECT 1 AS x FROM upload_sessions WHERE submission_id = ? AND verified_at > ?').bind(submission, now - POLICY.sessionMs).first()) return reply(429, { error: 'try_later' });
+    }
+    const raw = await readBytes(request);
+    if (!raw) return reply(413, { error: 'image_too_large' });
+    let image;
+    try { image = inspectImage(raw); } catch (e) {
+      if (e instanceof RejectedImage) return reply(e.reason === 'too_large' ? 413 : 422, { error: `image_${e.reason}` });
+      throw e;
+    }
+    rowId = crypto.randomUUID();
+    const key = `u/${crypto.randomUUID()}`;
+    // Quota, daily cap and "enquiry already sent" are enforced inside the INSERT, so concurrent uploads cannot overshoot them.
+    await deps.db.prepare(`INSERT INTO uploads (id, submission_id, object_key, content_type, bytes, created_at)
+      SELECT ?1, ?2, ?3, ?4, ?5, ?6 WHERE (SELECT count(*) FROM uploads WHERE submission_id = ?2 AND deleted_at IS NULL) < ?7
+        AND (SELECT count(*) FROM uploads WHERE created_at > ?8 AND deleted_at IS NULL) < ?9
+        AND NOT EXISTS (SELECT 1 FROM enquiries WHERE submission_id = ?2)`)
+      .bind(rowId, submission, key, image.type, image.bytes.length, now, POLICY.perSubmission, now - 24 * 3600_000, POLICY.perDay).run();
+    if (!await deps.db.prepare('SELECT 1 AS x FROM uploads WHERE id = ?').bind(rowId).first()) {
+      rowId = null; // nothing was stored; say why
+      if (await deps.db.prepare('SELECT 1 AS x FROM enquiries WHERE submission_id = ?').bind(submission).first()) return reply(409, { error: 'enquiry_already_sent' });
+      const mine = await deps.db.prepare('SELECT count(*) AS n FROM uploads WHERE submission_id = ? AND deleted_at IS NULL').bind(submission).first<{ n: number }>();
+      return (mine?.n ?? 0) >= POLICY.perSubmission ? reply(422, { error: 'too_many_images' }) : reply(429, { error: 'try_later' });
+    }
+    await deps.bucket.put(key, image.bytes, { httpMetadata: { contentType: image.type } });
+    // Only now is the picture attachable. If it was retired while storing, remove the object we just wrote.
+    const ready = await deps.db.prepare('UPDATE uploads SET ready_at = ? WHERE id = ? AND deleted_at IS NULL RETURNING id').bind(now, rowId).first();
+    if (!ready) { await deps.bucket.delete(key).catch(() => undefined); rowId = null; return reply(409, { error: 'upload_cancelled' }); }
+    return reply(201, { attachmentId: rowId, type: image.type, width: image.width, height: image.height });
+  } catch {
+    // A put may have landed even though it threw: retire row and object together; the purge finishes it if this is lost too.
+    if (rowId) await retire(deps, rowId, now).catch(() => undefined);
+    return reply(503, { error: 'upload_unconfirmed', retry: true });
+  }
+}
+
+/** DELETE /api/uploads/<id>  (customer removes an image before sending; header X-Submission-Id) */
+export async function handleUploadDelete(request: Request, id: string, deps: UploadDeps): Promise<Response> {
+  if (request.method !== 'DELETE') return new Response(null, { status: 405, headers: { Allow: 'DELETE' } });
+  if (request.headers.get('Origin') !== deps.origin) return reply(403, { error: 'forbidden' });
+  const submission = submissionOf(request);
+  if (!submission || !uuid.test(id)) return reply(400, { error: 'invalid_input' });
+  try {
+    if (!await deps.allowRequest(request)) return reply(429, { error: 'try_later' });
+    const own = await deps.db.prepare('SELECT 1 AS x FROM uploads WHERE id = ? AND submission_id = ?').bind(id.toLowerCase(), submission).first();
+    if (own) await retire(deps, id.toLowerCase(), (deps.now ?? Date.now)());
+    return reply(204); // idempotent; nothing reveals whether the id existed
+  } catch { return reply(503, { error: 'delete_unconfirmed', retry: true }); }
+}
+
+/** True only when every id is an unattached upload of this submission (used before saving an enquiry). */
+export async function ownsUploads(db: UploadDatabase, submissionId: string, ids: string[]): Promise<boolean> {
+  if (ids.length === 0) return true;
+  const rows = await db.prepare(`SELECT count(*) AS n FROM uploads WHERE submission_id = ? AND enquiry_id IS NULL AND deleted_at IS NULL AND ready_at IS NOT NULL AND id IN (${ids.map(() => '?').join(',')})`)
+    .bind(submissionId, ...ids).first<{ n: number }>();
+  return rows?.n === ids.length;
+}
+
+/**
+ * Scheduled cleanup. One statement claims rows by tombstoning them (so they can no longer be attached) and lease-stamping them (so a
+ * concurrent cleaner skips them); only the claimant deletes the object, then the row. A claim whose lease expired is retried.
+ */
+export async function purgeOrphans(db: UploadDatabase, bucket: Bucket, now: number, limit = 100): Promise<number> {
+  await db.prepare('DELETE FROM upload_sessions WHERE verified_at < ?').bind(now - POLICY.sessionKeepMs).run();
+  const { results } = await db.prepare(`UPDATE uploads SET deleted_at = ?1 WHERE enquiry_id IS NULL AND (deleted_at IS NULL OR deleted_at < ?3)
+    AND id IN (SELECT id FROM uploads WHERE enquiry_id IS NULL AND ((deleted_at IS NULL AND created_at < ?2) OR deleted_at < ?3) LIMIT ?4) RETURNING id, object_key AS key`)
+    .bind(now, now - POLICY.orphanMs, now - POLICY.leaseMs, limit).all<{ id: string; key: string }>();
+  let purged = 0;
+  for (const r of results) {
+    try { await bucket.delete(r.key); await db.prepare('DELETE FROM uploads WHERE id = ? AND enquiry_id IS NULL').bind(r.id).run(); purged++; } catch { /* lease expires, next run retries */ }
+  }
+  return purged;
+}

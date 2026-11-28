@@ -1,0 +1,119 @@
+---
+import Base from '../layouts/Base.astro';
+import { customCake, celebrationCake, cupcakes, brownies, ingredientStatements, ingredientScope } from '../data/business';
+import { SIZES } from '../data/pricing';
+import { resolveCatalogue } from '../data/catalogue';
+import approved from '../data/catalogue-approved.json'; // the owner's last published snapshot; null until she publishes
+const cat = resolveCatalogue(approved);
+const fromCents = Math.min(...Object.values(cat.baseCents));
+const availableFlavours = cat.flavours.filter((f) => f.available);
+const numberWords = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen'];
+const count = (n: number) => numberWords[n] ?? String(n);
+import { formatMenuPrice } from '../data/menu-presentation';
+const money = (c: number, k: 'fixed' | 'starting') => formatMenuPrice(c, k);
+---
+<Base title="Custom cake menu and prices · Cakeopedia Austin" description={`Custom cakes from ${formatMenuPrice(fromCents, 'fixed')}, Celebration Cakes at ${formatMenuPrice(cat.celebrationCents, 'fixed')}, ${count(availableFlavours.length)} flavours, cupcakes and brownies from Cakeopedia Austin.`} current="/menu/">
+  <div class="wrap page-head prose">
+    <p class="eyebrow">The menu</p>
+    <h1>Baked from scratch, made to your occasion</h1>
+    <p class="answer" style="margin-top:var(--space-3)"><strong>In short:</strong> Custom cakes start at {money(fromCents, 'fixed')} (a {customCake.base.diameterIn}-inch, {count(customCake.base.layers)}-layer cake, about {customCake.base.servings} servings), Celebration Cakes are {money(cat.celebrationCents, 'fixed')}, and there are {count(availableFlavours.length)} custom-cake flavours, plus cupcakes ({money(cat.cupcakeDozenCents, 'fixed')} per dozen) and brownies. The final price is agreed in your quotation.</p>
+    <p class="lede" style="margin-top:var(--space-3)">Choose a flavour, tell us the occasion, and we will agree the design and price with you.</p>
+    <div class="note"><p>This menu is being confirmed for the current season. Availability, final design and price are agreed in your quotation; an enquiry does not reserve a date or confirm an order.</p></div>
+  </div>
+
+  <section class="section menu-sec" aria-labelledby="custom"><div class="wrap menu-grid">
+    <div class="menu-intro">
+      <h2 id="custom">Custom cakes</h2>
+      <p class="price-line"><strong>{money(cat.baseCents['6']!, 'starting')}</strong> <span>for a {customCake.base.diameterIn}-inch, {customCake.base.layers}-layer cake, about {customCake.base.servings} servings</span></p>
+      <p>The final price depends on size, flavour, design and add-ons, and is agreed in your quotation. See the <a href="/size-guide/">size and serving guide</a> for larger cakes.</p>
+    </div>
+    <div class="menu-body">
+      <h3>Starting prices by size</h3>
+      <table class="sizes"><thead><tr><th scope="col">Size</th><th scope="col">Starting price</th><th scope="col">Rasmalai Cake</th></tr></thead>
+        <tbody>{SIZES.map((d) => <tr><th scope="row">{d} inches</th><td>{money(cat.baseCents[d]!, 'starting')}</td><td>{money(cat.baseCents[d]! + cat.rasmalaiCents[d]!, 'starting')}</td></tr>)}</tbody></table>
+      <p class="small">Two- and three-tier cakes, including Rasmalai, are quoted personally.</p>
+      <h3>{count(availableFlavours.length)[0]!.toUpperCase() + count(availableFlavours.length).slice(1)} flavours</h3>
+      <ul class="flavours">
+        {cat.flavours.map((f) => <li class={f.available ? undefined : 'paused'}><strong>{f.name}{f.available ? '' : ' · not available at the moment'}</strong><span>{f.description}</span></li>)}
+      </ul>
+      <h3>Add-ons</h3>
+      <ul class="plain">
+        {cat.addons.map((a) => <li><span>{a.name}{a.note ? ` — ${a.note}` : ''}</span> <strong>{money(a.priceCents, 'fixed')}</strong></li>)}
+      </ul>
+    </div>
+  </div></section>
+
+  <section class="section section--beige menu-sec" aria-labelledby="celebration"><div class="wrap menu-grid">
+    <div class="menu-intro">
+      <h2 id="celebration">Celebration Cakes</h2>
+      <p class="price-line"><strong>{money(cat.celebrationCents, 'fixed')}</strong> <span>{celebrationCake.diameterIn}-inch, {celebrationCake.layers} layers, {celebrationCake.shapes.join(' or ').toLowerCase()}</span></p>
+      <p>A simpler, more accessible cake for smaller celebrations. You choose {celebrationCake.customisation.map((c) => c.toLowerCase()).join(', ')}.</p>
+      <p class="small">Serves about {celebrationCake.servings.min}–{celebrationCake.servings.max}. No fondant work. Final details are confirmed with your quotation.</p>
+    </div>
+    <div class="menu-body">
+      <h3>Flavours</h3>
+      <ul class="plain">{cat.celebrationFlavours.map((f) => <li>{cat.pausedCelebrationFlavours.includes(f) ? <em>{f} · not available at the moment</em> : f}</li>)}</ul>
+    </div>
+  </div></section>
+
+  <section class="section menu-sec" aria-labelledby="cupcakes"><div class="wrap menu-grid">
+    <div class="menu-intro">
+      <h2 id="cupcakes">Cupcakes</h2>
+      <p class="price-line"><strong>{money(cat.cupcakeDozenCents, 'fixed')}</strong> <span>per dozen</span></p>
+      <p class="small">Minimum order one dozen, all in the same flavour. No extra charge for toppings or fillings.</p>
+    </div>
+    <div class="menu-body">
+      {cupcakes.options.map((o) => (<><h3>{o.base}</h3><p>Fillings: {o.fillings.join(', ')}.</p></>))}
+    </div>
+  </div></section>
+
+  <section class="section section--beige menu-sec" aria-labelledby="brownies"><div class="wrap menu-grid">
+    <div class="menu-intro">
+      <h2 id="brownies">Brownies</h2>
+      <p>{brownies.description}</p>
+      <p>Toppings: {brownies.toppings.join(', ')}. Available as {brownies.formats.map((f) => f.toLowerCase()).join(' or ')}.</p>
+    </div>
+    <div class="menu-body">
+      <div class="pair">
+        <p class="price-line"><strong>{money(cat.brownieBoxCents, 'fixed')}</strong><span>Box of nine</span></p>
+        <p class="price-line"><strong>{money(cat.brownieSlabCents, 'fixed')}</strong><span>{brownies.slab.name}, serves about {brownies.slabServings.min}–{brownies.slabServings.max}</span></p>
+      </div>
+      <p>{brownies.slab.description}</p>
+      <p>Add a topping to a box or slab for <strong>{money(cat.brownieToppingCents, 'fixed')}</strong>: a single charge per box or slab, not per brownie or per topping. Unusual quantities or topping combinations are reviewed by the baker.</p>
+    </div>
+  </div></section>
+
+  <section class="section menu-sec" aria-labelledby="ingredients"><div class="wrap menu-grid">
+    <div class="menu-intro"><h2 id="ingredients">Ingredients</h2></div>
+    <div class="menu-body">
+      <ul class="plain">{ingredientStatements.map((s) => <li>{s}</li>)}</ul>
+      <p class="small">{ingredientScope} Please ask before ordering if you have allergies; we cannot promise allergen-free preparation.</p>
+      <div class="actions"><a class="btn" href="/enquiry/">Start an enquiry</a><a class="btn btn--ghost" href="/cake-care/">Cake care</a><a class="btn btn--ghost" href="/faq/">Questions</a></div>
+    </div>
+  </div></section>
+</Base>
+<style>
+  .menu-sec { padding-block: var(--space-5); }
+  .menu-grid { display: grid; gap: var(--space-3); align-items: start; }
+  .menu-intro h2 { font-size: var(--step-3); margin: 0 0 var(--space-2); }
+  .menu-body h3 { font-size: var(--step-1); margin: var(--space-3) 0 var(--space-1); }
+  .menu-body > h3:first-child { margin-top: 0; }
+  .price-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .6rem; }
+  .price-line strong { font: 380 var(--step-3)/1 var(--font-display); color: var(--sage-deep); }
+  .price-line span { color: var(--heading); }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--bg-raised); border-top: 4px solid var(--brand-butter); margin-bottom: var(--space-3); }
+  .pair .price-line { flex-direction: column; margin: 0; gap: .2rem; }
+  .flavours, .plain { list-style: none; padding: 0; margin: 0 0 var(--space-3); }
+  .flavours li { display: grid; align-content: start; gap: .2rem; padding-block: .8rem; border-top: 1px solid var(--border); }
+  .flavours li span { font-size: var(--step--1); }
+  .flavours li.paused strong { font-weight: 500; font-style: italic; }
+  .plain li { padding-block: .5rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 1rem; }
+  .sizes { border-collapse: collapse; width: 100%; margin-bottom: var(--space-2); }
+  .sizes th, .sizes td { text-align: left; padding: .6rem .75rem .6rem 0; border-top: 1px solid var(--border); }
+  .small { font-size: var(--step--1); }
+  @media (min-width: 56rem) {
+    .menu-grid { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr); gap: var(--space-5); }
+    .menu-intro { position: sticky; top: var(--space-4); }
+    .flavours { display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--space-4); }
+  }
+</style>

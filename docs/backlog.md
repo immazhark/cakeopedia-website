@@ -1,6 +1,6 @@
 # Prioritised backlog
 
-Updated 24 November 2026. P0 means prerequisite/release-critical; P1 core product; P2 completion; P3 conditional/postlaunch. Priority does not grant authority. F01 assessment scope approval and F02 documentation content are addressed by this foundation; runtime tasks remain unimplemented. F03 private reporting setup remains pending. Track future active work through scoped issues/PRs, not assumed technical locks.
+Updated 24 November 2026. P0 means prerequisite/release-critical; P1 core product; P2 completion; P3 conditional/postlaunch. Priority does not grant authority. F01 assessment scope approval and F02 documentation content are addressed by this foundation; F04 and the local E01 proof are implemented (see progress.md); other runtime tasks remain pending. F03 private reporting setup remains pending. Track future active work through scoped issues/PRs, not assumed technical locks.
 
 | Priority / ID | Task | Responsible | Dependencies | Acceptance | Gate |
 |---|---|---|---|---|---|
@@ -34,7 +34,7 @@ Updated 24 November 2026. P0 means prerequisite/release-critical; P1 core produc
 | P2 / Q04 | Domain sender preview/production separation | Sponsor/implementer | Name/domain approval | DNS/HTTPS/sender verified; preview protected; production indexing explicit | Before launch |
 | P3 / G01 | Eligible local profiles/community directory | Owner/sponsor | Actual operations/final domain | GBP eligibility/hide-address correct; organisers consent | After launch |
 | P3 / G02 | Search and business-outcome maintenance | Owner/implementer | Production data | GSC/Bing verified; 7/30/90 checks; response/failure metrics private-safe | After launch |
-| P3 / X01 | Private reference uploads | Owner/implementer | Demonstrated need + billing/privacy authority | Type/size/auth/retention/overage controls tested; optional to customer | Future feature |
+| P1 / X01 | Private reference uploads | Owner/implementer | Owner-approved F12; private storage/security/cost gates | Up to three optional images from any source; type/content/size/auth/retention/cleanup/overage tests; Additional comments | Before live form release; approved, not implemented |
 | P3 / X02 | Seasonal preorder/checkout/capacity | Owner/implementer | B01 and approved commerce spec | Server prices/disclosures/payment events/booking reconciliation | Future feature |
 
 Current evidence lives in [progress](progress.md); source references in [research evidence](research-evidence.md). All live sales, publication and provider activation remain gated by appropriate facts, tests and authority.

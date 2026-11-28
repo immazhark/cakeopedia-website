@@ -1,0 +1,33 @@
+---
+import Base from '../layouts/Base.astro';
+import Picture from '../components/Picture.astro';
+import { bySlug } from '../data/creations';
+
+const photo = bySlug('gold-leaf-garden');
+// Only the facts already in the owner's story text: no dates, names or claims are added.
+const path = [['Hyderabad', 'Homemade treats for family'], ['Lockdown', 'Recipes, flavours and a personal touch'], ['Austin', 'Quality ingredients and taste, today']];
+---
+<Base title="Our story: from Hyderabad to Austin · Cakeopedia Austin" description="Cakeopedia began in Hyderabad with homemade treats for family and now bakes in Austin, Texas." current="/story/">
+  <div class="wrap page-head">
+    <div class="story">
+      <div class="prose">
+        <p class="eyebrow">Our story</p>
+        <h1>A love of getting the flavour just right</h1>
+        <p class="lede" style="margin-top:var(--space-3)">Cakeopedia began in Hyderabad, with homemade treats for family.</p>
+        <p>During lockdown, one cake experiment became many: testing recipes, changing flavours and adding a personal touch. Cakes for family, friends and college celebrations soon brought requests for orders.</p>
+        <p>Today, that same love of baking continues in Austin, with quality ingredients and taste at the heart of it.</p>
+      </div>
+      <figure class="story-photo">
+        <span class="story-frame"><Picture slug={photo.slug} alt={photo.alt} sizes="(min-width: 56rem) 36vw, 80vw" eager focus={photo.focus} /></span>
+        <figcaption>Previous work from the Cakeopedia kitchen.</figcaption>
+      </figure>
+    </div>
+    <ol class="path" aria-label="From Hyderabad to Austin">
+      {path.map(([place, line], i) => <li><span class="path-n" aria-hidden="true">0{i + 1}</span><strong>{place}</strong><span>{line}</span></li>)}
+    </ol>
+    <div class="prose">
+      <div class="note" style="margin-top:var(--space-4)"><p>This is a draft of the story, shared for review by the baker. A name and portrait will be added only if the baker chooses.</p></div>
+      <div class="actions"><a class="btn" href="/creations/">See the collection</a><a class="btn btn--ghost" href="/enquiry/">Start an enquiry</a></div>
+    </div>
+  </div>
+</Base>

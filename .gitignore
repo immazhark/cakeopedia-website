@@ -52,3 +52,11 @@ exports/
 Thumbs.db
 *.swp
 *.swo
+
+# Optimised web derivatives are generated locally (npm run media); delivery path awaits owner approval
+public/media/
+browser-check-out/
+
+# Local per-environment Wrangler configs (name private operators)
+wrangler.staging.jsonc
+wrangler.production.jsonc

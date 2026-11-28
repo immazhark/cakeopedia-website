@@ -1,6 +1,10 @@
 # Provisional creative exploration
 
-Owner answers can change all branding choices. Do not finalise logo/name/tagline or design solely around the working spelling.
+Owner responses now confirm Cakeopedia Austin, a recognisable logo refinement retaining
+orange, and an elegant/luxurious, modern/polished feel. Lead the eventual portfolio with
+vintage and floral Austin work. Exact logo, palette, tagline and motion intensity remain
+open. See [owner-informed brief](owner-brief.md). Collection is still a recommendation,
+not a selected or visually approved direction.
 
 ## Common material
 Use the same floral, bow, children’s design and treat-box examples for all directions. Supplied grid screenshots are reference-only; cropped material used in internal concepts must remain labelled provisional. Never publish screenshot crops as final product imagery. No generated cake presented as her work.
@@ -22,3 +26,9 @@ Score 1–5 with explanation: distinctive identity, appetite appeal, personal wa
 
 ## Motion guardrails
 First useful frame visible immediately. No forced intro/scroll hijack/autoplay sound. Keyboard, focus, browser history and reduced motion work. Selected transitions must be interrupted safely and clean up on navigation. No multiple animation engines installed by default. Final palette/fonts remain open pending owner preferences and asset review.
+
+
+## Palette (owner-approved 25 November 2026)
+
+See content-status.md. Supersedes the open-palette assumption above. Collection remains the recommended lead; the production candidate is built on it and awaits visual review. Fonts: Fraunces (display) and Figtree (body), both open-licence and self-hosted via Fontsource.
+

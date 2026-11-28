@@ -1,0 +1,366 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Owner · Cakeopedia Austin" description="Private owner area." private>
+  <div class="wrap admin" id="admin">
+    <div class="page-head" style="padding-block:var(--space-4) var(--space-3)">
+      <p class="eyebrow">Owner area</p>
+      <h1 style="font-size:var(--step-3)">Orders, calendar and prices</h1>
+    </div>
+    <div class="tabs" role="group" aria-label="Section">
+      <button class="chip" type="button" data-tab="inbox" aria-pressed="true">Enquiries</button>
+      <button class="chip" type="button" data-tab="calendar" aria-pressed="false">Calendar</button>
+      <button class="chip" type="button" data-tab="prices" aria-pressed="false">Prices</button>
+    </div>
+    <p id="notice" class="err" role="alert" hidden></p>
+    <section id="inbox" aria-label="Enquiries"></section>
+    <section id="detail" aria-label="Enquiry" hidden></section>
+    <section id="calendar" aria-label="Calendar" hidden></section>
+    <section id="menu" aria-label="Menu" hidden></section>
+    <section id="prices" aria-label="Prices" hidden></section>
+  </div>
+  <noscript><p class="wrap">This area needs JavaScript.</p></noscript>
+  <script>
+    // Phone-first owner screens. All authority lives on the server: this page only calls the authenticated API.
+    import { formatChicago, paymentPlan, splitPayment } from '../../data/pricing';
+    type Json = Record<string, any>;
+    const $ = (id: string) => document.getElementById(id)!;
+    const money = (c: number) => '$' + (c / 100).toFixed(2);
+    function cents(s: string): number | null { const m = /^\s*\$?(\d{1,6})(?:\.(\d{1,2}))?\s*$/.exec(s); return m ? Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0') || 0) : null; }
+    const h = (tag: string, attrs: Record<string, string> = {}, ...kids: (Node | string)[]) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); e.append(...kids); return e; };
+    const when = (t: number) => new Date(t).toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' });
+    // Screens are rebuilt from scratch; put keyboard focus back on the same control (by position) so it is not dropped to the page top.
+    const FOCUSABLE = 'button,a[href],input,select,textarea';
+    const focusIndex = (root: HTMLElement) => root.contains(document.activeElement) ? [...root.querySelectorAll(FOCUSABLE)].indexOf(document.activeElement!) : -1;
+    const refocus = (root: HTMLElement, i: number) => { if (i >= 0) (root.querySelectorAll(FOCUSABLE)[i] as HTMLElement | undefined)?.focus(); };
+    const notice = (m: string) => { const n = $('notice'); n.hidden = !m; n.textContent = m; };
+    async function api(path: string, method = 'GET', body?: object): Promise<{ ok: boolean; status: number; data: Json }> {
+      try {
+        const r = await fetch(path, { method, headers: { 'X-Cakeopedia-Admin': '1', ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+        const data = r.status === 204 ? {} : await r.json().catch(() => ({}));
+        if (r.status === 401) notice('Your sign-in has expired. Please reload the page and sign in again.');
+        else if (r.status === 403 && data.error === 'forbidden') notice('This account is not allowed to use the owner area. Sign in with an approved address.');
+        else if (r.status === 503) notice('The owner area is temporarily unavailable (a service or setting is not ready). Please try again shortly; if it continues, contact support.');
+        return { ok: r.ok, status: r.status, data };
+      } catch { notice(method === 'GET' ? 'No connection. Please try again.' : 'No connection. We could not confirm whether that was saved. Tap the same button again; it is safe and will not save it twice.'); return { ok: false, status: 0, data: {} }; }
+    }
+    const field = (label: string, input: HTMLElement, hint?: string) => { const id = 'f' + Math.random().toString(36).slice(2, 8); input.id = id; return h('div', { class: 'field' }, h('label', { for: id }, label), input, ...(hint ? [h('p', { class: 'hint' }, hint)] : [])); };
+    const input = (type = 'text', attrs: Record<string, string> = {}) => h('input', { type, ...attrs }) as HTMLInputElement;
+    const select = (opts: [string, string][]) => { const s = h('select') as HTMLSelectElement; for (const [v, t] of opts) s.append(h('option', { value: v }, t)); return s; };
+    const btn = (text: string, onclick: () => void, cls = 'btn') => { const b = h('button', { type: 'button', class: cls }, text) as HTMLButtonElement; b.addEventListener('click', onclick); return b; };
+
+    // ---- tabs
+    const views: Record<string, string> = { inbox: 'inbox', calendar: 'calendar', menu: 'menu', prices: 'prices' };
+    function show(tab: 'inbox' | 'calendar' | 'detail' | 'menu' | 'prices') {
+      for (const k of ['inbox', 'detail', 'calendar', 'menu', 'prices']) $(k).hidden = k !== tab;
+      document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tab === (tab === 'detail' ? 'inbox' : tab))));
+      notice('');
+    }
+    document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.addEventListener('click', () => { const t = views[b.dataset.tab!] as 'inbox' | 'calendar' | 'menu' | 'prices'; show(t); if (t === 'calendar') loadCalendar(); else if (t === 'menu') loadMenu(); else if (t === 'prices') loadPrices(); else loadInbox(true); }));
+
+    // ---- inbox
+    let filter = ''; let items: Json[] = []; let next: Json | null = null; let attention: Json | null = null;
+    // "Today" in the bakery's own time zone, as YYYY-MM-DD (en-CA formats that way), and a date a number of days later.
+    const chicagoToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+    const plusDays = (d: string, n: number) => new Date(Date.parse(d + 'T12:00:00Z') + n * 86_400_000).toISOString().slice(0, 10);
+    const niceDate = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' });
+    async function loadInbox(reset: boolean) {
+      if (reset) { items = []; next = null; const t = chicagoToday(), a = await api(`/admin/api/attention?from=${t}&to=${plusDays(t, 14)}`); attention = a.ok ? a.data : null; }
+      const q = new URLSearchParams({ limit: '20' }); if (filter) q.set('status', filter);
+      if (next) { q.set('beforeAt', String(next.beforeAt)); q.set('beforeId', next.beforeId); }
+      const r = await api('/admin/api/enquiries?' + q); if (!r.ok) return;
+      items.push(...r.data.items); next = r.data.next; renderInbox();
+    }
+    // What needs the owner today: new enquiries to answer, quotes waiting for a deposit, balances to collect (due 48 hours before fulfilment) and the week ahead.
+    function todayPanel(): HTMLElement | string {
+      const a = attention; if (!a) return '';
+      const rows = (title: string, list: Json[], line: (x: Json) => string) => list.length ? h('section', { class: 'today-group' }, h('h3', {}, title), h('ul', { class: 'admin-list' }, ...list.map((x) => h('li', {}, btn(line(x), () => openDetail(x.id), 'row'))))) : '';
+      const newBit = a.newCount ? h('section', { class: 'today-group' }, h('h3', {}, 'New enquiries'), btn(`${a.newCount} waiting for your first reply${a.oldestNewAt ? ' · oldest ' + when(a.oldestNewAt) : ''}`, () => { filter = 'new'; loadInbox(true); }, 'row')) : '';
+      const body = [newBit,
+        rows('Quotes waiting for a deposit', a.quoted, (x) => `${x.name ?? 'Unnamed'} · ${money(x.totalCents)} · deposit ${money(x.depositCents)} · for ${niceDate(x.date)}`),
+        rows('Balances to collect', a.balances, (x) => `${x.name ?? 'Unnamed'} · ${money(x.dueCents)} due by ${niceDate(plusDays(x.date, -2))} (${x.fulfilment} ${niceDate(x.date)})`),
+        rows('This week', a.week, (x) => `${niceDate(x.date)}${x.time ? ' ' + x.time : ''} · ${x.name ?? 'Unnamed'} · ${x.fulfilment}`)].filter(Boolean) as Node[];
+      return h('section', { class: 'today', 'aria-label': 'Needs attention today' }, h('h2', {}, 'Today'), ...(body.length ? body : [h('p', { class: 'hint' }, 'Nothing needs your attention right now.')]));
+    }
+    function renderInbox() {
+      const root = $('inbox'), fi = focusIndex(root); root.replaceChildren();
+      const chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filter by status' });
+      for (const s of ['', 'new', 'replied', 'quoted', 'confirmed', 'closed']) { const c = btn(s || 'All', () => { filter = s; loadInbox(true); }, 'chip'); c.setAttribute('aria-pressed', String(filter === s)); chips.append(c); }
+      root.append(todayPanel(), chips, addForm());
+      const list = h('ul', { class: 'admin-list' });
+      for (const it of items) {
+        const b = btn('', () => openDetail(it.id), 'row');
+        b.append(h('strong', {}, it.name ?? 'Unnamed'), h('span', {}, ` · ${it.occasion ?? 'Occasion not set'}${it.eventDate ? ' · ' + it.eventDate : ''}`), h('span', { class: 'badge' }, it.status), ...(it.pictures ? [h('span', { class: 'hint' }, `${it.pictures} picture${it.pictures > 1 ? 's' : ''}`)] : []));
+        list.append(h('li', {}, b));
+      }
+      if (!items.length) list.append(h('li', { class: 'hint' }, 'No enquiries here yet.'));
+      root.append(list); if (next) root.append(btn('Load more', () => loadInbox(false), 'btn btn--ghost'));
+      refocus(root, fi);
+    }
+    function addForm() {
+      const d = h('details', { class: 'add' }, h('summary', {}, 'Add an Instagram order'));
+      const name = input('text', { maxlength: '100' }), handle = input('text', { maxlength: '31', autocapitalize: 'none' }), date = input('date'), notes = h('textarea', { rows: '3', maxlength: '2000' }) as HTMLTextAreaElement, rid = crypto.randomUUID();
+      d.append(field('Customer name', name), field('Instagram handle', handle), field('Date needed (leave blank if undecided)', date), field('What they asked for', notes),
+        btn('Add enquiry', async () => {
+          const r = await api('/admin/api/enquiries', 'POST', { requestId: rid, name: name.value, contact: { kind: 'instagram', value: handle.value }, dateUndecided: !date.value, eventDate: date.value || null, notes: notes.value || null });
+          if (!r.ok) return notice('Please check the name and Instagram handle.'); notice(''); openDetail(r.data.id);
+        }));
+      return d;
+    }
+
+    // ---- detail
+    async function openDetail(id: string) {
+      const r = await api('/admin/api/enquiries/' + id); if (!r.ok) return; show('detail');
+      const e = r.data, p = e.payload as Json, o = e.order as Json, root = $('detail'), fi = focusIndex(root); root.replaceChildren();
+      const dl = h('dl', { class: 'facts' });
+      const fact = (k: string, v: unknown) => { if (v === null || v === undefined || v === '' || (Array.isArray(v) && !v.length)) return; dl.append(h('dt', {}, k), h('dd', {}, String(v))); };
+      fact('Contact', `${p.contact.kind}: ${p.contact.value}`); fact('Occasion', p.occasion); fact('Date', p.eventDate ?? 'Not decided'); fact('People', p.servings); fact('Size', p.size); fact('Flavour', p.flavour);
+      fact('Add-ons', (p.addons ?? []).join(', ')); fact('Pickup or delivery', p.fulfilment); fact('Budget', p.budgetCents != null ? money(p.budgetCents) : null); fact('Comments', p.notes); fact('Gallery reference', (p.creationIds ?? []).join(', '));
+      fact('Reference', e.reference);
+      root.append(btn('← All enquiries', () => { show('inbox'); loadInbox(true); }, 'btn btn--ghost'), h('h2', { style: 'font-size:var(--step-2);margin-top:var(--space-3)' }, p.name, ' ', h('span', { class: 'badge' }, e.status)), dl);
+      if (e.pictures.length) { const g = h('div', { class: 'pic-list' }); e.pictures.forEach((pic: Json, i: number) => g.append(h('a', { href: `/admin/api/uploads/${pic.id}`, target: '_blank', rel: 'noopener' }, h('img', { src: `/admin/api/uploads/${pic.id}`, alt: `Inspiration picture ${i + 1}`, width: '120', height: '120', loading: 'lazy' })))); root.append(h('h3', {}, 'Inspiration pictures'), g); }
+
+      // status
+      const st = select(['new', 'replied', 'quoted', 'confirmed', 'closed'].filter((s) => s !== e.status).map((s) => [s, s])), note = input('text', { maxlength: '1000' });
+      const errs: Record<string, string> = { no_quote: 'Add a quote first.', deposit_not_recorded: 'Record the agreed deposit payment before confirming.', status_changed: 'This enquiry changed elsewhere. Reloaded.' };
+      root.append(h('h3', {}, 'Status'), h('div', { class: 'row-form' }, field('Change to', st), field('Note (optional)', note), btn('Update status', async () => {
+        const r2 = await api(`/admin/api/enquiries/${id}/status`, 'POST', { status: st.value, expected: e.status, note: note.value || null });
+        if (!r2.ok) { notice(errs[r2.data.error] ?? 'Could not update.'); if (r2.status === 409 && r2.data.error === 'status_changed') openDetail(id); return; } openDetail(id);
+      })), h('ul', { class: 'hint' }, ...e.events.map((v: Json) => h('li', {}, `${when(v.at)} · ${v.status}${v.note ? ' · ' + v.note : ''}`))));
+
+      // quote
+      const q = o.quote as Json | null;
+      const total = input('text', { inputmode: 'decimal', value: q ? (q.totalCents / 100).toFixed(2) : '' }), dep = input('text', { inputmode: 'decimal', value: q ? (q.depositCents / 100).toFixed(2) : '' });
+      // Suggest the agreed 50% advance; the owner can still overwrite it (e.g. for an approved rush arrangement).
+      let depEdited = !!q; dep.addEventListener('input', () => { depEdited = true; });
+      total.addEventListener('input', () => { const t = cents(total.value); if (!depEdited && t !== null) dep.value = (splitPayment(t).depositCents / 100).toFixed(2); });
+      const ful = select([['pickup', 'Pickup'], ['delivery', 'Delivery']]); if (q) ful.value = q.fulfilment;
+      const date = input('date', { value: q?.date ?? '' }), time = input('time', { value: q?.time ?? '' });
+      const qrid = crypto.randomUUID(), dn = h('textarea', { rows: '3', maxlength: '2000' }) as HTMLTextAreaElement, pn = h('textarea', { rows: '3', maxlength: '2000' }) as HTMLTextAreaElement; dn.value = q?.designNotes ?? ''; pn.value = q?.prepNotes ?? '';
+      root.append(h('h3', {}, q ? `Quote (version ${q.version})` : 'Quote'), h('div', { class: 'form' },
+        field('Agreed total ($)', total), field('Deposit ($)', dep), field('Pickup or delivery', ful), field('Date', date), field('Time (optional)', time), field('Agreed design', dn), field('Preparation notes', pn),
+        btn(q ? 'Save new quote version' : 'Save quote', async () => {
+          const t = cents(total.value), d = cents(dep.value); if (t === null || d === null || d > t || !date.value) return notice('Enter the total, a deposit that is not more than the total, and a date.');
+          const r3 = await api(`/admin/api/enquiries/${id}/quote`, 'POST', { requestId: qrid, totalCents: t, depositCents: d, fulfilment: ful.value, date: date.value, time: time.value || null, designNotes: dn.value || null, prepNotes: pn.value || null, expectedVersion: q?.version ?? 0 });
+          if (!r3.ok) { notice(r3.status === 0 ? '' : r3.data.error === 'would_unconfirm' ? 'This order is confirmed and the deposit recorded is less than this deposit.' : r3.data.error === 'below_paid' ? 'The total cannot be less than what is already paid.' : r3.status === 409 ? 'This quote changed elsewhere. Reloaded.' : 'Please check the quote details.'); if (r3.status === 409) openDetail(id); return; } openDetail(id);
+        })));
+
+      // payments (records only; the owner checks Zelle herself)
+      const pay = h('ul', { class: 'admin-list' });
+      for (const x of o.payments as Json[]) pay.append(h('li', {}, `${x.kind} ${money(x.amountCents)} received ${x.receivedOn}${x.note ? ' · ' + x.note : ''}`, ...(x.voidedAt ? [h('span', { class: 'badge' }, 'voided: ' + x.voidReason)] : [voidControl(id, x)])));
+      const pk = select([['deposit', 'Deposit'], ['balance', 'Balance']]), pa = input('text', { inputmode: 'decimal' }), pd = input('date'), pnote = input('text', { maxlength: '500' }), prid = crypto.randomUUID();
+      root.append(h('h3', {}, 'Payments'), h('p', { class: 'hint' }, 'Record a payment only after you have seen it arrive in Zelle. Nothing here checks payments automatically.'),
+        h('p', {}, q ? `Paid ${money(o.paidCents)} of ${money(q.totalCents)} · balance ${money(o.balanceCents)}` : 'Add a quote to see the balance.'), ...(q ? [balanceDue(q)] : []), pay,
+        h('div', { class: 'form' }, field('Type', pk), field('Amount ($)', pa), field('Date received', pd), field('Note (optional)', pnote), btn('Record payment', async () => {
+          const a = cents(pa.value); if (a === null || a < 1 || !pd.value) return notice('Enter an amount and the date it arrived.');
+          const r5 = await api(`/admin/api/enquiries/${id}/payments`, 'POST', { requestId: prid, kind: pk.value, amountCents: a, receivedOn: pd.value, note: pnote.value || null }); if (r5.ok) openDetail(id); else if (r5.status) notice(r5.data.error === 'exceeds_balance' ? `That is more than the balance (${money(r5.data.balanceCents)}).` : r5.data.error === 'no_quote' ? 'Save a quote first.' : 'Please check the payment details.');
+        })));
+      // messages: owner-written emails sent from here. Not an inbox: customer replies arrive in the business mailbox.
+      if (!p.erased && p.contact?.kind === 'email') {
+        const tpl = select([['reply', 'Reply'], ['quotation', 'Quote'], ['confirmation', 'Order confirmation'], ['reminder', 'Balance reminder']]);
+        const subj = input('text', { maxlength: '200' }), bodyBox = h('textarea', { rows: '10', maxlength: '8000' }) as HTMLTextAreaElement, mrid = { v: crypto.randomUUID() };
+        const hist = h('ul', { class: 'admin-list' }), off = h('p', { class: 'hint' }, 'Sending is switched off. You can still prepare a draft.'), label: Record<string, string> = { accepted: 'handed to the email service (delivery not confirmed)', queued: 'not sent yet', unknown: 'not sure it was sent', failed: 'refused, not sent' };
+        const loadHist = async () => {
+          const r7 = await api(`/admin/api/enquiries/${id}/messages`); if (!r7.ok) return; hist.replaceChildren();
+          for (const x of r7.data.items as Json[]) hist.append(h('li', {}, `${when(x.createdAt)} · ${x.template} · ${x.subject ?? '(erased)'} · ${label[x.state] ?? x.state}`, ...(['queued', 'unknown'].includes(x.state) ? [btn('Try again', async () => { const r9 = await api(`/admin/api/messages/${x.id}/retry`, 'POST'); notice(r9.ok ? '' : 'Could not try again.'); loadHist(); }, 'btn btn--ghost')] : [])));
+          off.hidden = !!r7.data.mailEnabled;
+        };
+        root.append(h('h3', {}, 'Message the customer'), h('p', { class: 'hint' }, 'Sent from the Cakeopedia address; replies come to the business mailbox, not here. Read and edit the draft before sending.'),
+          h('div', { class: 'form' }, field('Type', tpl), btn('Prepare draft', async () => {
+            const r8 = await api(`/admin/api/enquiries/${id}/messages/draft`, 'POST', { template: tpl.value });
+            if (!r8.ok) return notice(r8.status ? ({ no_quote: 'Save a quote first.', not_confirmed: 'Confirm the order first.', nothing_due: 'Nothing is outstanding.' } as Record<string, string>)[r8.data.error] ?? 'No draft for this customer.' : '');
+            subj.value = r8.data.subject; bodyBox.value = r8.data.body; mrid.v = crypto.randomUUID(); notice('');
+          }, 'btn btn--ghost'), field('Subject', subj), field('Message', bodyBox), btn('Send message', async () => {
+            if (!subj.value.trim() || !bodyBox.value.trim()) return notice('Prepare a draft first.');
+            const r10 = await api(`/admin/api/enquiries/${id}/messages`, 'POST', { template: tpl.value, requestId: mrid.v, subject: subj.value, body: bodyBox.value });
+            if (r10.ok) { notice(''); mrid.v = crypto.randomUUID(); subj.value = ''; bodyBox.value = ''; loadHist(); } else if (r10.status) notice(r10.data.error === 'mail_not_enabled' ? 'Sending is switched off.' : 'Could not send. Please check the message.');
+          })), off, hist);
+        off.hidden = true; loadHist();
+      }
+      // erase personal data (financial records stay); the owner must type the reference, and an active confirmed order must be closed first
+      if (!p.erased) {
+        const ref = input('text', { autocomplete: 'off', placeholder: String(e.reference) });
+        root.append(h('h3', {}, 'Erase customer data'), h('p', { class: 'hint' }, 'Removes the name, contact details, request text, pictures and notes. Amounts and dates of quotes and payments are kept. This cannot be undone. Type the reference above to confirm.'),
+          h('div', { class: 'form' }, field('Reference', ref), btn('Erase customer data', async () => {
+            const r6 = await api(`/admin/api/enquiries/${id}/erase`, 'POST', { confirmReference: ref.value.trim() });
+            if (r6.ok) { notice(''); openDetail(id); } else if (r6.status) notice(r6.data.error === 'order_active' ? 'Close this order first, then erase.' : r6.data.error === 'confirmation_mismatch' ? 'The reference does not match.' : 'Could not finish erasing. Please tap the button again; it is safe to repeat.');
+          }, 'btn btn--ghost')));
+      }
+      refocus(root, Math.max(fi, 0)); // same control after an update; the Back button when first opened
+    }
+
+    function voidControl(id: string, x: Json) {
+      const wrap = h('span', { class: 'row-form' });
+      wrap.append(btn('Void', () => {
+        const reason = input('text', { maxlength: '500', 'aria-label': 'Why is this record wrong?', placeholder: 'Why is this record wrong?' });
+        wrap.replaceChildren(reason, btn('Confirm void', async () => { if (!reason.value.trim()) return notice('Please say why.'); const r = await api(`/admin/api/enquiries/${id}/payments/${x.id}/void`, 'POST', { reason: reason.value }); if (r.ok) openDetail(id); }, 'chip'));
+        reason.focus();
+      }, 'chip'));
+      return wrap;
+    }
+
+    // ---- calendar
+    let cursor = new Date(); cursor.setDate(1);
+    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    async function loadCalendar() {
+      const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1), last = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+      const r = await api(`/admin/api/calendar?from=${iso(first)}&to=${iso(last)}`); if (!r.ok) return;
+      const orders: Json[] = r.data.orders, busy = new Map<string, string>((r.data.busy as Json[]).map((b) => [b.date, b.note ?? '']));
+      const root = $('calendar'), fi = focusIndex(root); root.replaceChildren();
+      root.append(h('div', { class: 'cal-nav' }, btn('‹', () => { cursor.setMonth(cursor.getMonth() - 1); loadCalendar(); }, 'chip'), h('strong', { 'aria-live': 'polite' }, first.toLocaleString('en-US', { month: 'long', year: 'numeric' })), btn('›', () => { cursor.setMonth(cursor.getMonth() + 1); loadCalendar(); }, 'chip')),
+        h('p', { class: 'hint' }, 'Tap a day to mark it busy or free. Confirmed orders show under their date. Busy dates are a note for you; the public site does not show availability.'));
+      const list = h('ul', { class: 'admin-list' });
+      for (let day = 1; day <= last.getDate(); day++) {
+        const d = iso(new Date(cursor.getFullYear(), cursor.getMonth(), day)), isBusy = busy.has(d), todays = orders.filter((o) => o.date === d);
+        const b = btn(`${new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}${isBusy ? ' · Busy' : ''}`, async () => { const r2 = isBusy ? await api('/admin/api/busy/' + d, 'DELETE') : await api('/admin/api/busy/' + d, 'PUT', {}); if (r2.ok) loadCalendar(); }, 'chip');
+        b.setAttribute('aria-pressed', String(isBusy));
+        const li = h('li', {}, b); for (const o of todays) li.append(btn(`${o.time ?? ''} ${o.name} (${o.fulfilment})`, () => openDetail(o.id), 'row'));
+        list.append(li);
+      }
+      root.append(list); refocus(root, fi);
+    }
+
+    // ---- menu (private drafts; only published + available items can ever reach the public site)
+    let menuItems: Json[] = [];
+    const slug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+    async function loadMenu() {
+      const r = await api('/admin/api/menu'); if (!r.ok) return; menuItems = r.data.items; renderMenu();
+    }
+    function renderMenu() {
+      const root = $('menu'), hadFocus = root.contains(document.activeElement); root.replaceChildren();
+      const heading = h('h2', { tabindex: '-1', style: 'font-size:var(--step-2)' }, 'Menu');
+      root.append(heading, h('p', { class: 'hint' }, 'Drafts stay private. An item appears on the public site only after you publish it and mark it available, and the website is next updated.'), btn('Add a menu item', () => editMenu(null), 'btn'));
+      const list = h('ul', { class: 'admin-list' });
+      for (const it of menuItems) list.append(h('li', {}, btn(`${it.title} · ${it.status}${it.availability === 'unavailable' ? ' · unavailable' : ''}`, () => editMenu(it), 'row')));
+      if (!menuItems.length) list.append(h('li', { class: 'hint' }, 'No menu items yet.'));
+      root.append(list);
+      if (hadFocus) heading.focus(); // keyboard users keep their place after Save or Cancel
+    }
+    function editMenu(it: Json | null) {
+      const root = $('menu'); root.replaceChildren();
+      const title = input('text', { maxlength: '100', value: it?.title ?? '' }), category = input('text', { maxlength: '100', value: it?.category ?? '' });
+      const kind = select([['custom', 'Custom cake (price is a starting price)'], ['standard', 'Standard item (fixed price)']]); kind.value = it?.kind ?? 'custom';
+      const status = select([['draft', 'Draft (private)'], ['published', 'Published'], ['archived', 'Archived']]); status.value = it?.status ?? 'draft';
+      const avail = select([['available', 'Available'], ['unavailable', 'Not available right now']]); avail.value = it?.availability ?? 'available';
+      const area = (max: string) => h('textarea', { rows: '3', maxlength: max }) as HTMLTextAreaElement;
+      const flav = area('2000'), fill = area('2000'), note = area('1000');
+      flav.value = (it?.flavours ?? []).join('\n'); fill.value = (it?.fillings ?? []).join('\n'); note.value = it?.ingredientNote ?? '';
+      const sizeBox = h('div'), addonBox = h('div');
+      const rows = new Map<Element, HTMLInputElement[]>();
+      const sizeRow = (s?: Json) => {
+        const r = h('div', { class: 'form size-row' });
+        const f = [input('text', { maxlength: '100', value: s?.label ?? '' }), input('text', { inputmode: 'numeric', value: s ? String(s.layers) : '2' }), input('text', { inputmode: 'numeric', value: s ? String(s.servings.min) : '' }), input('text', { inputmode: 'numeric', value: s ? String(s.servings.max) : '' }), input('text', { inputmode: 'decimal', value: s ? (s.priceCents / 100).toFixed(2) : '' })];
+        r.append(field('Size name (for example 6 inch)', f[0]!), field('Layers', f[1]!), field('Serves from', f[2]!), field('Serves up to', f[3]!), field('Price ($)', f[4]!), btn('Remove this size', () => { rows.delete(r); r.remove(); }, 'chip'));
+        rows.set(r, f); return r;
+      };
+      const addonRow = (a?: Json) => {
+        const r = h('div', { class: 'form' });
+        const f = [input('text', { maxlength: '100', value: a?.label ?? '' }), input('text', { inputmode: 'decimal', value: a ? (a.priceCents / 100).toFixed(2) : '' })];
+        r.append(field('Extra', f[0]!), field('Price ($)', f[1]!), btn('Remove this extra', () => { rows.delete(r); r.remove(); }, 'chip'));
+        rows.set(r, f); return r;
+      };
+      for (const s of it?.sizes ?? []) sizeBox.append(sizeRow(s));
+      for (const a of it?.addons ?? []) addonBox.append(addonRow(a));
+      const split = (t: string) => t.split('\n').map((x) => x.trim()).filter(Boolean);
+      root.append(h('h3', {}, it ? 'Edit menu item' : 'New menu item'), h('div', { class: 'form' },
+        field('Name', title), field('Group (for example Birthday, Mini)', category), field('Type', kind), field('Status', status), field('Availability', avail),
+        h('h4', {}, 'Sizes and prices'), sizeBox, btn('Add a size', () => sizeBox.append(sizeRow()), 'chip'),
+        field('Flavours (one per line)', flav), field('Fillings (one per line)', fill),
+        h('h4', {}, 'Extras'), addonBox, btn('Add an extra', () => addonBox.append(addonRow()), 'chip'),
+        field('Ingredient note (optional)', note, 'Only what you are sure is true.'),
+        btn('Save', async () => {
+          const sizes: Json[] = [], addons: Json[] = [];
+          for (const r of Array.from(sizeBox.children)) {
+            const [n, l, a, b, p] = rows.get(r)!, pc = cents(p!.value);
+            if (!n!.value.trim() || !/^\d+$/.test(l!.value) || !/^\d+$/.test(a!.value) || !/^\d+$/.test(b!.value) || pc === null) return notice('Please check the sizes: each needs a name, whole numbers for layers and servings, and a price.');
+            sizes.push({ label: n!.value, layers: +l!.value, servings: { min: +a!.value, max: +b!.value }, priceCents: pc });
+          }
+          for (const r of Array.from(addonBox.children)) {
+            const [n, p] = rows.get(r)!, pc = cents(p!.value);
+            if (!n!.value.trim() || pc === null) return notice('Each extra needs a name and a price.');
+            addons.push({ label: n!.value, priceCents: pc });
+          }
+          const id = it?.id ?? slug(title.value);
+          if (!id) return notice('Please give the item a name.');
+          const r = await api(`/admin/api/menu/${id}`, 'PUT', { expectedRevision: it?.revision ?? null, item: { id, title: title.value, category: category.value, status: status.value, availability: avail.value, kind: kind.value, sizes, flavours: split(flav.value), fillings: split(fill.value), addons, ingredientNote: note.value.trim() || null } });
+          if (r.ok) { notice(''); loadMenu(); }
+          else if (r.status === 409) { notice('This item was changed somewhere else. The latest version has been loaded.'); loadMenu(); }
+          else if (r.status) notice('Please check the details. A published item needs a name, a group and at least one size.');
+        }), btn('Cancel', () => renderMenu(), 'chip')));
+      if (it) { // earlier saved versions; "Use this version" fills the form, and Save writes it as a new revision on top of the current one
+        const box = h('details', { class: 'add' }, h('summary', {}, 'Earlier versions')), list = h('ul', { class: 'admin-list' });
+        let loaded = false;
+        box.addEventListener('toggle', async () => {
+          if (!(box as HTMLDetailsElement).open || loaded) return; loaded = true;
+          const r = await api(`/admin/api/menu/${it.id}/history`); if (!r.ok) { loaded = false; return; }
+          const old = (r.data.versions as Json[]).filter((v) => v.revision !== it.revision);
+          for (const v of old) list.append(h('li', {}, btn(`${when(Date.parse(v.updatedAt))} · ${v.title} · ${v.status}${v.sizes.length ? ' · from ' + money(Math.min(...v.sizes.map((x: Json) => x.priceCents))) : ''}`, () => editMenu({ ...v, revision: it.revision }), 'row')));
+          if (!old.length) list.append(h('li', { class: 'hint' }, 'No earlier versions yet.'));
+        });
+        box.append(list); root.append(box);
+      }
+      ($('menu').querySelector('input') as HTMLElement).focus();
+    }
+    // Remaining 50% is due 48 hours before pickup or delivery (Chicago time). Accepted inside that window = owner-approved arrangement.
+    function balanceDue(q: Json) {
+      const plan = paymentPlan({ totalCents: q.totalCents, fulfilDate: q.date, ...(q.time ? { fulfilTime: q.time } : {}), acceptedAt: Date.now() });
+      const due = formatChicago(plan.balanceDueAt);
+      return h('p', { class: 'hint' }, plan.rush ? `The usual balance deadline (${due} Chicago time) has passed. Agree the payment arrangement with the customer.` : `Balance due by ${due} Chicago time (48 hours before ${q.fulfilment}).`);
+    }
+    // ---- prices: edit a private draft, publish the exact saved draft, restore an earlier published version. The public site only ever sees published versions.
+    async function loadPrices() {
+      const root = $('prices');
+      root.replaceChildren(h('p', { class: 'hint' }, 'Loading prices…'));
+      const [g, hist] = await Promise.all([api('/admin/api/catalogue'), api('/admin/api/catalogue/history')]);
+      if (!g.ok) { root.replaceChildren(); return; }
+      const rev = g.data.draft.revision as number, c = structuredClone(g.data.draft.catalogue) as Json, current = (g.data.published?.version ?? 0) as number;
+      let dirty = rev === 0;
+      const reads: (() => boolean)[] = [];
+      const money_ = (label: string, get: () => number, set: (v: number) => void) => {
+        const i = input('text', { inputmode: 'decimal', value: (get() / 100).toFixed(2) });
+        i.addEventListener('input', () => { dirty = true; publishBtn.disabled = true; });
+        reads.push(() => { const v = cents(i.value); if (v === null) { i.setAttribute('aria-invalid', 'true'); return false; } i.removeAttribute('aria-invalid'); set(v); return true; });
+        return field(label, i);
+      };
+      const publishBtn = btn('Publish to the website', async () => {
+        const r = await api('/admin/api/catalogue/publish', 'POST', { expectedRevision: rev });
+        if (!r.ok) { notice(r.status === 409 ? 'These prices changed somewhere else. Reloaded the latest.' : r.status === 0 ? '' : 'Could not publish. Please check the prices and try again.'); if (r.status === 409) loadPrices(); return; }
+        notice(''); await loadPrices();
+        // A failed rebuild is already shown, with its retry, by the banner loadPrices() just drew; a second status would repeat it.
+        if (r.data.rebuild !== 'failed') $('prices').prepend(h('p', { class: 'hint', role: 'status' }, r.data.rebuild === 'requested' ? 'Published. The website is updating.' : 'Published. The website will show it after the next site update.'));
+      }) as HTMLButtonElement;
+      publishBtn.disabled = dirty;
+      const sizes = ['6', '7', '8', '9', '10'];
+      const sizeRows = sizes.map((d) => h('div', { class: 'form price-group' }, h('h4', {}, `${d}-inch cake`),
+        money_('Starting price ($)', () => c.baseCents[d], (v) => { c.baseCents[d] = v; }), money_('Rasmalai extra ($)', () => c.rasmalaiCents[d], (v) => { c.rasmalaiCents[d] = v; })));
+      root.replaceChildren(
+        h('p', { class: 'hint' }, `You are editing a private draft. The website changes only when you publish. ${current ? `Published version: ${current}.` : 'Nothing published yet: the website shows the confirmed starting prices.'}`),
+        ...(g.data.published?.rebuild?.status === 'failed' ? [h('div', { class: 'form note' }, h('p', { class: 'hint', role: 'status' }, 'Your latest prices are saved, but the website update could not be started. The old prices may still show.'),
+          btn('Try the website update again', async () => { const r = await api('/admin/api/catalogue/rebuild', 'POST', {}); if (r.status === 0) return; notice(r.ok && r.data.rebuild === 'requested' ? '' : 'The website update still could not be started. Please try again later.'); if (r.ok) loadPrices(); }, 'btn'))] : []),
+        ...sizeRows,
+        h('div', { class: 'form price-group' }, h('h4', {}, 'Celebration Cake, cupcakes and brownies'),
+          money_('Celebration Cake ($)', () => c.celebrationCents, (v) => { c.celebrationCents = v; }), money_('Cupcakes, per dozen ($)', () => c.cupcakeDozenCents ?? 8000, (v) => { c.cupcakeDozenCents = v; }), money_('Box of nine brownies ($)', () => c.brownieBoxCents, (v) => { c.brownieBoxCents = v; }),
+          money_('Brownie slab ($)', () => c.brownieSlabCents, (v) => { c.brownieSlabCents = v; }), money_('Topping upgrade, per box or slab ($)', () => c.brownieToppingCents, (v) => { c.brownieToppingCents = v; })),
+        h('div', { class: 'form price-group' }, h('h4', {}, 'Add-ons'), ...c.addons.map((a: Json) => money_(a.name + ' ($)', () => a.priceCents, (v) => { a.priceCents = v; }))),
+        h('div', { class: 'form price-group' }, h('h4', {}, 'Flavours on offer'), h('p', { class: 'hint', style: 'grid-column:1/-1;margin:0' }, 'Untick a flavour to pause it. It stays on the menu marked "not available at the moment".'),
+          ...c.flavours.map((f: Json) => { const cb = input('checkbox', {}); cb.checked = f.available !== false; cb.addEventListener('change', () => { dirty = true; publishBtn.disabled = true; }); reads.push(() => { f.available = cb.checked; return true; }); return h('label', { class: 'field field--check' }, cb, f.name); })),
+        h('div', { class: 'form price-group' }, h('h4', {}, 'Celebration Cake flavours'),
+          ...(c.celebrationFlavours as string[]).map((name) => { const cb = input('checkbox', {}); cb.checked = !(c.pausedCelebrationFlavours ?? []).includes(name); cb.addEventListener('change', () => { dirty = true; publishBtn.disabled = true; }); reads.push(() => { const rest = ((c.pausedCelebrationFlavours ?? []) as string[]).filter((x) => x !== name); c.pausedCelebrationFlavours = cb.checked ? rest : [...rest, name]; return true; }); return h('label', { class: 'field field--check' }, cb, name); })),
+        h('div', { class: 'actions' }, btn('Save draft', async () => {
+          if (!reads.map((r) => r()).every(Boolean)) return notice('Enter each price as dollars and cents, for example 135.00.');
+          if (!c.flavours.some((f: Json) => f.available) || (c.pausedCelebrationFlavours ?? []).length >= c.celebrationFlavours.length) return notice('Keep at least one flavour available in each list.');
+          const r = await api('/admin/api/catalogue', 'PUT', { expectedRevision: rev, catalogue: c });
+          if (!r.ok) { notice(r.status === 409 ? 'These prices changed somewhere else. Reloaded the latest.' : r.status === 0 ? '' : 'Please check the prices. Each must be above zero (Rasmalai extra may be zero).'); if (r.status === 409) loadPrices(); return; }
+          notice(''); await loadPrices();
+        }), publishBtn),
+        h('h3', {}, 'Published versions'),
+        h('ul', { class: 'admin-list' }, ...((hist.data.versions ?? []) as Json[]).map((v) => h('li', {}, h('span', {}, `Version ${v.version} · ${new Date(v.publishedAt).toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' })}${v.source === 'rollback' ? ` · restored from version ${v.fromVersion}` : ''}${v.version === current ? ' · live' : ''} `),
+          ...(v.version === current ? [] : [btn('Restore', async () => {
+            const r = await api('/admin/api/catalogue/rollback', 'POST', { version: v.version, expectedCurrent: current });
+            if (!r.ok) { notice(r.status === 409 ? 'The live version changed. Reloaded.' : r.status === 0 ? '' : 'Could not restore.'); if (r.status === 409) loadPrices(); return; }
+            notice(''); loadPrices();
+          }, 'chip')])))));
+    }
+    loadInbox(true);
+  </script>
+</Base>

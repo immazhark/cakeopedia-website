@@ -1,0 +1,62 @@
+/* Cakeopedia design tokens.
+   Six APPROVED base colours (owner-selected 25 Nov 2026) are exact; everything marked "derived"
+   is a darker/lighter tone of that family added for WCAG 2.2 AA. tests/contrast.test.ts checks pairs. */
+:root {
+  /* approved bases */
+  --brand-sage: #91ae8f;
+  --brand-butter: #ffb64f;
+  --surface-cream: #fff9f0;
+  --surface-beige: #f3e5d5;
+  --ink-chocolate: #665447;
+  --surface-white: #ffffff;
+
+  /* derived tones */
+  --ink-deep: #3b2e25;          /* headings, text on butter */
+  --sage-deep: #3f5a3e;         /* CTA fill, links, focus ring */
+  --sage-deeper: #2f452f;       /* CTA hover */
+  --sage-tint: #e3ebe1;         /* selected panels */
+  --butter-deep: #7a4f00;       /* small orange-family text on cream */
+  --border-soft: #dccab6;
+  --border-strong: #8a7a6c;     /* >=3:1 on cream for control edges */
+  --error: #9b2c2c;
+  --success: #2f6b34;
+  --disabled-bg: #ebe2d6;
+  --disabled-ink: #6d6258;
+
+  /* semantic */
+  --bg: var(--surface-cream);
+  --bg-alt: var(--surface-beige);
+  --bg-raised: var(--surface-white);
+  --text: var(--ink-chocolate);
+  --heading: var(--ink-deep);
+  --cta-bg: var(--sage-deep);
+  --cta-ink: var(--surface-white);
+  --cta-hover: var(--sage-deeper);
+  --accent: var(--brand-butter);
+  --accent-ink: var(--ink-deep);
+  --link: var(--sage-deep);
+  --border: var(--border-soft);
+  --focus: var(--sage-deep);
+
+  /* type */
+  --font-display: 'Fraunces Variable', Georgia, 'Times New Roman', serif;
+  --font-body: 'Figtree Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --step--1: clamp(0.82rem, 0.8rem + 0.1vw, 0.9rem);
+  --step-0: clamp(1rem, 0.97rem + 0.15vw, 1.1rem);
+  --step-1: clamp(1.2rem, 1.1rem + 0.5vw, 1.45rem);
+  --step-2: clamp(1.5rem, 1.25rem + 1.2vw, 2.2rem);
+  --step-3: clamp(2rem, 1.5rem + 2.4vw, 3.4rem);
+  --step-4: clamp(2.6rem, 1.6rem + 4.6vw, 5.4rem);
+
+  /* space, shape, depth */
+  --space-1: 0.5rem; --space-2: 1rem; --space-3: 1.5rem; --space-4: 2.5rem; --space-5: 4rem; --space-6: clamp(4rem, 10vw, 8rem);
+  --gutter: clamp(1.25rem, 5vw, 3.5rem);
+  --measure: 38rem;
+  --wrap: 76rem;
+  --radius-s: 0.4rem; --radius-m: 1rem; --radius-arch: 50vmax 50vmax 0.4rem 0.4rem;
+  --shadow-soft: 0 1px 2px rgb(59 46 37 / 0.08), 0 12px 32px -12px rgb(59 46 37 / 0.28);
+
+  /* motion: short, interruptible, off for reduced motion */
+  --ease: cubic-bezier(0.22, 0.7, 0.2, 1);
+  --dur-1: 160ms; --dur-2: 420ms;
+}

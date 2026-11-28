@@ -1,0 +1,629 @@
+---
+export function getStaticPaths() {
+  const dirs=['collection','cabinet','table'];
+  const works=['floral','bow','playful','treats'];
+  return dirs.flatMap(direction=>['',...works,'enquiry'].map(creation=>({params:{view:direction+(creation?'/'+creation:'')},props:{direction,creation}})));
+}
+const {direction,creation}=Astro.props;
+const all=[
+  {id:'floral',title:'The floral creation',category:'Florals & celebrations',note:'A slot for a genuine floral cake photograph, with its approved occasion and design notes.'},
+  {id:'bow',title:'The bow creation',category:'Statement details',note:'A slot for a genuine bow cake photograph. Final name and description await the baker.'},
+  {id:'playful',title:'The playful creation',category:'Little celebrations',note:'A slot for a genuine children’s celebration cake photograph, with permission-cleared details.'},
+  {id:'treats',title:'The treat box',category:'Small delights',note:'A slot for a genuine assortment photograph. Previous work is not a confirmed current menu offering.'},
+];
+const names:Record<string,string>={collection:'The Collection',cabinet:'Celebration Cabinet',table:'The Baker’s Table'};
+const headings:Record<string,string>={collection:'For moments worth making.',cabinet:'A little more celebration.',table:'From her table, to yours.'};
+const item=all.find(w=>w.id===creation);
+const isEnquiry=creation==='enquiry';
+const base=`/concepts/${direction}/`;
+---
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="robots" content="noindex, nofollow" /><title>{item?item.title:isEnquiry?'Enquiry preview':names[direction]} — Cakeopedia concept</title></head>
+<body class={direction}>
+<a class="skip" href="#main">Skip to content</a>
+<div class="notice"><a href="/concepts/">All three concepts</a><span>{names[direction]} · provisional copy & image slots · no live orders</span></div>
+<header><a class="brand" href={base}>Cakeopedia<span>Austin</span></a><nav aria-label="Concept"><a href={`${base}#creations`}>Creations</a><a href={`${base}#story`}>Our story</a><a class="nav-cta" href={`${base}enquiry/`}>Start an enquiry <span aria-hidden="true">↗</span></a></nav></header>
+<main id="main" tabindex="-1">
+{item ? <>
+  <div class="detail"><div class:list={['image-slot','large',item.id]}><span>Original photograph pending</span><strong>{item.title}</strong><small>Image slot · not a product image</small></div><section class="detail-copy"><a class="back" href={`${base}#creations`}>← Back to the creations</a><p class="eyebrow">{item.category}</p><h1>{item.title}</h1><p>{item.note}</p><p>Here, the finished website will tell the story of this creation: its occasion, details and the baker’s own description.</p><a class="button" href={`${base}enquiry/?creation=${item.id}`}>Use as inspiration <span aria-hidden="true">↗</span></a><p class="fine">A previous creation inspires a conversation. It is not a promise of availability, an exact replica or a fixed price.</p></section></div>
+</> : isEnquiry ? <>
+  <section class="enquiry"><a class="back" href={base}>← Back to the collection</a><p class="eyebrow">Enquiry journey · layout preview</p><h1>What are you<br />celebrating?</h1><p class="lead">Tell us a little about your idea. Final contact options, lead times and fulfilment details await the owner’s answers.</p>
+  <p class="demo-note" id="demo-note">This preview does not accept or store entries. All fields are disabled; no information is sent.</p>
+  <form aria-describedby="demo-note"><fieldset disabled><legend>Your celebration</legend><div class="form-grid"><label>Your name<input autocomplete="off" placeholder="Name" /></label><label>Email<input type="email" autocomplete="off" placeholder="Email address" /></label><label>Celebration date<input type="date" /></label><label>Guests<select><option>Not sure yet</option><option>Small gathering</option><option>Larger celebration</option></select></label></div><label>Your idea<textarea rows="4" placeholder="Occasion, colours or a detail you love…"></textarea></label><button type="button">Enquiry preview — sending disabled</button></fieldset></form>
+  <aside class="selected" hidden>Inspiration: <span></span> <a href={`${base}enquiry/`}>Clear selection</a></aside><p class="fine">The final enquiry is a request, not a confirmed booking. No marketing opt-in or account creation is required in this proposed flow.</p></section>
+</> : <>
+  <section class="hero"><div class="hero-copy"><p class="eyebrow">From-scratch baking · Austin, Texas</p><h1>{headings[direction]}</h1><p class="lead">A cake can hold a little of the person you’re celebrating. Discover the work, find a detail you love, and begin with an idea.</p><a class="button" href="#creations">Explore the creations <span aria-hidden="true">↓</span></a><span class="copy-note">Proposed brand copy · awaiting owner approval</span></div><div class="hero-art"><div class="image-slot floral"><span>Original photograph pending</span><strong>A creation,<br />in full bloom.</strong><small>Floral cake image slot · no substitute photograph</small></div><p class="art-caption">Made by hand. Remembered in the details.<span>Proposed line · not a confirmed tagline</span></p></div></section>
+  <section class="collection-section" id="creations"><div class="section-heading"><div><p class="eyebrow">An invitation to look closer</p><h2>The creations</h2></div><p>Four identical content slots across every concept. Final images, names and descriptions are pending.</p></div><div class="creation-grid">{all.map((w,i)=><a class:list={['creation-card',w.id]} href={`${base}${w.id}/`}><div class:list={['image-slot',w.id]}><span>0{i+1} / Photograph pending</span><strong>{w.category}</strong><small>Image slot · not a product image</small></div><div class="card-label"><h3>{w.title}</h3><span aria-hidden="true">↗</span></div></a>)}</div></section>
+  <section id="story" class="story"><p class="eyebrow">The person behind the piping</p><h2>A passion that travelled<br />from Hyderabad to Austin.</h2><div><p>Cakeopedia began in Hyderabad, with homemade treats for family and a love of getting the flavour just right. During lockdown, recipe experiments grew into cakes for friends, family and college celebrations, followed by requests for orders. Today, that same love of baking continues in Austin, with quality ingredients and taste at the heart of it.</p><p class="fine">Owner-informed story draft · final wording review pending. A portrait or kitchen photograph is optional.</p></div></section>
+  <section class="invitation"><p class="eyebrow">Something in mind?</p><h2>Let’s start with<br />your celebration.</h2><a class="button" href={`${base}enquiry/`}>Explore the enquiry journey <span aria-hidden="true">↗</span></a><p class="fine">Preview only. Sending and payments are disabled.</p></section>
+</>}
+</main>
+<footer><a class="brand" href={base}>Cakeopedia<span>Austin</span></a><p>{names[direction]} · internal creative comparison<br />Working name, palette and typography. Real photography pending.</p><a href="/concepts/">Compare directions ↗</a></footer>
+<script>
+const selected = new URLSearchParams(location.search).get('creation');
+const labels: Record<string,string> = {floral:'The floral creation',bow:'The bow creation',playful:'The playful creation',treats:'The treat box'};
+const box=document.querySelector<HTMLElement>('.selected');
+const label=box?.querySelector('span');
+const selectedLabel = selected && Object.hasOwn(labels,selected) ? labels[selected] : undefined;
+if(box && label && selectedLabel) {label.textContent=selectedLabel;box.hidden=false;}
+</script>
+<style>
+:global(*) {
+  box-sizing:border-box
+}
+:global(html) {
+  scroll-behavior:smooth;
+  scroll-padding-top:2rem
+}
+:global(body) {
+  margin:0;
+  font:1rem/1.65 system-ui,sans-serif;
+  background:var(--paper);
+  color:var(--ink);
+  --paper:#f8f3ed;
+  --ink:#382b33;
+  --line:#cfc1b7;
+  --accent:#653c50;
+  --soft:#e7d9d2
+}
+:global(a) {
+  color:inherit;
+  text-underline-offset:.3em
+}
+:global(a:focus-visible),:global(button:focus-visible),:global(summary:focus-visible) {
+  outline:3px solid var(--accent);
+  outline-offset:5px
+}
+.skip {
+  position:absolute;
+  top:-6rem;
+  left:1rem;
+  padding:1rem;
+  background:var(--paper);
+  z-index:9
+}
+.skip:focus {
+  top:1rem
+}
+.notice {
+  background:var(--ink);
+  color:var(--paper);
+  padding:.65rem clamp(1.2rem,5vw,5rem);
+  display:flex;
+  gap:1rem;
+  justify-content:space-between;
+  font-size:.7rem;
+  letter-spacing:.035em
+}
+.notice a {
+  white-space:nowrap
+}
+header,main,footer {
+  max-width:92rem;
+  margin:auto;
+  padding-inline:clamp(1.2rem,5vw,5rem)
+}
+header {
+  padding-block:2rem;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:2rem;
+  border-bottom:1px solid var(--line)
+}
+.brand {
+  font:400 1.8rem/1 Georgia,serif;
+  letter-spacing:-.05em;
+  text-decoration:none
+}
+.brand span {
+  display:block;
+  font:.62rem/1.5 system-ui,sans-serif;
+  text-transform:uppercase;
+  letter-spacing:.3em;
+  text-align:center;
+  margin-top:.4rem
+}
+nav {
+  display:flex;
+  gap:2rem;
+  align-items:center;
+  font-size:.8rem
+}
+nav a {
+  text-decoration:none
+}
+.nav-cta {
+  border-bottom:1px solid var(--ink);
+  padding-bottom:.25rem
+}
+h1,h2,h3,p {
+  margin:0
+}
+h1 {
+  font:400 clamp(3.3rem,6.8vw,6.7rem)/1.04 Georgia,serif;
+  letter-spacing:-.045em;
+  margin:1.2rem 0 2rem
+}
+h2 {
+  font:400 clamp(2.5rem,4.5vw,4.5rem)/1.1 Georgia,serif;
+  letter-spacing:-.04em
+}
+.eyebrow {
+  font-size:.65rem;
+  letter-spacing:.16em;
+  text-transform:uppercase
+}
+.lead {
+  font-size:1rem;
+  max-width:32rem
+}
+.button {
+  display:inline-flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:2rem;
+  padding:1rem 1.4rem;
+  background:var(--ink);
+  color:var(--paper);
+  font-size:.8rem;
+  text-decoration:none;
+  margin-top:2rem
+}
+.button span {
+  font-size:1.2rem
+}
+.copy-note,.fine {
+  font-size:.72rem;
+  line-height:1.6
+}
+.copy-note {
+  display:block;
+  margin-top:1.5rem;
+  opacity:.8
+}
+.hero {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:5%;
+  padding-block:5rem;
+  align-items:center
+}
+.hero-art {
+  padding-left:2rem
+}
+.image-slot {
+  min-height:24rem;
+  padding:1.5rem;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:space-between;
+  border:1px solid var(--line);
+  background:linear-gradient(135deg,transparent 49.8%,#ffffff40 50%,transparent 50.2%),var(--soft);
+  overflow:hidden;
+  position:relative
+}
+.image-slot>span,.image-slot>small {
+  font-size:.6rem;
+  letter-spacing:.05em
+}
+.image-slot>strong {
+  font:400 clamp(1.5rem,3vw,2.6rem)/1.2 Georgia,serif;
+  max-width:12ch
+}
+.hero-art .image-slot {
+  min-height:34rem
+}
+.art-caption {
+  font:italic 1rem Georgia,serif;
+  transform:rotate(-3deg);
+  padding-block:1.4rem
+}
+.art-caption span {
+  display:block;
+  font:.6rem/1.5 system-ui,sans-serif;
+  margin-top:.4rem
+}
+.bow {
+  --soft:#e3cad1
+}
+.playful {
+  --soft:#d5dfdc
+}
+.treats {
+  --soft:#e1d8c2
+}
+.collection-section {
+  padding-block:4rem;
+  border-top:1px solid var(--line)
+}
+.section-heading {
+  display:flex;
+  justify-content:space-between;
+  align-items:end;
+  gap:3rem;
+  margin-bottom:2.5rem
+}
+.section-heading .eyebrow {
+  margin-bottom:1rem
+}
+.section-heading>p {
+  max-width:22rem;
+  font-size:.8rem
+}
+.creation-grid {
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:3.5rem 2rem
+}
+.creation-card {
+  text-decoration:none;
+  display:block
+}
+.creation-card:nth-child(even) {
+  margin-top:5rem
+}
+.creation-card .image-slot {
+  transition:transform .3s ease;
+  min-height:28rem
+}
+.creation-card:hover .image-slot {
+  transform:translateY(-4px)
+}
+.card-label {
+  display:flex;
+  justify-content:space-between;
+  gap:1rem;
+  margin-top:1rem
+}
+.card-label h3 {
+  font:400 1.4rem Georgia,serif
+}
+.story {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:2rem 6rem;
+  padding-block:5rem;
+  border-top:1px solid var(--line)
+}
+.story>.eyebrow {
+  grid-column:1/-1
+}
+.story p+p {
+  margin-top:1.5rem
+}
+.invitation {
+  padding-block:5rem 7rem;
+  border-top:1px solid var(--line);
+  text-align:center
+}
+.invitation h2 {
+  margin-top:1.2rem
+}
+.invitation .fine {
+  margin-top:1rem
+}
+footer {
+  border-top:1px solid var(--line);
+  padding-block:2rem;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:2rem;
+  font-size:.72rem
+}
+.detail {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6%;
+  padding-block:4rem 7rem;
+  align-items:center
+}
+.detail .large {
+  min-height:40rem
+}
+.detail h1 {
+  font-size:clamp(3rem,5vw,5rem)
+}
+.back {
+  display:inline-block;
+  font-size:.75rem;
+  margin-bottom:2rem
+}
+.detail-copy p+p {
+  margin-top:1.5rem
+}
+.detail-copy .fine {
+  margin-top:1.5rem
+}
+.enquiry {
+  max-width:50rem;
+  margin:auto;
+  padding-block:4rem 7rem
+}
+.enquiry h1 {
+  font-size:clamp(3rem,6vw,5rem)
+}
+.demo-note {
+  padding:1rem;
+  border:1px solid var(--line);
+  margin-block:2rem;
+  font-size:.8rem
+}
+fieldset {
+  margin:0;
+  padding:0;
+  border:0
+}
+legend {
+  font:1.5rem Georgia,serif;
+  margin-bottom:1.5rem
+}
+label {
+  font-size:.8rem;
+  display:block
+}
+input,select,textarea {
+  display:block;
+  width:100%;
+  padding:.8rem;
+  margin-block:.5rem 1.5rem;
+  border:1px solid var(--line);
+  border-radius:0;
+  background:var(--paper);
+  color:var(--ink);
+  font:inherit
+}
+fieldset:disabled,input:disabled,select:disabled,textarea:disabled,button:disabled {
+  opacity:1;
+  color:var(--ink);
+  -webkit-text-fill-color:var(--ink)
+}
+.form-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:0 1.5rem
+}
+button {
+  padding:1rem;
+  background:var(--soft);
+  border:1px solid var(--line);
+  font:inherit;
+  font-size:.8rem
+}
+.enquiry>.fine {
+  margin-top:2rem
+}
+.selected {
+  border:1px solid var(--line);
+  padding:1rem;
+  margin-top:1rem;
+  font-size:.8rem
+}
+
+:global(body.cabinet) {
+  --paper:#fff3d9;
+  --ink:#542437;
+  --accent:#a44928;
+  --line:#b98e76;
+  --soft:#efb6a0
+}
+.cabinet .hero {
+  grid-template-columns:.85fr 1.15fr;
+  gap:3rem
+}
+.cabinet .hero-art {
+  padding:0
+}
+.cabinet .hero-art .image-slot {
+  border-radius:48% 48% 0 0;
+  min-height:34rem;
+  background:#e8a680
+}
+.cabinet h1 {
+  font-weight:bold
+}
+.cabinet .art-caption {
+  transform:none;
+  padding:1rem;
+  background:var(--ink);
+  color:var(--paper)
+}
+.cabinet .creation-grid {
+  grid-template-columns:repeat(4,1fr);
+  gap:1rem
+}
+.cabinet .creation-card:nth-child(even) {
+  margin-top:0
+}
+.cabinet .creation-card .image-slot {
+  min-height:23rem
+}
+.cabinet .card-label h3 {
+  font:600 1rem system-ui,sans-serif
+}
+.cabinet .story {
+  background:#f1c6a7;
+  padding:3rem;
+  margin-block:3rem
+}
+.cabinet .invitation {
+  border-top:0
+}
+
+:global(body.table) {
+  --paper:#f1efe5;
+  --ink:#333d32;
+  --accent:#626f43;
+  --line:#aeb4a1;
+  --soft:#dce0cd
+}
+.table .hero {
+  grid-template-columns:1.15fr 1fr
+}
+.table .hero-copy {
+  order:2
+}
+.table .hero-art {
+  padding:0;
+  order:1
+}
+.table .hero-art .image-slot {
+  min-height:30rem
+}
+.table h1 {
+  font-style:italic;
+  font-size:clamp(3rem,6vw,5.8rem)
+}
+.table .hero-art .art-caption {
+  transform:none
+}
+.table .creation-grid {
+  grid-template-columns:repeat(2,1fr);
+  gap:3rem
+}
+.table .creation-card:nth-child(even) {
+  margin-top:0
+}
+.table .creation-card .image-slot {
+  min-height:23rem
+}
+.table .story {
+  padding-top:5rem
+}
+.table .invitation {
+  text-align:left
+}
+
+@media(max-width:760px) {
+  .notice {
+  flex-direction:column;
+  gap:.2rem;
+  font-size:.6rem
+}
+header {
+  padding-block:1.5rem;
+  gap:1rem;
+  align-items:start
+}
+nav {
+  gap:.8rem;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  font-size:.7rem;
+  max-width:15rem
+}
+.brand {
+  font-size:1.45rem
+}
+.hero,.cabinet .hero,.table .hero {
+  grid-template-columns:1fr;
+  gap:2.5rem;
+  padding-block:3rem
+}
+.hero-art {
+  padding:0
+}
+.hero-art .image-slot,.cabinet .hero-art .image-slot {
+  min-height:25rem
+}
+.table .hero-copy {
+  order:1
+}
+.table .hero-art {
+  order:2
+}
+.section-heading {
+  display:block
+}
+.section-heading>p {
+  margin-top:1rem
+}
+.collection-section {
+  padding-block:3rem
+}
+.creation-grid,.cabinet .creation-grid,.table .creation-grid {
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:2rem 1rem
+}
+.creation-card:nth-child(even) {
+  margin-top:2rem
+}
+.creation-card .image-slot,.cabinet .creation-card .image-slot,.table .creation-card .image-slot {
+  min-height:15rem;
+  padding:1rem
+}
+.image-slot>strong {
+  font-size:1.4rem
+}
+.card-label h3 {
+  font-size:1.1rem
+}
+.story {
+  display:block;
+  padding-block:3rem
+}
+.story h2 {
+  margin-block:1rem 2rem
+}
+.cabinet .story {
+  padding:1.5rem
+}
+.invitation {
+  padding-block:3rem 4rem
+}
+footer {
+  align-items:start;
+  flex-wrap:wrap
+}
+.detail {
+  grid-template-columns:1fr;
+  gap:2.5rem;
+  padding-block:2rem 4rem
+}
+.detail .large {
+  min-height:27rem
+}
+.enquiry {
+  padding-block:2rem 4rem
+}
+.form-grid {
+  grid-template-columns:1fr
+}
+
+}
+
+@media(prefers-reduced-motion:no-preference) {
+  .hero-copy,.detail-copy {
+  animation:enter .45s ease both
+}
+@keyframes enter {
+  from {
+  opacity:.4;
+  transform:translateY(10px)
+}
+to {
+  opacity:1;
+  transform:none
+}
+
+}
+
+}
+@media(prefers-reduced-motion:reduce) {
+  :global(html) {
+  scroll-behavior:auto
+}
+.creation-card .image-slot {
+  transition:none
+}
+.creation-card:hover .image-slot {
+  transform:none
+}
+
+}
+
+</style>
+</body></html>

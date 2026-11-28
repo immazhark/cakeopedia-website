@@ -1,0 +1,22 @@
+---
+import Base from '../../layouts/Base.astro';
+import CreationCard from '../../components/CreationCard.astro';
+import CategoryNav from '../../components/CategoryNav.astro';
+import { creations, categories, type Category } from '../../data/creations';
+export function getStaticPaths() { return (Object.keys(categories) as Category[]).map((cat) => ({ params: { cat } })); }
+const cat = Astro.params.cat as Category;
+const items = creations.filter((c) => c.cats.includes(cat));
+const label = categories[cat];
+---
+<Base title={`${label} cakes · Cakeopedia Austin`} description={`${label} cakes made by hand by Cakeopedia Austin. Previous work, shown as it was made.`} current="/creations/">
+  <div class="wrap page-head">
+    <p class="eyebrow">Collection</p>
+    <h1>{label}</h1>
+    <p class="lede" style="margin-top:var(--space-2)">{items.length} previous {items.length === 1 ? 'creation' : 'creations'}. Each new cake is designed with you.</p>
+  </div>
+  <div class="wrap">
+    <CategoryNav active={cat} />
+    <ul class="grid grid--gallery">{items.map((c, i) => <li><CreationCard c={c} eager={i < 3} level={2} /></li>)}</ul>
+  </div>
+  <div style="height:var(--space-6)"></div>
+</Base>

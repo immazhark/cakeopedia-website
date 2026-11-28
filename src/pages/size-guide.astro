@@ -1,0 +1,81 @@
+---
+import Base from '../layouts/Base.astro';
+import TierDiagram from '../components/TierDiagram.astro';
+import { configs, label, singleTierLayers } from '../data/serving';
+const groups = [['single', 'One tier'], ['two-tier', 'Two tiers'], ['three-tier', 'Three tiers']] as const;
+// The same data drives the no-script table and the script-enhanced finder.
+const data = configs.map((c) => ({ id: c.id, label: label(c), servings: c.servings, kind: c.kind }));
+---
+<Base title="Cake size and serving guide · Cakeopedia Austin" description="How many people each Cakeopedia Austin cake size serves, from a 6-inch single tier to a three-tier cake, with a guest-count finder." current="/size-guide/">
+  <div class="wrap page-head prose">
+    <p class="eyebrow">Size and servings</p>
+    <h1>How big a cake do you need?</h1>
+    <p class="answer" style="margin-top:var(--space-3)"><strong>In short:</strong> A single-tier, {singleTierLayers}-layer round cake serves about {configs.find((c) => c.kind === 'single')!.servings} people at 6 inches and about {configs.filter((c) => c.kind === 'single').at(-1)!.servings} at 10 inches; two- and three-tier cakes serve about {configs.find((c) => c.kind === 'two-tier')!.servings} to {configs.at(-1)!.servings}. Servings are approximate.</p>
+    <p class="lede" style="margin-top:var(--space-3)">Tell us how many guests, and we will suggest the smallest cake that serves them.</p>
+
+    <form id="finder" class="finder" aria-labelledby="finder-h">
+      <h2 id="finder-h" style="font-size:var(--step-1)">Guest count</h2>
+      <label for="guests">How many people will be eating cake?</label>
+      <div class="ask"><input id="guests" name="guests" type="number" inputmode="numeric" min="1" max="10000" step="1" /><button class="btn" type="submit">Suggest a size</button></div>
+      <div id="result" role="status" aria-live="polite" tabindex="-1"></div>
+    </form>
+
+    <div class="note"><p><strong>Layers and tiers are different.</strong> A tier is one stacked cake. Single-tier cakes here have {singleTierLayers} layers of sponge and stand about 5–6 inches tall. Servings are approximate and depend on how the cake is cut.</p></div>
+
+    {groups.map(([kind, title]) => (
+      <section class="g" aria-labelledby={`h-${kind}`}>
+        <h2 id={`h-${kind}`}>{title}</h2>
+        <ul class="cfgs">
+          {configs.filter((c) => c.kind === kind).map((c) => (
+            <li id={c.id}>
+              <TierDiagram config={c} />
+              <div><strong>{label(c)}</strong><span>About {c.servings} servings</span></div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))}
+    <p>Planning for more than 100 guests, or unsure? <a href="/enquiry/">Ask for a consultation</a> and we will plan it with you.</p>
+    <div class="actions"><a class="btn" href="/enquiry/">Start an enquiry</a><a class="btn btn--ghost" href="/menu/">See the menu</a></div>
+  </div>
+  <script is:inline type="application/json" id="cfg" set:html={JSON.stringify(data)}></script>
+  <script>
+    type C = { id: string; label: string; servings: number; kind: string };
+    const cfgs: C[] = JSON.parse(document.getElementById('cfg')!.textContent!);
+    const form = document.getElementById('finder') as HTMLFormElement, input = document.getElementById('guests') as HTMLInputElement, out = document.getElementById('result')!;
+    const enquire = (n: number, c: C) => `/enquiry/?servings=${n}&size=${encodeURIComponent(c.label)}`;
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const n = Number(input.value);
+      if (!Number.isInteger(n) || n < 1 || n > 10000) { out.textContent = 'Please enter a whole number of guests, from 1 up.'; out.focus(); return; }
+      const fits = cfgs.filter((c) => c.servings >= n).sort((a, b) => a.servings - b.servings);
+      out.replaceChildren();
+      const p = document.createElement('p');
+      if (!fits.length) {
+        p.append('That is more than our largest listed cake (about 100 servings), so the best next step is a consultation. ');
+        const a = document.createElement('a'); a.href = '/enquiry/'; a.textContent = 'Ask us to plan it'; p.append(a); out.append(p);
+      } else {
+        const best = fits[0]!;
+        p.append(`For ${n} guests, we suggest `); const b = document.createElement('strong'); b.textContent = `${best.label}, about ${best.servings} servings`; p.append(b, '. ');
+        const a = document.createElement('a'); a.href = enquire(n, best); a.textContent = 'Enquire about this size'; p.append(a); out.append(p);
+        const alts: C[] = []; for (const c of fits.slice(1)) if (c.kind !== best.kind && !alts.some((x) => x.kind === c.kind)) alts.push(c);
+        if (alts.length) { const q = document.createElement('p'); q.append('Other ways to serve this many: ' + alts.map((c) => `${c.label} (about ${c.servings})`).join('; ') + '.'); out.append(q); }
+      }
+      out.focus();
+    });
+  </script>
+</Base>
+<style>
+  .finder { margin: var(--space-4) 0; padding: var(--space-3); background: var(--surface-beige); border-radius: var(--radius-s); }
+  .finder .ask { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: .5rem; }
+  .finder input { min-height: 2.75rem; width: 9rem; padding: .5rem .8rem; font: inherit; border: 1px solid var(--border); border-radius: var(--radius-s); }
+  #result { margin-top: var(--space-2); }
+  #result:focus { outline: 2px solid var(--brand-sage); outline-offset: 4px; }
+  .cfgs { list-style: none; padding: 0; margin: 0; display: grid; gap: 0; }
+  .cfgs li { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: var(--space-3); align-items: end; padding-block: var(--space-2); border-top: 1px solid var(--border); }
+  .cfgs { margin-bottom: var(--space-3); }
+  .cfgs li div { display: grid; gap: .15rem; }
+  .cfgs li span { font-size: var(--step--1); }
+  .cfgs li :global(svg) { justify-self: center; }
+  @media (max-width: 26rem) { .cfgs li { grid-template-columns: 7.5rem minmax(0, 1fr); } }
+</style>

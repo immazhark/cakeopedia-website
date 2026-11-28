@@ -1,0 +1,133 @@
+---
+import Base from '../layouts/Base.astro';
+import CreationCard from '../components/CreationCard.astro';
+import { bySlug, cover, categories, creations, type Category } from '../data/creations';
+import Picture from '../components/Picture.astro';
+import manifest from '../data/media-manifest.json';
+
+const hero = bySlug('vintage-piped-castle');
+const heroImg = cover(hero);
+const a = bySlug('vintage-fig-cross-stitch'), b = bySlug('ruby-rose-mr-and-mrs'), c = bySlug('pampas-and-peach-roses'), d = bySlug('anniversary-neon-roses'), e = bySlug('pink-rose-crown');
+const film = bySlug('mini-cake-box-sign');
+// one real cake per occasion for the style tiles: the first creation in that category that is a still photograph
+const tiles = (Object.keys(categories) as Category[]).map((k) => ({ k, c: creations.find((x) => x.cats.includes(k) && !x.poster) })).filter((t): t is { k: Category; c: NonNullable<typeof t.c> } => !!t.c);
+const steps = [
+  ['Browse', 'Look through real cakes and find the look you like.'],
+  ['Send your idea', 'Tell us the occasion, date and how you would collect or receive it. You can add pictures from anywhere.'],
+  ['Talk it through', 'We reply personally about availability and what is possible.'],
+  ['Agree the details', 'You receive a quote. Design, pickup or delivery and terms are agreed together.'],
+  ['Deposit', 'Deposit instructions follow the agreement. Your date is held once the baker has confirmed the deposit.'],
+  ['Collect or receive', 'Your cake is ready on the day you agreed.'],
+];
+---
+<Base title="Cakeopedia Austin · Handmade vintage and floral cakes" description="Cakeopedia Austin makes handmade vintage and floral celebration cakes in Austin, Texas. Browse real cakes and see how ordering works." current="/" image={heroImg.src} bakery>
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <p class="eyebrow">Austin, Texas · Baked by hand</p>
+        <h1>Vintage and floral cakes, <em>made for your table.</em></h1>
+        <p class="lede">Cakeopedia began in Hyderabad and now bakes in Austin. Browse real cakes, then tell us what you are celebrating and we will talk it through together.</p>
+        <div class="actions">
+          <a class="btn" href="/creations/">See the collection</a>
+          <a class="btn btn--ghost" href="#how">How ordering works</a>
+        </div>
+      </div>
+      <div class="hero-media">
+        <div class="arch">
+          <video id="hero-video" muted loop playsinline preload="none" poster={heroImg.src} width={manifest.videos[hero.video!.slug].w} height={manifest.videos[hero.video!.slug].h} aria-label={hero.alt}>
+            <source src="/media/video/vintage-piped-castle.mp4" type="video/mp4" />
+          </video>
+        </div>
+        <div class="hero-inset"><img src={cover(e).src} srcset={cover(e).srcset} sizes="12rem" width={cover(e).w} height={cover(e).h} alt={e.alt} loading="eager" decoding="async" style={e.focus ? `object-position:${e.focus}` : undefined} /></div>
+        <button class="media-toggle" id="hero-toggle" type="button" hidden aria-pressed="false">Pause video</button>
+        <p class="caption">Piping a vintage-style cake by hand.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--beige">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div><p class="eyebrow">The collection</p><h2>Recent work, one cake at a time</h2></div>
+        <a href="/creations/">All creations</a>
+      </div>
+      <div class="feature">
+        <div class="col reveal"><CreationCard c={a} sizes="(min-width: 56rem) 40vw, 90vw" /></div>
+        <div class="col reveal"><CreationCard c={b} sizes="(min-width: 56rem) 28vw, 90vw" /><CreationCard c={c} sizes="(min-width: 56rem) 28vw, 90vw" /></div>
+        <div class="col reveal"><CreationCard c={d} sizes="(min-width: 56rem) 28vw, 90vw" /><CreationCard c={e} sizes="(min-width: 56rem) 28vw, 90vw" /></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="eyebrow">Find your style</p>
+        <h2>Start from the occasion</h2>
+        <ul class="tiles">
+          {tiles.map(({ k, c }) => <li><a class="tile" href={`/collections/${k}/`}><span class="tile-frame"><Picture slug={c.slug} alt={c.alt} sizes="(min-width: 56rem) 22vw, 46vw" focus={c.focus} /></span><span class="tile-name">{categories[k]}</span></a></li>)}
+        </ul>
+        <p>Cakes are previous work. Each one is made to order, so a similar design is a conversation, not a copy.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--beige">
+    <div class="wrap split">
+      <div class="film reveal">
+        <video controls preload="none" playsinline poster={`/media/video/${film.video!.slug}-poster.webp`} width="540" height="960" aria-label="Mini cakes lined up on a tray and being boxed">
+          <source src="/media/video/mini-cakes-packing.mp4" type="video/mp4" />
+        </video>
+      </div>
+      <div class="reveal">
+        <p class="eyebrow">Behind the cake</p>
+        <h2>From the tray to the box</h2>
+        <p>A short, silent clip of a batch of mini cakes being lined up and boxed for collection. Play it when you like; it never starts by itself.</p>
+        <p><a href={`/creations/${film.slug}/`}>See the mini cakes</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap split">
+      <div class="reveal">
+        <h2>A love of getting the flavour just right</h2>
+        <p>Homemade treats for family became lockdown recipe experiments, then cakes for friends and college celebrations. Requests for orders followed. Today that same love of baking continues in Austin, with quality ingredients and taste at the heart of it.</p>
+        <p><a href="/story/">Read the story</a></p>
+      </div>
+      <figure class="reveal" style="margin:0;justify-self:center;width:min(100%,24rem)">
+        <div class="arch"><img src={cover(bySlug('gold-leaf-garden')).src} width="800" height="1067" alt={bySlug('gold-leaf-garden').alt} loading="lazy" decoding="async" /></div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section section--beige" id="how">
+    <div class="wrap">
+      <div class="reveal"><h2>How ordering works</h2><p class="lede" style="margin-top:var(--space-2)">Every cake starts as an enquiry. Nothing is confirmed until you and the baker have agreed it.</p></div>
+      <ol class="steps reveal" style="margin-top: var(--space-4)">
+        {steps.map(([t, p]) => <li><h3>{t}</h3><p>{p}</p></li>)}
+      </ol>
+      <div class="note reveal" style="margin-top: var(--space-4)">
+        <p><strong>Online enquiries are not open yet.</strong> For now, message <a href="https://www.instagram.com/cakeopedia.austin/" rel="noopener">@cakeopedia.austin on Instagram</a>. Please ask early; capacity is limited.</p>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // Hero loop is decorative: silent, never starts under reduced motion, always pausable.
+    const v = document.querySelector<HTMLVideoElement>('#hero-video');
+    const t = document.querySelector<HTMLButtonElement>('#hero-toggle');
+    if (v && t) {
+      // Button text follows the real playback state; a failed load removes the control and leaves the poster.
+      const sync = () => { t.textContent = v.paused ? 'Play video' : 'Pause video'; t.setAttribute('aria-pressed', String(v.paused)); };
+      v.addEventListener('play', sync); v.addEventListener('pause', sync);
+      v.addEventListener('error', () => { t.hidden = true; });
+      t.hidden = false; sync();
+      // Autoplay starts after the page has loaded so the 946 KB loop never competes with first paint; Data Saver and reduced motion keep the poster.
+      const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
+      const start = () => { v.play().catch(sync); };
+      if (!saveData && !matchMedia('(prefers-reduced-motion: reduce)').matches) document.readyState === 'complete' ? start() : addEventListener('load', start, { once: true });
+      t.addEventListener('click', () => { v.paused ? v.play().catch(sync) : v.pause(); });
+    }
+  </script>
+</Base>

@@ -1,0 +1,159 @@
+---
+const directions = [
+  {slug:'collection',number:'01',name:'The Collection',description:'An editorial portfolio. Quiet framing, expressive type and generous room for the cakes.',tone:'cream'},
+  {slug:'cabinet',number:'02',name:'Celebration Cabinet',description:'A colourful collection of occasions. Confident panels and a more playful rhythm.',tone:'berry'},
+  {slug:'table',number:'03',name:'The Baker’s Table',description:'A personal, maker-led story. A slower pace, tactile details and space for the process.',tone:'sage'},
+];
+---
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="robots" content="noindex, nofollow" /><title>Cakeopedia — creative comparison</title></head>
+<body>
+<a href="#main" class="skip">Skip to content</a>
+<header><a href="/">Cakeopedia Austin</a><span>Working identity · internal concepts</span></header>
+<main id="main" tabindex="-1">
+  <p class="eyebrow">A website shaped around her work</p><h1>Three ways to<br />set the table.</h1>
+  <p class="intro">Compare the same four creation slots, detail page and enquiry entry in three directions. Photography is deliberately absent. Copy, colours, identity and offerings are provisional.</p>
+  <div class="directions">{directions.map(d=><a class:list={['direction',d.tone]} href={`/concepts/${d.slug}/`}><span>{d.number} / Concept</span><h2>{d.name}</h2><p>{d.description}</p><strong>Explore direction <span aria-hidden="true">↗</span></strong></a>)}</div>
+  <aside><h2>What to compare</h2><p>Which direction feels most like the baker? Which lets both elegant and playful work belong? On a phone, is it easy to find a creation and start an enquiry?</p><p>These are layout and flow previews, not final product imagery or a live order form. Appetite appeal and crop quality must be judged again with genuine photographs.</p></aside>
+</main>
+<footer>No live enquiries, payments, tracking or customer records.</footer>
+<style>
+:global(*) {
+  box-sizing:border-box
+}
+:global(body) {
+  margin:0;
+  background:#f7f3eb;
+  color:#302d31;
+  font:1rem/1.6 system-ui,sans-serif
+}
+:global(a) {
+  color:inherit
+}
+:global(a:focus-visible) {
+  outline:3px solid #765d88;
+  outline-offset:5px
+}
+.skip {
+  position:absolute;
+  top:-5rem;
+  left:1rem
+}
+.skip:focus {
+  top:1rem;
+  background:white;
+  padding:1rem;
+  z-index:10
+}
+header,main,footer {
+  max-width:84rem;
+  margin:auto;
+  padding-inline:clamp(1.25rem,5vw,5rem)
+}
+header {
+  padding-block:2rem;
+  display:flex;
+  justify-content:space-between;
+  gap:1rem;
+  flex-wrap:wrap;
+  border-bottom:1px solid #ccc3ba
+}
+header>a {
+  font:1.45rem Georgia,serif;
+  text-decoration:none
+}
+header>span,.eyebrow,.direction>span {
+  font-size:.75rem;
+  letter-spacing:.12em;
+  text-transform:uppercase
+}
+main {
+  padding-block:5rem
+}
+h1 {
+  font:400 clamp(3rem,7vw,6.5rem)/1 Georgia,serif;
+  letter-spacing:-.04em;
+  margin:1.5rem 0 2rem
+}
+.intro {
+  max-width:47rem
+}
+.directions {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:1rem;
+  margin:3.5rem 0
+}
+.direction {
+  text-decoration:none;
+  padding:2rem;
+  min-height:24rem;
+  display:flex;
+  flex-direction:column;
+  border:1px solid #ccc3ba;
+  transition:transform .2s ease
+}
+.direction:hover {
+  transform:translateY(-5px)
+}
+.direction h2 {
+  font:400 2.4rem/1.1 Georgia,serif;
+  margin:3rem 0 1rem
+}
+.direction strong {
+  font-size:.9rem;
+  margin-top:auto;
+  padding-top:2rem
+}
+.cream {
+  background:#ede3dc
+}
+.berry {
+  background:#572b3d;
+  color:#fff5de;
+  border-color:#572b3d
+}
+.sage {
+  background:#e2e5d6
+}
+aside {
+  max-width:48rem;
+  border-top:1px solid #ccc3ba;
+  padding-top:2rem
+}
+aside h2 {
+  font:400 2rem Georgia,serif
+}
+footer {
+  padding-block:2rem;
+  border-top:1px solid #ccc3ba;
+  font-size:.8rem
+}
+@media(max-width:760px) {
+  main {
+  padding-block:3rem
+}
+.directions {
+  grid-template-columns:1fr
+}
+.direction {
+  min-height:19rem
+}
+.direction h2 {
+  margin-top:2rem
+}
+
+}
+@media(prefers-reduced-motion:reduce) {
+  .direction {
+  transition:none
+}
+.direction:hover {
+  transform:none
+}
+
+}
+
+</style>
+</body></html>

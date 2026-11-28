@@ -3,7 +3,8 @@
 Existing Austin home-baking business; first website. Repo: immazhark/cakeopedia-website.
 
 ## Start
-Read the current task, docs/handoff.md and docs/progress.md; inspect branch/HEAD,
+Also read docs/directives/MASTER-DESIGN-ENGINEERING-DIRECTIVE.md (permanent owner directive) and DESIGN.md every session; track status in docs/qa/DESIGN-IMPLEMENTATION.md.
+Read the current task, docs/shared-context-and-decisions.md, docs/handoff.md and docs/progress.md; inspect branch/HEAD,
 working changes and relevant PRs. Read docs/master-plan.md and task specifications
 only as needed. Repository code is implementation evidence; plans are not.
 
@@ -23,7 +24,7 @@ media, secrets and exports out of Git/public CMS/logs/analytics.
 ## Product and engineering
 Static-first public pages; small typed APIs. Server validation and authorisation on
 every private route. Durable enquiry and outbox before success; test replay, storage,
-notification and auth failure. No checkout/uploads/customer accounts by default.
+notification and auth failure. No checkout/customer accounts by default. Owner-approved optional inspiration uploads (up to three images) require private storage and release-critical validation/auth/abuse/deletion proof before activation.
 Keep public editorial content separate from private operations. No fabricated cakes,
 forced intros, scroll hijacking or essential hover/motion; keyboard and reduced-motion
 users retain full functionality.

@@ -1,0 +1,261 @@
+{
+ "images": {
+  "ruby-rose-mr-and-mrs": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#756b63"
+  },
+  "blush-rose-marble": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#7d776e"
+  },
+  "crimson-cascade": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#89776f"
+  },
+  "pampas-and-peach-roses": {
+   "w": 4330,
+   "h": 5773,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#8b8278"
+  },
+  "pink-rose-crown": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#8f8275"
+  },
+  "white-feather-bloom": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#77736a"
+  },
+  "love-three-tier": {
+   "w": 4330,
+   "h": 5773,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#7e756c"
+  },
+  "anniversary-neon-roses": {
+   "w": 3000,
+   "h": 4000,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#7f6b5f"
+  },
+  "texas-hearts-three-tier": {
+   "w": 2304,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#8b817c"
+  },
+  "vintage-fig-cross-stitch": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#988976"
+  },
+  "gold-leaf-garden": {
+   "w": 3456,
+   "h": 4608,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#bdb2a8"
+  },
+  "blue-and-yellow-anniversary": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#919186"
+  },
+  "polka-dot-roses": {
+   "w": 3000,
+   "h": 4000,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#af9181"
+  },
+  "red-bow-birthday": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#958682"
+  },
+  "balloon-he-or-she": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#ae9a8a"
+  },
+  "mini-cake-box-sign": {
+   "w": 3000,
+   "h": 4000,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#a08f88"
+  },
+  "blue-rainbow-pair": {
+   "w": 2304,
+   "h": 3767,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#aca69e"
+  },
+  "festive-orange-and-green": {
+   "w": 2304,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#96845b"
+  },
+  "purple-butterfly-garden": {
+   "w": 2304,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#8d8582"
+  },
+  "pink-roses-on-ribbed-white": {
+   "w": 2304,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#afa8a5"
+  },
+  "pink-roses-ribbed-cream": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#6f6b64"
+  },
+  "black-and-gold-roses": {
+   "w": 1536,
+   "h": 2048,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#736f5e"
+  },
+  "tuxedo-pension-cake": {
+   "w": 3072,
+   "h": 4096,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#7e776d"
+  },
+  "sage-geometric-florals": {
+   "w": 4330,
+   "h": 5773,
+   "widths": [
+    480,
+    800,
+    1280
+   ],
+   "bg": "#969a9c"
+  }
+ },
+ "videos": {
+  "vintage-piped-castle": {
+   "w": 540,
+   "h": 960,
+   "seconds": 15
+  },
+  "mini-cakes-packing": {
+   "w": 540,
+   "h": 960,
+   "seconds": 12
+  },
+  "balloon-reveal": {
+   "w": 540,
+   "h": 960,
+   "seconds": 12
+  }
+ }
+}

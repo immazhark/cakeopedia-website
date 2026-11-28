@@ -1,0 +1,20 @@
+---
+import Base from '../../layouts/Base.astro';
+import CreationCard from '../../components/CreationCard.astro';
+import CategoryNav from '../../components/CategoryNav.astro';
+import { creations } from '../../data/creations';
+---
+<Base title="Creations · Cakeopedia Austin" description="Browse vintage, floral and celebration cakes made by hand by Cakeopedia Austin. Previous work, shown as it was made." current="/creations/">
+  <div class="wrap page-head">
+    <p class="eyebrow">The collection</p>
+    <h1>Creations</h1>
+    <p class="lede" style="margin-top:var(--space-2)">Real cakes from the Cakeopedia kitchen. They are previous work, not a menu: each new cake is designed with you.</p>
+  </div>
+  <div class="wrap">
+    <CategoryNav />
+    <ul class="grid grid--gallery">
+      {creations.map((c, i) => <li><CreationCard c={c} eager={i < 3} level={2} /></li>)}
+    </ul>
+  </div>
+  <div style="height:var(--space-6)"></div>
+</Base>
